@@ -7,12 +7,14 @@ import (
 	"go/ast"
 	"go/types"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"text/template"
 
 	"github.com/fatih/camelcase"
@@ -22,10 +24,16 @@ import (
 
 var targetMethods = make(map[string]reflect.Method)
 
-func init() {
-	var nilTarget Target
-	targetType := reflect.TypeOf(nilTarget)
+// nullTarget is here so we can get reflection info about Target
+type nullTarget struct{}
 
+var _ Target = nullTarget{}
+
+func (nullTarget) Once() *sync.Once          { return nil }
+func (nullTarget) Run(context.Context) error { return nil }
+
+func init() {
+	targetType := reflect.TypeOf(nullTarget{})
 	for i := 0; i < targetType.NumMethod(); i++ {
 		method := targetType.Method(i)
 		targetMethods[method.Name] = method
@@ -36,20 +44,39 @@ func init() {
 var tmplFS embed.FS
 
 func Load(ctx context.Context, pkgdir string, f func(string) error) error {
+	loadpath := pkgdir
+	if !filepath.IsAbs(pkgdir) {
+		_, err := os.Stat(pkgdir)
+		if errors.Is(err, fs.ErrNotExist) {
+			// do nothing
+		} else if err != nil {
+			return errors.Wrapf(err, "statting %s", pkgdir)
+		} else {
+			loadpath = "./" + filepath.Clean(loadpath)
+		}
+	}
 	config := &packages.Config{
 		Mode:    packages.NeedName | packages.NeedTypes | packages.NeedDeps,
 		Context: ctx,
 	}
-	pkgs, err := packages.Load(config, pkgdir)
+	fmt.Printf("xxx loading %s\n", loadpath)
+	pkgs, err := packages.Load(config, loadpath)
 	if err != nil {
-		return errors.Wrapf(err, "loading %s", pkgdir)
+		return errors.Wrapf(err, "loading %s", loadpath)
 	}
 	if len(pkgs) != 1 {
-		return errors.Wrapf(err, "found %d packages in %s, want 1", len(pkgs), pkgdir)
+		return errors.Wrapf(err, "found %d packages in %s, want 1", len(pkgs), loadpath)
+	}
+	pkg := pkgs[0]
+	if len(pkg.Errors) > 0 {
+		var errs []string
+		for _, e := range pkg.Errors {
+			errs = append(errs, e.Error())
+		}
+		return fmt.Errorf("error(s) loading %s: %s\n", loadpath, strings.Join(errs, ";\n  "))
 	}
 
 	var (
-		pkg     = pkgs[0]
 		scope   = pkg.Types.Scope()
 		idents  = scope.Names()
 		targets []string // Top-level identifiers with types that implement fab.Target
@@ -62,23 +89,31 @@ func Load(ctx context.Context, pkgdir string, f func(string) error) error {
 		if obj == nil {
 			continue
 		}
+		fmt.Printf("xxx checking type of %s\n", ident)
 		if !implementsTarget(obj.Type()) {
 			continue
 		}
+		fmt.Printf("xxx found target %s\n", ident)
 		targets = append(targets, ident)
 	}
+	if len(targets) == 0 {
+		return fmt.Errorf("found no targets after loading %s", pkgdir)
+	}
+
 	sort.Strings(targets)
 
 	dir, err := os.MkdirTemp("", "fab")
 	if err != nil {
 		return errors.Wrap(err, "creating tempdir")
 	}
-	defer os.RemoveAll(dir)
+	// xxx defer os.RemoveAll(dir)
 
 	subpkgdir := filepath.Join(dir, pkg.Name)
 	if err = os.Mkdir(subpkgdir, 0755); err != nil {
 		return errors.Wrapf(err, "creating temp subdir %s", pkg.Name)
 	}
+
+	fmt.Printf("xxx tmpdir is %s, subpkgdir is %s\n", dir, subpkgdir)
 
 	entries, err := os.ReadDir(pkgdir)
 	if err != nil {
@@ -91,6 +126,7 @@ func Load(ctx context.Context, pkgdir string, f func(string) error) error {
 		if !strings.HasSuffix(entry.Name(), ".go") {
 			continue
 		}
+		fmt.Printf("xxx copying %s/%s to %s\n", pkgdir, entry.Name(), subpkgdir)
 		if err = copyFile(filepath.Join(pkgdir, entry.Name()), subpkgdir); err != nil {
 			return errors.Wrapf(err, "copying %s to tmp subdir", entry.Name())
 		}
@@ -154,21 +190,26 @@ func Load(ctx context.Context, pkgdir string, f func(string) error) error {
 }
 
 func implementsTarget(typ types.Type) bool {
+	fmt.Printf("xxx implementsTarget(%s)\n", typ)
 	methodSet := types.NewMethodSet(typ)
 	for name, targetMethod := range targetMethods {
 		m := methodSet.Lookup(nil, name) // xxx package?
 		if m == nil {
+			fmt.Printf("  xxx no method for %s\n", name)
 			return false
 		}
 		f, ok := m.Obj().(*types.Func)
 		if !ok {
+			fmt.Printf("  xxx m.Obj() is a %T, not a Func\n", m.Obj())
 			return false
 		}
 		sig, ok := f.Type().(*types.Signature)
 		if !ok {
+			fmt.Printf("  xxx f.Type() is a %T, not a Signature\n", f.Type())
 			return false
 		}
 		if !signaturesMatch(sig, targetMethod.Func.Type()) {
+			fmt.Printf("  xxx signature %s does not match %s\n", sig, targetMethod.Func.Type())
 			return false
 		}
 	}
@@ -176,24 +217,41 @@ func implementsTarget(typ types.Type) bool {
 }
 
 func signaturesMatch(sig *types.Signature, fn reflect.Type) bool {
+	fmt.Printf("xxx signaturesMatch(%s, %s)\n", sig, fn)
+
 	if fn.Kind() != reflect.Func {
+		fmt.Printf("  xxx fn.Kind() is %s, not Func\n", fn.Kind())
 		return false
 	}
 	if sig.Variadic() != fn.IsVariadic() {
+		fmt.Printf("  xxx sig.Variadic is %v, fn.IsVariadic is %v\n", sig.Variadic(), fn.IsVariadic())
 		return false
 	}
 
+	hasReceiver := sig.Recv() != nil
+
 	params := sig.Params()
-	if params.Len() != fn.NumIn() {
+	nParamsWithReceiver := params.Len()
+	if hasReceiver {
+		nParamsWithReceiver++
+	}
+
+	if nParamsWithReceiver != fn.NumIn() {
+		fmt.Printf("xxx hasReceiver is %v and %d does not match %d\n", hasReceiver, params.Len(), fn.NumIn())
 		return false
 	}
 	results := sig.Results()
 	if results.Len() != fn.NumOut() {
+		fmt.Printf("xxx results.Len is %d and fn.NumOut is %d\n", results.Len(), fn.NumOut())
 		return false
 	}
 
 	for i := 0; i < params.Len(); i++ {
-		sp, tp := params.At(i).Type(), fn.In(i)
+		j := i
+		if hasReceiver {
+			j++
+		}
+		sp, tp := params.At(i).Type(), fn.In(j)
 		if !typesMatch(sp, tp) {
 			return false
 		}
@@ -209,7 +267,12 @@ func signaturesMatch(sig *types.Signature, fn reflect.Type) bool {
 }
 
 // TODO: Handle parameterized types.
-func typesMatch(t types.Type, r reflect.Type) bool {
+func typesMatch(t types.Type, r reflect.Type) (result bool) {
+	fmt.Printf("xxx typesMatch(%s, %s)\n", t, r)
+	defer func() {
+		fmt.Printf("xxx typesMatch(%s, %s) = %v\n", t, r, result)
+	}()
+
 	switch t := t.(type) {
 	case *types.Array:
 		if r.Kind() != reflect.Array {
@@ -282,7 +345,37 @@ func typesMatch(t types.Type, r reflect.Type) bool {
 		return typesMatch(t.Elem(), r.Elem())
 
 	case *types.Interface:
-		// xxx
+		if r.Kind() != reflect.Interface {
+			fmt.Printf("xxx r.Kind is %s, not Interface\n", r.Kind())
+			return false
+		}
+		methodSet := types.NewMethodSet(t)
+		if methodSet.Len() != r.NumMethod() {
+			fmt.Printf("xxx methodSet.Len() is %d, r.NumMethod() is %d\n", methodSet.Len(), r.NumMethod())
+			return false
+		}
+		for i := 0; i < methodSet.Len(); i++ {
+			f, ok := methodSet.At(i).Obj().(*types.Func)
+			if !ok {
+				fmt.Printf("xxx methodSet.At(%d).Obj() is a %T, not a Func\n", i, methodSet.At(i).Obj())
+				return false
+			}
+			method, ok := r.MethodByName(f.Name())
+			if !ok {
+				fmt.Printf("xxx r has no method %s\n", f.Name())
+				return false
+			}
+			sig, ok := f.Type().(*types.Signature)
+			if !ok {
+				fmt.Printf("xxx f.Type() is a %T, not a Signature\n", f.Type())
+				return false
+			}
+			if !signaturesMatch(sig, method.Type) {
+				fmt.Printf("xxx sig %s does not match method type %s\n", sig, method.Type)
+				return false
+			}
+		}
+		return true
 
 	case *types.Map:
 		if r.Kind() != reflect.Map {
@@ -318,7 +411,22 @@ func typesMatch(t types.Type, r reflect.Type) bool {
 		if r.Kind() != reflect.Struct {
 			return false
 		}
-		// xxx fieldwise comparison
+		if t.NumFields() != r.NumField() {
+			return false
+		}
+		for i := 0; i < t.NumFields(); i++ {
+			v, f := t.Field(i), r.Field(i)
+			if v.Name() != f.Name {
+				return false
+			}
+			if t.Tag(i) != string(f.Tag) {
+				return false
+			}
+			if !typesMatch(v.Type(), f.Type) {
+				return false
+			}
+		}
+		return true
 
 		// case *types.Tuple:
 		// case *types.TypeParam:
@@ -329,7 +437,7 @@ func typesMatch(t types.Type, r reflect.Type) bool {
 }
 
 func copyFile(filename, destdir string) error {
-	outfilename := filepath.Join(destdir, filename)
+	outfilename := filepath.Join(destdir, filepath.Base(filename))
 	out, err := os.OpenFile(outfilename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
 		return errors.Wrapf(err, "creating %s", outfilename)
