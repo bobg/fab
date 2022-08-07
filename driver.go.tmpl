@@ -1,0 +1,44 @@
+package main
+
+{{ $subpkg := .Subpkg }}
+
+import (
+	"context"
+	"flag"
+	"log"
+
+	"github.com/bobg/fab"
+
+	"fab/{{ $subpkg }}"
+)
+
+func main() {
+	var verbose bool
+
+	flag.BoolVar(&verbose, "v", false, "run verbosely")
+	flag.Parse()
+
+	ctx := context.Background()
+	ctx = fab.WithVerbose(ctx, verbose)
+
+	var targets []fab.Target
+
+	for _, arg := range flag.Args() {
+		target, ok := index[arg]
+		if !ok {
+			log.Fatalf("Unknown target %s", arg)
+		}
+		targets = append(targets, target)
+	}
+
+	err := fab.Deps(ctx, targets...)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+var index = map[string]fab.Target{
+	// {{ range .Targets }}
+	"{{ .SnakeName }}": {{ $subpkg }}.{{ .Name }},
+	// {{ end }}
+}
