@@ -33,7 +33,8 @@ func (nullTarget) Once() *sync.Once          { return nil }
 func (nullTarget) Run(context.Context) error { return nil }
 
 func init() {
-	targetType := reflect.TypeOf(nullTarget{})
+	var nt Target = nullTarget{}
+	targetType := reflect.TypeOf(nt)
 	for i := 0; i < targetType.NumMethod(); i++ {
 		method := targetType.Method(i)
 		targetMethods[method.Name] = method
@@ -208,7 +209,9 @@ func implementsTarget(typ types.Type) bool {
 			fmt.Printf("  xxx f.Type() is a %T, not a Signature\n", f.Type())
 			return false
 		}
-		if !signaturesMatch(sig, targetMethod.Func.Type()) {
+
+		var comp comparer
+		if !comp.signaturesMatch(sig, targetMethod.Func.Type(), true) {
 			fmt.Printf("  xxx signature %s does not match %s\n", sig, targetMethod.Func.Type())
 			return false
 		}
@@ -216,19 +219,34 @@ func implementsTarget(typ types.Type) bool {
 	return true
 }
 
-func signaturesMatch(sig *types.Signature, fn reflect.Type) bool {
-	fmt.Printf("xxx signaturesMatch(%s, %s)\n", sig, fn)
+type comparer struct {
+	depth int
+}
+
+func (comp *comparer) debugf(msg string, args ...any) {
+	fmt.Print(strings.Repeat("  ", comp.depth))
+	fmt.Printf(msg, args...)
+	fmt.Print("\n")
+}
+
+func (comp *comparer) signaturesMatch(sig *types.Signature, fn reflect.Type, skipReceiver bool) (result bool) {
+	comp.debugf("signaturesMatch(%s, %s)", sig, fn)
+	comp.depth++
+	defer func() {
+		comp.depth--
+		comp.debugf("signaturesMatch(%s, %s) -> %v", sig, fn, result)
+	}()
 
 	if fn.Kind() != reflect.Func {
-		fmt.Printf("  xxx fn.Kind() is %s, not Func\n", fn.Kind())
+		comp.debugf("  fn.Kind() is %s, not Func", fn.Kind())
 		return false
 	}
 	if sig.Variadic() != fn.IsVariadic() {
-		fmt.Printf("  xxx sig.Variadic is %v, fn.IsVariadic is %v\n", sig.Variadic(), fn.IsVariadic())
+		comp.debugf("  sig.Variadic is %v, fn.IsVariadic is %v", sig.Variadic(), fn.IsVariadic())
 		return false
 	}
 
-	hasReceiver := sig.Recv() != nil
+	hasReceiver := skipReceiver && (sig.Recv() != nil)
 
 	params := sig.Params()
 	nParamsWithReceiver := params.Len()
@@ -237,12 +255,12 @@ func signaturesMatch(sig *types.Signature, fn reflect.Type) bool {
 	}
 
 	if nParamsWithReceiver != fn.NumIn() {
-		fmt.Printf("xxx hasReceiver is %v and %d does not match %d\n", hasReceiver, params.Len(), fn.NumIn())
+		comp.debugf("hasReceiver is %v and %d does not match %d", hasReceiver, params.Len(), fn.NumIn())
 		return false
 	}
 	results := sig.Results()
 	if results.Len() != fn.NumOut() {
-		fmt.Printf("xxx results.Len is %d and fn.NumOut is %d\n", results.Len(), fn.NumOut())
+		comp.debugf("results.Len is %d and fn.NumOut is %d", results.Len(), fn.NumOut())
 		return false
 	}
 
@@ -252,13 +270,13 @@ func signaturesMatch(sig *types.Signature, fn reflect.Type) bool {
 			j++
 		}
 		sp, tp := params.At(i).Type(), fn.In(j)
-		if !typesMatch(sp, tp) {
+		if !comp.typesMatch(sp, tp) {
 			return false
 		}
 	}
 	for i := 0; i < results.Len(); i++ {
 		sr, tr := results.At(i).Type(), fn.Out(i)
-		if !typesMatch(sr, tr) {
+		if !comp.typesMatch(sr, tr) {
 			return false
 		}
 	}
@@ -267,10 +285,12 @@ func signaturesMatch(sig *types.Signature, fn reflect.Type) bool {
 }
 
 // TODO: Handle parameterized types.
-func typesMatch(t types.Type, r reflect.Type) (result bool) {
-	fmt.Printf("xxx typesMatch(%s, %s)\n", t, r)
+func (comp *comparer) typesMatch(t types.Type, r reflect.Type) (result bool) {
+	comp.debugf("typesMatch(%s, %s)", t, r)
+	comp.depth++
 	defer func() {
-		fmt.Printf("xxx typesMatch(%s, %s) = %v\n", t, r, result)
+		comp.depth--
+		comp.debugf("typesMatch(%s, %s) -> %v", t, r, result)
 	}()
 
 	switch t := t.(type) {
@@ -281,7 +301,7 @@ func typesMatch(t types.Type, r reflect.Type) (result bool) {
 		if t.Len() != int64(r.Len()) {
 			return false
 		}
-		return typesMatch(t.Elem(), r.Elem())
+		return comp.typesMatch(t.Elem(), r.Elem())
 
 	case *types.Basic:
 		switch t.Kind() {
@@ -342,36 +362,39 @@ func typesMatch(t types.Type, r reflect.Type) (result bool) {
 				return false
 			}
 		}
-		return typesMatch(t.Elem(), r.Elem())
+		return comp.typesMatch(t.Elem(), r.Elem())
 
 	case *types.Interface:
 		if r.Kind() != reflect.Interface {
-			fmt.Printf("xxx r.Kind is %s, not Interface\n", r.Kind())
+			comp.debugf("r.Kind is %s, not Interface", r.Kind())
 			return false
 		}
 		methodSet := types.NewMethodSet(t)
 		if methodSet.Len() != r.NumMethod() {
-			fmt.Printf("xxx methodSet.Len() is %d, r.NumMethod() is %d\n", methodSet.Len(), r.NumMethod())
+			comp.debugf("methodSet.Len() is %d, r.NumMethod() is %d", methodSet.Len(), r.NumMethod())
 			return false
 		}
 		for i := 0; i < methodSet.Len(); i++ {
 			f, ok := methodSet.At(i).Obj().(*types.Func)
 			if !ok {
-				fmt.Printf("xxx methodSet.At(%d).Obj() is a %T, not a Func\n", i, methodSet.At(i).Obj())
+				comp.debugf("methodSet.At(%d).Obj() is a %T, not a Func", i, methodSet.At(i).Obj())
 				return false
 			}
 			method, ok := r.MethodByName(f.Name())
 			if !ok {
-				fmt.Printf("xxx r has no method %s\n", f.Name())
+				comp.debugf("r has no method %s", f.Name())
 				return false
 			}
+
+			comp.debugf("f = %s, method.Type = %s", f, method.Type)
+
 			sig, ok := f.Type().(*types.Signature)
 			if !ok {
-				fmt.Printf("xxx f.Type() is a %T, not a Signature\n", f.Type())
+				comp.debugf("f.Type() is a %T, not a Signature", f.Type())
 				return false
 			}
-			if !signaturesMatch(sig, method.Type) {
-				fmt.Printf("xxx sig %s does not match method type %s\n", sig, method.Type)
+			if !comp.signaturesMatch(sig, method.Type, false) {
+				comp.debugf("sig %s does not match method type %s", sig, method.Type)
 				return false
 			}
 		}
@@ -381,31 +404,31 @@ func typesMatch(t types.Type, r reflect.Type) (result bool) {
 		if r.Kind() != reflect.Map {
 			return false
 		}
-		if !typesMatch(t.Key(), r.Key()) {
+		if !comp.typesMatch(t.Key(), r.Key()) {
 			return false
 		}
-		return typesMatch(t.Elem(), r.Elem())
+		return comp.typesMatch(t.Elem(), r.Elem())
 
 	case *types.Named:
 		if t.Obj().Name() != r.Name() {
 			return false
 		}
-		return typesMatch(t.Underlying(), r)
+		return comp.typesMatch(t.Underlying(), r)
 
 	case *types.Pointer:
 		if r.Kind() != reflect.Ptr {
 			return false
 		}
-		return typesMatch(t.Elem(), r.Elem())
+		return comp.typesMatch(t.Elem(), r.Elem())
 
 	case *types.Signature:
-		return signaturesMatch(t, r)
+		return comp.signaturesMatch(t, r, true)
 
 	case *types.Slice:
 		if r.Kind() != reflect.Slice {
 			return false
 		}
-		return typesMatch(t.Elem(), r.Elem())
+		return comp.typesMatch(t.Elem(), r.Elem())
 
 	case *types.Struct:
 		if r.Kind() != reflect.Struct {
@@ -422,7 +445,7 @@ func typesMatch(t types.Type, r reflect.Type) (result bool) {
 			if t.Tag(i) != string(f.Tag) {
 				return false
 			}
-			if !typesMatch(v.Type(), f.Type) {
+			if !comp.typesMatch(v.Type(), f.Type) {
 				return false
 			}
 		}
