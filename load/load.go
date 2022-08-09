@@ -245,6 +245,10 @@ type comparer struct {
 }
 
 func (comp *comparer) debugf(msg string, args ...any) {
+	if true {
+		return
+	}
+
 	fmt.Print(strings.Repeat("  ", comp.depth))
 	fmt.Printf(msg, args...)
 	fmt.Print("\n")
