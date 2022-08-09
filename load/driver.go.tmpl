@@ -1,15 +1,12 @@
 package main
 
-{{ $subpkg := .Subpkg }}
-
 import (
 	"context"
 	"flag"
 	"log"
 
-	"github.com/bobg/fab"
-
-	"fab/{{ $subpkg }}"
+	"x/fab"
+	subpkg "x/pkg/{{ .Subpkg }}"
 )
 
 func main() {
@@ -39,6 +36,6 @@ func main() {
 
 var index = map[string]fab.Target{
 	// {{ range .Targets }}
-	"{{ .SnakeName }}": {{ $subpkg }}.{{ .Name }},
+	"{{ .SnakeName }}": subpkg.{{ .Name }},
 	// {{ end }}
 }

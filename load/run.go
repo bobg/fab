@@ -1,4 +1,4 @@
-package fab
+package load
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 
 func Run(ctx context.Context, pkgdir string, args ...string) error {
 	return Load(ctx, pkgdir, func(dir string) error {
-		prog := filepath.Join(dir, "fab")
+		prog := filepath.Join(dir, "x")
 		return exec.CommandContext(ctx, prog, args...).Run()
 	})
 }

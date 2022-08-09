@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/bobg/fab"
+	"github.com/bobg/fab/load"
 )
 
 func main() {
@@ -14,7 +14,7 @@ func main() {
 	flag.StringVar(&pkgdir, "d", ".fab", "directory containing fab rules")
 	flag.Parse()
 
-	err := fab.Run(context.Background(), pkgdir, os.Args[1:]...)
+	err := load.Run(context.Background(), pkgdir, os.Args[1:]...)
 	if err != nil {
 		log.Fatal(err)
 	}

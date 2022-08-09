@@ -1,4 +1,4 @@
-package fab
+package load
 
 import (
 	"context"
@@ -20,6 +20,8 @@ import (
 	"github.com/fatih/camelcase"
 	"github.com/pkg/errors"
 	"golang.org/x/tools/go/packages"
+
+	"github.com/bobg/fab"
 )
 
 var targetMethods = make(map[string]reflect.Method)
@@ -27,13 +29,13 @@ var targetMethods = make(map[string]reflect.Method)
 // nullTarget is here so we can get reflection info about Target
 type nullTarget struct{}
 
-var _ Target = nullTarget{}
+var _ fab.Target = nullTarget{}
 
 func (nullTarget) Once() *sync.Once          { return nil }
 func (nullTarget) Run(context.Context) error { return nil }
 
 func init() {
-	var nt Target = nullTarget{}
+	var nt fab.Target = nullTarget{}
 	targetType := reflect.TypeOf(nt)
 	for i := 0; i < targetType.NumMethod(); i++ {
 		method := targetType.Method(i)
@@ -109,13 +111,32 @@ func Load(ctx context.Context, pkgdir string, f func(string) error) error {
 	}
 	// xxx defer os.RemoveAll(dir)
 
-	subpkgdir := filepath.Join(dir, pkg.Name)
-	if err = os.Mkdir(subpkgdir, 0755); err != nil {
-		return errors.Wrapf(err, "creating temp subdir %s", pkg.Name)
+	fabsubdir := filepath.Join(dir, "fab")
+	if err = os.Mkdir(fabsubdir, 0755); err != nil {
+		return errors.Wrapf(err, "creating %s", fabsubdir)
+	}
+	goFiles, err := fab.GoFiles.ReadDir(".")
+	if err != nil {
+		return errors.Wrap(err, "reading GoFiles")
+	}
+	for _, goFile := range goFiles {
+		contents, err := fab.GoFiles.ReadFile(goFile.Name())
+		if err != nil {
+			return errors.Wrapf(err, "reading Go file %s", goFile.Name())
+		}
+		dest := filepath.Join(fabsubdir, goFile.Name())
+		err = os.WriteFile(dest, contents, 0644)
+		if err != nil {
+			return errors.Wrapf(err, "writing %s", dest)
+		}
 	}
 
-	fmt.Printf("xxx tmpdir is %s, subpkgdir is %s\n", dir, subpkgdir)
+	// TODO: refactor to harmonize the copying above with the copying below.
 
+	subpkgdir := filepath.Join(dir, "pkg", pkg.Name)
+	if err = os.MkdirAll(subpkgdir, 0755); err != nil {
+		return errors.Wrapf(err, "creating %s", subpkgdir)
+	}
 	entries, err := os.ReadDir(pkgdir)
 	if err != nil {
 		return errors.Wrapf(err, "reading entries from %s", pkgdir)
@@ -166,7 +187,7 @@ func Load(ctx context.Context, pkgdir string, f func(string) error) error {
 		return errors.Wrap(err, "closing driver.go")
 	}
 
-	cmd := exec.CommandContext(ctx, "go", "mod", "init", "fab")
+	cmd := exec.CommandContext(ctx, "go", "mod", "init", "x")
 	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
