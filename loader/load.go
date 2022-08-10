@@ -14,11 +14,11 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"sync"
 	"text/template"
 
 	"github.com/fatih/camelcase"
 	"github.com/pkg/errors"
+	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/packages"
 
 	"github.com/bobg/fab"
@@ -31,7 +31,7 @@ type nullTarget struct{}
 
 var _ fab.Target = nullTarget{}
 
-func (nullTarget) Once() *sync.Once          { return nil }
+func (nullTarget) ID() string                { return "" }
 func (nullTarget) Run(context.Context) error { return nil }
 
 func init() {
@@ -200,6 +200,25 @@ func LoadTargets(ctx context.Context, pkgdir, pkgname string, targets []string, 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error in go mod init fab: %w; output follows\n%s", err, string(output))
+	}
+
+	gomodPath := filepath.Join(dir, "go.mod")
+	gomodData, err := os.ReadFile(gomodPath)
+	if err != nil {
+		return errors.Wrapf(err, "reading %s", gomodPath)
+	}
+	mf, err := modfile.Parse(gomodPath, gomodData, nil)
+	if err != nil {
+		return errors.Wrapf(err, "parsing %s", gomodPath)
+	}
+	err = mf.AddReplace("github.com/bobg/fab", "", "./fab", "")
+	if err != nil {
+		return errors.Wrapf(err, "adding replace directive in %s", gomodPath)
+	}
+	gomodData, err = mf.Format()
+	err = os.WriteFile(gomodPath, gomodData, 0644)
+	if err != nil {
+		return errors.Wrapf(err, "rewriting %s", gomodPath)
 	}
 
 	cmd = exec.CommandContext(ctx, "go", "mod", "tidy")

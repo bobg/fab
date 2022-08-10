@@ -6,17 +6,16 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"sync"
 )
 
 // F is an adapter that turns a function into a Target.
 func F(f func(context.Context) error) Target {
-	return &ftarget{f: f}
+	return &ftarget{f: f, id: RandID()}
 }
 
 type ftarget struct {
-	once sync.Once
-	f    func(context.Context) error
+	f  func(context.Context) error
+	id string
 }
 
 var _ Target = &ftarget{}
@@ -25,18 +24,19 @@ func (f *ftarget) Run(ctx context.Context) error {
 	return f.f(ctx)
 }
 
-func (f *ftarget) Once() *sync.Once {
-	return &f.once
+func (f *ftarget) ID() string {
+	return f.id
 }
 
 type Command struct {
-	Cmd     string
-	Args    []string
-	Dir     string
-	Env     []string
-	Verbose bool
+	Cmd      string
+	Args     []string
+	Dir      string
+	Env      []string
+	Verbose  bool
+	IDPrefix string
 
-	once sync.Once
+	id string
 }
 
 var _ Target = &Command{}
@@ -64,8 +64,14 @@ func (c *Command) Run(ctx context.Context) error {
 	return err
 }
 
-func (c *Command) Once() *sync.Once {
-	return &c.once
+func (c *Command) ID() string {
+	if c.id == "" {
+		c.id = RandID()
+		if c.IDPrefix != "" {
+			c.id = c.IDPrefix + "-" + c.id
+		}
+	}
+	return c.id
 }
 
 type CommandErr struct {

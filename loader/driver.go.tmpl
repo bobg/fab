@@ -6,7 +6,8 @@ import (
 	"log"
 	"strings"
 
-	"x/fab"
+	"github.com/bobg/fab"
+
 	subpkg "x/pkg/{{ .Subpkg }}"
 )
 
@@ -36,7 +37,8 @@ func main() {
 		log.Fatalf("Unknown target(s): %s", strings.Join(unknown, " "))
 	}
 
-	err := fab.Deps(ctx, targets...)
+	runner := fab.NewRunner()
+	err := runner.Run(ctx, targets...)
 	if err != nil {
 		log.Fatal(err)
 	}
