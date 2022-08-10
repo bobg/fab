@@ -29,12 +29,12 @@ func (f *ftarget) ID() string {
 }
 
 type Command struct {
-	Cmd      string
-	Args     []string
-	Dir      string
-	Env      []string
-	Verbose  bool
-	IDPrefix string
+	Cmd     string
+	Args    []string
+	Dir     string
+	Env     []string
+	Verbose bool
+	Prefix  string
 
 	id string
 }
@@ -43,7 +43,7 @@ var _ Target = &Command{}
 
 func (c *Command) Run(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, c.Cmd, c.Args...)
-	cmd.Dir = c.Dir
+	cmd.Dir = Dir(ctx)
 	cmd.Env = append(os.Environ(), c.Env...)
 
 	var buf *bytes.Buffer
@@ -67,8 +67,8 @@ func (c *Command) Run(ctx context.Context) error {
 func (c *Command) ID() string {
 	if c.id == "" {
 		c.id = RandID()
-		if c.IDPrefix != "" {
-			c.id = c.IDPrefix + "-" + c.id
+		if c.Prefix != "" {
+			c.id = c.Prefix + "-" + c.id
 		}
 	}
 	return c.id

@@ -2,6 +2,7 @@ package fab
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"go.uber.org/multierr"
@@ -50,6 +51,7 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 				o.g.wait()
 				errs[i] = o.err
 			} else {
+				fmt.Printf("Running target %s\n", id)
 				errs[i] = target.Run(ctx)
 				o.err = errs[i]
 				o.g.set(true)

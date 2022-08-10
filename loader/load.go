@@ -62,7 +62,6 @@ func Load(ctx context.Context, pkgdir string, f func(string) error) error {
 		Mode:    packages.NeedName | packages.NeedTypes | packages.NeedDeps,
 		Context: ctx,
 	}
-	fmt.Printf("xxx loading %s\n", loadpath)
 	pkgs, err := packages.Load(config, loadpath)
 	if err != nil {
 		return errors.Wrapf(err, "loading %s", loadpath)
@@ -95,11 +94,9 @@ func LoadPkg(ctx context.Context, pkgdir, pkgname string, scope *types.Scope, f 
 		if obj == nil {
 			continue
 		}
-		fmt.Printf("xxx checking type of %s\n", ident)
 		if !implementsTarget(obj.Type()) {
 			continue
 		}
-		fmt.Printf("xxx found target %s\n", ident)
 		targets = append(targets, ident)
 	}
 	if len(targets) == 0 {
@@ -155,7 +152,6 @@ func LoadTargets(ctx context.Context, pkgdir, pkgname string, targets []string, 
 		if !strings.HasSuffix(entry.Name(), ".go") {
 			continue
 		}
-		fmt.Printf("xxx copying %s/%s to %s\n", pkgdir, entry.Name(), subpkgdir)
 		if err = copyFile(filepath.Join(pkgdir, entry.Name()), subpkgdir); err != nil {
 			return errors.Wrapf(err, "copying %s to tmp subdir", entry.Name())
 		}
@@ -239,7 +235,6 @@ func LoadTargets(ctx context.Context, pkgdir, pkgname string, targets []string, 
 }
 
 func implementsTarget(typ types.Type) bool {
-	fmt.Printf("xxx implementsTarget(%s)\n", typ)
 	methodSet := types.NewMethodSet(typ)
 	for name, targetMethod := range targetMethods {
 		m := methodSet.Lookup(nil, name) // xxx package?

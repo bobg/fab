@@ -1,24 +1,33 @@
+// -*- go -*-
 package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
-	"log"
+	"fmt"
+	"os"
 	"strings"
 
 	"github.com/bobg/fab"
+	"go.uber.org/multierr"
 
 	subpkg "x/pkg/{{ .Subpkg }}"
 )
 
 func main() {
-	var verbose bool
+	var (
+		verbose bool
+		dir     string
+	)
 
 	flag.BoolVar(&verbose, "v", false, "run verbosely")
+	flag.StringVar(&dir, "d", "", "directory in which to run")
 	flag.Parse()
 
 	ctx := context.Background()
 	ctx = fab.WithVerbose(ctx, verbose)
+	ctx = fab.WithDir(ctx, dir)
 
 	var (
 		targets []fab.Target
@@ -33,15 +42,24 @@ func main() {
 		}
 	}
 
+	output := []string{} // n.b. not nil, which JSON-encodes as "null"
+
 	if len(unknown) > 0 {
-		log.Fatalf("Unknown target(s): %s", strings.Join(unknown, " "))
+		output = append(output, fmt.Sprintf("Unknown target(s): %s", strings.Join(unknown, " ")))
+	} else {
+		runner := fab.NewRunner()
+		err := runner.Run(ctx, targets...)
+		if err != nil {
+			errs := multierr.Errors(err)
+			for _, e := range errs {
+				output = append(output, e.Error())
+			}
+		}
 	}
 
-	runner := fab.NewRunner()
-	err := runner.Run(ctx, targets...)
-	if err != nil {
-		log.Fatal(err)
-	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	enc.Encode(output)
 }
 
 var index = map[string]fab.Target{
