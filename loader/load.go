@@ -1,8 +1,8 @@
-package load
+package loader
 
 import (
 	"context"
-	"embed"
+	_ "embed"
 	"fmt"
 	"go/ast"
 	"go/types"
@@ -44,7 +44,7 @@ func init() {
 }
 
 //go:embed driver.go.tmpl
-var tmplFS embed.FS
+var driverStr string
 
 func Load(ctx context.Context, pkgdir string, f func(string) error) error {
 	loadpath := pkgdir
@@ -79,8 +79,11 @@ func Load(ctx context.Context, pkgdir string, f func(string) error) error {
 		return fmt.Errorf("error(s) loading %s: %s\n", loadpath, strings.Join(errs, ";\n  "))
 	}
 
+	return LoadPkg(ctx, pkgdir, pkg.Name, pkg.Types.Scope(), f)
+}
+
+func LoadPkg(ctx context.Context, pkgdir, pkgname string, scope *types.Scope, f func(string) error) error {
 	var (
-		scope   = pkg.Types.Scope()
 		idents  = scope.Names()
 		targets []string // Top-level identifiers with types that implement fab.Target
 	)
@@ -100,11 +103,15 @@ func Load(ctx context.Context, pkgdir string, f func(string) error) error {
 		targets = append(targets, ident)
 	}
 	if len(targets) == 0 {
-		return fmt.Errorf("found no targets after loading %s", pkgdir)
+		return fmt.Errorf("found no targets after loading %s", pkgname)
 	}
 
 	sort.Strings(targets)
 
+	return LoadTargets(ctx, pkgdir, pkgname, targets, f)
+}
+
+func LoadTargets(ctx context.Context, pkgdir, pkgname string, targets []string, f func(string) error) error {
 	dir, err := os.MkdirTemp("", "fab")
 	if err != nil {
 		return errors.Wrap(err, "creating tempdir")
@@ -133,7 +140,7 @@ func Load(ctx context.Context, pkgdir string, f func(string) error) error {
 
 	// TODO: refactor to harmonize the copying above with the copying below.
 
-	subpkgdir := filepath.Join(dir, "pkg", pkg.Name)
+	subpkgdir := filepath.Join(dir, "pkg", pkgname)
 	if err = os.MkdirAll(subpkgdir, 0755); err != nil {
 		return errors.Wrapf(err, "creating %s", subpkgdir)
 	}
@@ -161,7 +168,7 @@ func Load(ctx context.Context, pkgdir string, f func(string) error) error {
 		Subpkg  string
 		Targets []templateTarget
 	}{
-		Subpkg: pkg.Name,
+		Subpkg: pkgname,
 	}
 	for _, target := range targets {
 		data.Targets = append(data.Targets, templateTarget{
@@ -176,9 +183,10 @@ func Load(ctx context.Context, pkgdir string, f func(string) error) error {
 	}
 	defer driverOut.Close()
 
-	tmpl, err := template.ParseFS(tmplFS, "driver.go.tmpl")
+	tmpl := template.New("")
+	_, err = tmpl.Parse(driverStr)
 	if err != nil {
-		return errors.Wrap(err, "parsing driver.go template")
+		return errors.Wrap(err, "parsing driver template")
 	}
 	if err = tmpl.Execute(driverOut, data); err != nil {
 		return errors.Wrap(err, "rendering driver.go template")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"strings"
 
 	"x/fab"
 	subpkg "x/pkg/{{ .Subpkg }}"
@@ -18,14 +19,21 @@ func main() {
 	ctx := context.Background()
 	ctx = fab.WithVerbose(ctx, verbose)
 
-	var targets []fab.Target
+	var (
+		targets []fab.Target
+		unknown []string
+	)
 
 	for _, arg := range flag.Args() {
-		target, ok := index[arg]
-		if !ok {
-			log.Fatalf("Unknown target %s", arg)
+		if target, ok := index[arg]; ok {
+			targets = append(targets, target)
+		} else {
+			unknown = append(unknown, arg)
 		}
-		targets = append(targets, target)
+	}
+
+	if len(unknown) > 0 {
+		log.Fatalf("Unknown target(s): %s", strings.Join(unknown, " "))
 	}
 
 	err := fab.Deps(ctx, targets...)
@@ -35,7 +43,7 @@ func main() {
 }
 
 var index = map[string]fab.Target{
-	// {{ range .Targets }}
+	{{ range .Targets }}
 	"{{ .SnakeName }}": subpkg.{{ .Name }},
-	// {{ end }}
+	{{ end }}
 }

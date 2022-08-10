@@ -9,6 +9,7 @@ import (
 	"sync"
 )
 
+// F is an adapter that turns a function into a Target.
 func F(f func(context.Context) error) Target {
 	return &ftarget{f: f}
 }
