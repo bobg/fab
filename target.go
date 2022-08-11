@@ -15,6 +15,7 @@ type Target interface {
 	ID() string
 }
 
+// RandID is a convenience function for producing a unique-enough ID string.
 func RandID() string {
 	var buf [16]byte
 	rand.Read(buf[:])

@@ -75,7 +75,7 @@ func Load(ctx context.Context, pkgdir string, f func(string) error) error {
 		for _, e := range pkg.Errors {
 			errs = append(errs, e.Error())
 		}
-		return fmt.Errorf("error(s) loading %s: %s\n", loadpath, strings.Join(errs, ";\n  "))
+		return fmt.Errorf("error(s) loading %s: %s", loadpath, strings.Join(errs, ";\n  "))
 	}
 
 	return LoadPkg(ctx, pkgdir, pkg.Name, pkg.Types.Scope(), f)

@@ -17,11 +17,12 @@ func newGate(open bool) *gate {
 	}
 }
 
+// Sets the gate to open or closed.
 func (g *gate) set(open bool) {
 	g.c.L.Lock()
 	wasOpen := g.open
 	g.open = open
-	if open != wasOpen {
+	if open && !wasOpen {
 		g.c.Broadcast()
 	}
 	g.c.L.Unlock()
