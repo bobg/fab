@@ -9,14 +9,15 @@ var Build = &fab.Command{
 }
 
 var Test = &fab.Command{
-	Cmd:    "go",
-	Args:   []string{"test", "-race", "-cover", "./..."},
-	Prefix: "Test",
+	Cmd:     "go",
+	Args:    []string{"test", "-race", "-cover", "./..."},
+	Prefix:  "Test",
+	Verbose: true,
 }
 
 var Lint = &fab.Command{
-	Cmd:    "revive",
-	Args:   []string{"./..."},
-	Prefix: "Lint",
+	Cmd:     "revive",
+	Args:    []string{"./..."},
+	Prefix:  "Lint",
 	Verbose: true,
 }

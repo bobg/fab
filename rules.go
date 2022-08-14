@@ -9,20 +9,33 @@ import (
 )
 
 // F is an adapter that turns a function into a Target.
-// The Target's Run method is implemented by the function
-// and its ID is random.
-func F(f func(context.Context) error) Target {
-	return &ftarget{f: f, id: RandID()}
+// The Target's Run method first ensures that the given dependencies run
+// (if there are any)
+// and then invokes the function.
+// The target's ID is F-<number>.
+func F(f func(context.Context) error, deps ...Target) Target {
+	return &ftarget{
+		f:    f,
+		deps: deps,
+		id:   ID("F"),
+	}
 }
 
 type ftarget struct {
-	f  func(context.Context) error
-	id string
+	f    func(context.Context) error
+	deps []Target
+	id   string
 }
 
 var _ Target = &ftarget{}
 
 func (f *ftarget) Run(ctx context.Context) error {
+	if len(f.deps) > 0 {
+		err := Run(ctx, f.deps...)
+		if err != nil {
+			return err
+		}
+	}
 	return f.f(ctx)
 }
 
@@ -65,11 +78,11 @@ var _ Target = &Command{}
 // Run implements Target.Run.
 func (c *Command) Run(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, c.Cmd, c.Args...)
-	cmd.Dir = Dir(ctx)
+	cmd.Dir = GetDir(ctx)
 	cmd.Env = append(os.Environ(), c.Env...)
 
 	var buf *bytes.Buffer
-	if c.Verbose || Verbose(ctx) {
+	if c.Verbose || GetVerbose(ctx) {
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 		fmt.Printf("Running %s\n", c.ID())
 	} else {
@@ -90,10 +103,11 @@ func (c *Command) Run(ctx context.Context) error {
 // ID implements Target.ID.
 func (c *Command) ID() string {
 	if c.id == "" {
-		c.id = RandID()
-		if c.Prefix != "" {
-			c.id = c.Prefix + "-" + c.id
+		prefix := c.Prefix
+		if prefix == "" {
+			prefix = "Command"
 		}
+		c.id = ID(prefix)
 	}
 	return c.id
 }

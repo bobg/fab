@@ -2,8 +2,8 @@ package fab
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
+	"fmt"
+	"sync/atomic"
 )
 
 // Target is the interface that Fab targets must implement.
@@ -15,9 +15,9 @@ type Target interface {
 	ID() string
 }
 
-// RandID is a convenience function for producing a unique-enough ID string.
-func RandID() string {
-	var buf [16]byte
-	rand.Read(buf[:])
-	return hex.EncodeToString(buf[:])
+var idcounter uint32
+
+// ID produces an ID string by appending a unique counter value to the given prefix.
+func ID(prefix string) string {
+	return fmt.Sprintf("%s-%d", prefix, atomic.AddUint32(&idcounter, 1))
 }

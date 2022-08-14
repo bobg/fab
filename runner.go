@@ -45,10 +45,19 @@ type outcome struct {
 // This function waits for all goroutines to complete.
 // The return value may be an accumulation of multiple errors.
 // These can be retrieved with [multierr.Errors].
+//
+// The runner is added to the context with WithRunner
+// and can be retrieved with GetRunner.
+// Calls to Run
+// (the global function, not the Runner method)
+// will use this Runner instead of DefaultRunner
+// by finding it in the context.
 func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 	if len(targets) == 0 {
 		return nil
 	}
+
+	ctx = WithRunner(ctx, r)
 
 	var (
 		wg   sync.WaitGroup
@@ -84,4 +93,21 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 	wg.Wait()
 
 	return multierr.Combine(errs...)
+}
+
+// DefaultRunner is a Runner used by default in Run.
+var DefaultRunner = NewRunner()
+
+// Run runs the given targets with a Runner.
+// If `ctx` contains a Runner
+// (e.g., because this is a recursive call
+// and the ctx has been decorated using WithRunner)
+// then it uses that Runner,
+// otherwise it uses DefaultRunner.
+func Run(ctx context.Context, targets ...Target) error {
+	runner := GetRunner(ctx)
+	if runner == nil {
+		runner = DefaultRunner
+	}
+	return runner.Run(ctx, targets...)
 }
