@@ -113,7 +113,7 @@ func LoadTargets(ctx context.Context, pkgdir, pkgname string, targets []string, 
 	if err != nil {
 		return errors.Wrap(err, "creating tempdir")
 	}
-	// xxx defer os.RemoveAll(dir)
+	defer os.RemoveAll(dir)
 
 	fabsubdir := filepath.Join(dir, "fab")
 	if err = os.Mkdir(fabsubdir, 0755); err != nil {
@@ -240,25 +240,21 @@ func LoadTargets(ctx context.Context, pkgdir, pkgname string, targets []string, 
 func implementsTarget(typ types.Type) bool {
 	methodSet := types.NewMethodSet(typ)
 	for name, targetMethod := range targetMethods {
-		m := methodSet.Lookup(nil, name) // xxx package?
+		m := methodSet.Lookup(nil, name) // TODO: understand whether/when the first arg needs to be supplied.
 		if m == nil {
-			fmt.Printf("  xxx no method for %s\n", name)
 			return false
 		}
 		f, ok := m.Obj().(*types.Func)
 		if !ok {
-			fmt.Printf("  xxx m.Obj() is a %T, not a Func\n", m.Obj())
 			return false
 		}
 		sig, ok := f.Type().(*types.Signature)
 		if !ok {
-			fmt.Printf("  xxx f.Type() is a %T, not a Signature\n", f.Type())
 			return false
 		}
 
 		var comp comparer
 		if !comp.signaturesMatch(sig, targetMethod.Func.Type(), true) {
-			fmt.Printf("  xxx signature %s does not match %s\n", sig, targetMethod.Func.Type())
 			return false
 		}
 	}

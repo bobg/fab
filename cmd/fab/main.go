@@ -4,17 +4,24 @@ import (
 	"context"
 	"flag"
 	"log"
-	"os"
 
+	"github.com/bobg/fab"
 	"github.com/bobg/fab/loader"
 )
 
 func main() {
-	var pkgdir string
+	var (
+		pkgdir  string
+		verbose bool
+	)
 	flag.StringVar(&pkgdir, "d", ".fab", "directory containing fab rules")
+	flag.BoolVar(&verbose, "v", false, "run verbosely")
 	flag.Parse()
 
-	err := loader.Run(context.Background(), pkgdir, os.Args[1:]...)
+	ctx := context.Background()
+	ctx = fab.WithVerbose(ctx, verbose)
+
+	err := loader.Run(ctx, pkgdir, flag.Args()...)
 	if err != nil {
 		log.Fatal(err)
 	}

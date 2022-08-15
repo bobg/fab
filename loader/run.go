@@ -3,13 +3,14 @@ package loader
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+
+	"github.com/bobg/fab"
 )
 
 func Run(ctx context.Context, pkgdir string, args ...string) error {
@@ -29,11 +30,18 @@ func Run(ctx context.Context, pkgdir string, args ...string) error {
 
 	return Load(ctx, pkgdir, func(dir string) error {
 		prog := filepath.Join(dir, "x")
-		args = append([]string{cwd, tmpfile.Name()}, args...)
-		cmd := exec.CommandContext(ctx, prog, args...)
+
+		var allargs []string
+		if fab.GetVerbose(ctx) {
+			allargs = append(allargs, "-v")
+		}
+		allargs = append(allargs, cwd, tmpfile.Name())
+		allargs = append(allargs, args...)
+
+		cmd := exec.CommandContext(ctx, prog, allargs...)
 		cmd.Dir = dir
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-		fmt.Printf("xxx about to run %#v\n", cmd)
+
 		err := cmd.Run()
 		if err != nil {
 			return errors.Wrap(err, "running subprocess")

@@ -11,7 +11,7 @@ import (
 func TestID(t *testing.T) {
 	// Producing any number of id's, even concurrently, should never produce a duplicate.
 
-	const count = 10000
+	const count = 5000
 
 	ids := parallel.Producers(context.Background(), count, func(_ context.Context, _ int, send func(id string) error) error {
 		return send(ID("x"))
