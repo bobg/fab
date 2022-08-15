@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
-	"path/filepath"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -13,6 +12,21 @@ import (
 	"github.com/bobg/fab"
 )
 
+// Run uses Load to load the Go package in the given directory and turn it into an executable binary.
+// It then runs the program as:
+//
+//   PROG [-v] CWD TMPFILE ARGS...
+//
+// where CWD is the current working directory,
+// TMPFILE is the name of a temporary file where the program sends its output,
+// and ARGS are the additional arguments passed to Run.
+//
+// Run parses the output in the temporary file:
+// a JSON-encoded list of error strings.
+// If the list is empty, Run returns nil.
+// Otherwise it converts those strings to an error
+// (using multierr.Combine if there are two or more)
+// and returns it.
 func Run(ctx context.Context, pkgdir string, args ...string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -28,24 +42,22 @@ func Run(ctx context.Context, pkgdir string, args ...string) error {
 	}
 	defer os.Remove(tmpfile.Name())
 
-	return Load(ctx, pkgdir, func(dir string) error {
-		prog := filepath.Join(dir, "x")
-
-		var allargs []string
+	return Load(ctx, pkgdir, func(cmd *exec.Cmd) error {
 		if fab.GetVerbose(ctx) {
-			allargs = append(allargs, "-v")
+			cmd.Args = append(cmd.Args, "-v")
 		}
-		allargs = append(allargs, cwd, tmpfile.Name())
-		allargs = append(allargs, args...)
+		cmd.Args = append(cmd.Args, cwd, tmpfile.Name())
+		cmd.Args = append(cmd.Args, args...)
 
-		cmd := exec.CommandContext(ctx, prog, allargs...)
-		cmd.Dir = dir
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 
 		err := cmd.Run()
 		if err != nil {
 			return errors.Wrap(err, "running subprocess")
 		}
+
+		// Output from cmd is now in tmpfile.
+
 		f, err := os.Open(tmpfile.Name())
 		if err != nil {
 			return errors.Wrapf(err, "opening tempfile")

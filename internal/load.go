@@ -26,7 +26,7 @@ import (
 //go:embed driver.go.tmpl
 var driverStr string
 
-func Load(ctx context.Context, pkgdir string, f func(string) error) error {
+func Load(ctx context.Context, pkgdir string, f func(*exec.Cmd) error) error {
 	loadpath := pkgdir
 	if !filepath.IsAbs(pkgdir) {
 		_, err := os.Stat(pkgdir)
@@ -61,7 +61,7 @@ func Load(ctx context.Context, pkgdir string, f func(string) error) error {
 	return LoadPkg(ctx, pkgdir, pkg.Name, pkg.Types.Scope(), f)
 }
 
-func LoadPkg(ctx context.Context, pkgdir, pkgname string, scope *types.Scope, f func(string) error) error {
+func LoadPkg(ctx context.Context, pkgdir, pkgname string, scope *types.Scope, f func(*exec.Cmd) error) error {
 	var (
 		idents  = scope.Names()
 		targets []string // Top-level identifiers with types that implement fab.Target
@@ -88,7 +88,7 @@ func LoadPkg(ctx context.Context, pkgdir, pkgname string, scope *types.Scope, f 
 	return LoadTargets(ctx, pkgdir, pkgname, targets, f)
 }
 
-func LoadTargets(ctx context.Context, pkgdir, pkgname string, targets []string, f func(string) error) error {
+func LoadTargets(ctx context.Context, pkgdir, pkgname string, targets []string, f func(*exec.Cmd) error) error {
 	dir, err := os.MkdirTemp("", "fab")
 	if err != nil {
 		return errors.Wrap(err, "creating tempdir")
@@ -214,7 +214,8 @@ func LoadTargets(ctx context.Context, pkgdir, pkgname string, targets []string, 
 		return fmt.Errorf("error in go build: %w; output follows\n%s", err, string(output))
 	}
 
-	return f(dir)
+	cmd = exec.CommandContext(ctx, filepath.Join(dir, "x"))
+	return f(cmd)
 }
 
 func copyFile(filename, destdir string) error {
