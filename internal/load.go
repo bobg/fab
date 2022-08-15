@@ -1,4 +1,4 @@
-package loader
+package internal
 
 import (
 	"context"
@@ -74,7 +74,7 @@ func LoadPkg(ctx context.Context, pkgdir, pkgname string, scope *types.Scope, f 
 		if obj == nil {
 			continue
 		}
-		if !implementsTarget(obj.Type()) {
+		if err := checkImplementsTarget(obj.Type()); err != nil {
 			continue
 		}
 		targets = append(targets, ident)

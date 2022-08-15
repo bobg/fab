@@ -1,4 +1,4 @@
-package loader
+package internal
 
 import (
 	"go/types"
@@ -26,17 +26,17 @@ func TestImplementsTarget(t *testing.T) {
 		t.Fatalf("runnerObj is a %T, want types.TypeName", runnerObj)
 	}
 	runnerType := runnerTypeName.Type()
-	if implementsTarget(runnerType) {
-		t.Errorf("implementsTarget(fab.Runner) wrongly reports true")
+	if checkImplementsTarget(runnerType) == nil {
+		t.Errorf("checkImplementsTarget(fab.Runner) wrongly reports true")
 	}
 
-	commandObj := scope.Lookup("Command")
-	commandTypeName, ok := commandObj.(*types.TypeName)
+	filesCommandObj := scope.Lookup("FilesCommand")
+	filesCommandTypeName, ok := filesCommandObj.(*types.TypeName)
 	if !ok {
-		t.Fatalf("commandObj is a %T, want types.TypeName", commandObj)
+		t.Fatalf("filesCommandObj is a %T, want types.TypeName", filesCommandObj)
 	}
-	commandType := commandTypeName.Type()
-	if !implementsTarget(commandType) {
-		t.Errorf("implementsTarget(fab.Command) wrongly reports false")
+	filesCommandType := filesCommandTypeName.Type()
+	if err = checkImplementsTarget(filesCommandType); err != nil {
+		t.Errorf("checkImplementsTarget(fab.FilesCommand) wrongly reports false: %s", err)
 	}
 }

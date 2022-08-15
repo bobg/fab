@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/bobg/fab"
-	"github.com/bobg/fab/loader"
+	"github.com/bobg/fab/internal"
 )
 
 func main() {
@@ -21,7 +21,7 @@ func main() {
 	ctx := context.Background()
 	ctx = fab.WithVerbose(ctx, verbose)
 
-	err := loader.Run(ctx, pkgdir, flag.Args()...)
+	err := internal.Run(ctx, pkgdir, flag.Args()...)
 	if err != nil {
 		log.Fatal(err)
 	}
