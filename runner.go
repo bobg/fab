@@ -36,12 +36,25 @@ type outcome struct {
 // distinguishing targets by their ID() values.
 //
 // A separate goroutine is created for each Target passed to Run.
-// If the Runner has not already called the Target's Run method,
+// If the Runner has never yet run the Target,
 // it does so, and caches the result (error or no error).
 // If the Target did already run, the cached error value is used.
 // If another goroutine concurrently requests the same Target,
 // it blocks until the first one completes,
 // then uses the first one's result.
+//
+// As a special case,
+// if the Target is a HashTarget
+// and there is a HashDB attached to the context,
+// then the HashTarget's hash is computed
+// and sought in the HashDB.
+// If it's found,
+// the target's outputs are already up to date
+// and its Run method can be skipped.
+// Otherwise, Run is invoked and
+// (if it succeeds)
+// a new hash is computed for the target
+// and added to the HashDB.
 //
 // This function waits for all goroutines to complete.
 // The return value may be an accumulation of multiple errors.
@@ -101,7 +114,7 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 func runTarget(ctx context.Context, db HashDB, target Target) error {
 	var ht HashTarget
 	if db != nil {
-		ht, _ := target.(HashTarget)
+		ht, _ = target.(HashTarget)
 		if ht != nil {
 			h, err := ht.Hash(ctx)
 			if err != nil {
