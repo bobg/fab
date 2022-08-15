@@ -16,7 +16,7 @@ var Test = &fab.Command{
 }
 
 var Lint = &fab.Command{
-	Cmd:     "revive",
+	Cmd:     "staticcheck",
 	Args:    []string{"./..."},
 	Prefix:  "Lint",
 	Verbose: true,

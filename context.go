@@ -6,6 +6,7 @@ type (
 	verboseKeyType struct{}
 	dirKeyType     struct{}
 	runnerKeyType  struct{}
+	hashDBKeyType  struct{}
 )
 
 // WithVerbose decorates a context with the value of a "verbose" boolean.
@@ -45,4 +46,17 @@ func WithRunner(ctx context.Context, r *Runner) context.Context {
 func GetRunner(ctx context.Context) *Runner {
 	r, _ := ctx.Value(runnerKeyType{}).(*Runner)
 	return r
+}
+
+// WithHashDB decorates a context with a HashDB.
+// Retrieve it with GetHashDB.
+func WithHashDB(ctx context.Context, db HashDB) context.Context {
+	return context.WithValue(ctx, hashDBKeyType{}, db)
+}
+
+// GetHashDB returns the value of the HashDB added to `ctx` with WithHashDB.
+// The default, if WithHashDB was not used, is nil.
+func GetHashDB(ctx context.Context) HashDB {
+	db, _ := ctx.Value(hashDBKeyType{}).(HashDB)
+	return db
 }

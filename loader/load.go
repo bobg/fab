@@ -2,7 +2,7 @@ package loader
 
 import (
 	"context"
-	_ "embed"
+	_ "embed" // For the go:embed below.
 	"fmt"
 	"go/ast"
 	"go/types"
@@ -212,6 +212,9 @@ func LoadTargets(ctx context.Context, pkgdir, pkgname string, targets []string, 
 		return errors.Wrapf(err, "adding replace directive in %s", gomodPath)
 	}
 	gomodData, err = mf.Format()
+	if err != nil {
+		return errors.Wrapf(err, "formatting go.mod in %s", gomodPath)
+	}
 	err = os.WriteFile(gomodPath, gomodData, 0644)
 	if err != nil {
 		return errors.Wrapf(err, "rewriting %s", gomodPath)
