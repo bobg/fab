@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
 
@@ -60,8 +61,9 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 	ctx = WithRunner(ctx, r)
 
 	var (
-		wg   sync.WaitGroup
+		db   = GetHashDB(ctx)
 		errs = make([]error, len(targets))
+		wg   sync.WaitGroup
 	)
 	for i, target := range targets {
 		i, target := i, target // Go loop-var pitfall
@@ -83,8 +85,9 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 				o.g.wait()
 				errs[i] = o.err
 			} else {
-				errs[i] = target.Run(ctx)
-				o.err = errs[i]
+				err := runTarget(ctx, db, target)
+				errs[i] = err
+				o.err = err
 				o.g.set(true)
 			}
 		}()
@@ -93,6 +96,42 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 	wg.Wait()
 
 	return multierr.Combine(errs...)
+}
+
+func runTarget(ctx context.Context, db HashDB, target Target) error {
+	var ht HashTarget
+	if db != nil {
+		ht, _ := target.(HashTarget)
+		if ht != nil {
+			h, err := ht.Hash(ctx)
+			if err != nil {
+				return errors.Wrapf(err, "computing hash for %s", target.ID())
+			}
+			has, err := db.Has(ctx, h)
+			if err != nil {
+				return errors.Wrapf(err, "checking hash db for hash of %s", target.ID())
+			}
+			if has {
+				// Up to date!
+				return nil
+			}
+		}
+	}
+	err := target.Run(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "running %s", target.ID())
+	}
+	if ht != nil {
+		h, err := ht.Hash(ctx)
+		if err != nil {
+			return errors.Wrapf(err, "computing updated hash for %s", target.ID())
+		}
+		err = db.Add(ctx, h)
+		if err != nil {
+			return errors.Wrap(err, "updating hash db")
+		}
+	}
+	return nil
 }
 
 // DefaultRunner is a Runner used by default in Run.
