@@ -15,22 +15,42 @@ import (
 )
 
 // F is an adapter that turns a function into a Target.
-// The Target's Run method first ensures that the given dependencies run
-// (if there are any)
-// and then invokes the function.
-// The target's ID is F-<number>.
-func F(f func(context.Context) error, deps ...Target) Target {
-	return &ftarget{
-		f:    f,
-		deps: deps,
-		id:   ID("F"),
+// The Target's Run method invokes the function.
+// The target's ID is F-<number> by default.
+func F(f func(context.Context) error, opts ...FOpt) Target {
+	result := &ftarget{
+		f:  f,
+		id: ID("F"),
 	}
+	for _, opt := range opts {
+		opt(result)
+	}
+	return result
 }
 
 type ftarget struct {
 	f    func(context.Context) error
 	deps []Target
 	id   string
+}
+
+// FOpt is the type of an option passed to F.
+type FOpt func(*ftarget)
+
+// FPrefix changes the target's ID prefix from the default of "F".
+func FPrefix(prefix string) FOpt {
+	return func(f *ftarget) {
+		f.id = ID(prefix)
+	}
+}
+
+// FDeps adds dependencies to the target.
+// The target's Run method will ensure that the dependencies run
+// before the target's function.
+func FDeps(deps ...Target) FOpt {
+	return func(f *ftarget) {
+		f.deps = append(f.deps, deps...)
+	}
 }
 
 var _ Target = &ftarget{}

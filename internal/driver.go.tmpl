@@ -21,11 +21,17 @@ func main() {
 
 	flag.BoolVar(&verbose, "v", false, "run verbosely")
 	flag.Parse()
-	if flag.NArg() < 3 {
-		log.Fatalf("Got %d args; usage is [-v] DIR OUTFILE TARGET...", flag.NArg())
+	if flag.NArg() < 2 {
+		log.Fatalf("Got %d args; usage is [-v] DIR OUTFILE [TARGET...]", flag.NArg())
 	}
 	dir, outfile := flag.Arg(0), flag.Arg(1)
 	args := flag.Args()[2:]
+	if len(args) == 0 {
+		if _, ok := index["default"]; !ok {
+			log.Fatal("No targets given and no default target defined")
+		}
+		args = []string{"default"}
+	}
 
 	f, err := os.OpenFile(outfile, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 	if err != nil {
