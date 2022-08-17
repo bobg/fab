@@ -1,18 +1,22 @@
 package build
 
-import "github.com/bobg/fab"
+import (
+	"os"
+
+	"github.com/bobg/fab"
+)
 
 var Build = fab.Named("Build", &fab.Command{
-	Shell: "go build ./...",
-	Verbose: true,
+	Shell:  "go build ./...",
+	Stdout: os.Stdout,
 })
 
 var Test = fab.Named("Test", &fab.Command{
-	Shell:   "go test -race -cover ./...",
-	Verbose: true,
+	Shell:  "go test -race -cover ./...",
+	Stdout: os.Stdout,
 })
 
 var Lint = fab.Named("Lint", &fab.Command{
-	Shell:   "staticcheck ./...",
-	Verbose: true,
+	Shell:  "staticcheck ./...",
+	Stdout: os.Stdout,
 })

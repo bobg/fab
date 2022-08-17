@@ -87,7 +87,7 @@ func (db *DB) Add(ctx context.Context, h []byte) error {
 	}
 	if db.keep > 0 {
 		const q2 = `DELETE FROM hashes WHERE unix_secs < $1`
-		_, err = db.db.ExecContext(ctx, q, time.Now().Add(-db.keep).Unix())
+		_, err = db.db.ExecContext(ctx, q2, time.Now().Add(-db.keep).Unix())
 		if err != nil {
 			return errors.Wrap(err, "evicting expired database entries")
 		}

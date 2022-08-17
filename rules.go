@@ -153,8 +153,11 @@ type Command struct {
 	// to pass to the command named in Cmd.
 	Args []string
 
-	Stdout io.Writer
-	Stderr io.Writer
+	// Stdout and Stderr tell where to send the command's output.
+	// If either or both is nil,
+	// that output is saved in case the subprocess encounters an error.
+	// Then the returned error is a CommandErr containing that output.
+	Stdout, Stderr io.Writer
 
 	// Dir is the directory in which to run the command.
 	// The default is the value of GetDir(ctx) when the Run method is called.
@@ -162,7 +165,6 @@ type Command struct {
 
 	// Env is a list of VAR=VALUE strings to add to the environment when the command runs.
 	Env []string
-
 
 	id string
 }
