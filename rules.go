@@ -15,35 +15,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Named produces a Target with a give name prefix
-// (the suffix is a session-unique number)
-// that wraps another Target.
-func Named(name string, target Target) Target {
-	return &named{name: name, target: target}
-}
-
-type named struct {
-	name   string
-	target Target
-	id     string
-}
-
-var _ Target = &named{}
-
-func (n *named) Run(ctx context.Context) error {
-	if GetVerbose(ctx) {
-		fmt.Printf("Running %s\n", n.ID())
-	}
-	return Run(ctx, n.target)
-}
-
-func (n *named) ID() string {
-	if n.id == "" {
-		n.id = ID(n.name)
-	}
-	return n.id
-}
-
 // All produces a target that runs a collection of targets in parallel.
 func All(targets ...Target) Target {
 	return &all{targets: targets}
@@ -138,7 +109,7 @@ type Command struct {
 	//
 	// To bypass this parsing behavior,
 	// you may specify Cmd and Args directly.
-	Shell string
+	Shell string `json:"shell,omitempty"`
 
 	// Cmd is the command to invoke,
 	// either the path to a file,
@@ -147,24 +118,25 @@ type Command struct {
 	//
 	// Leave Cmd blank and specify Shell instead
 	// to get shell-like parsing of a command and its arguments.
-	Cmd string
+	Cmd string `json:"cmd,omitempty"`
 
 	// Args is the list of command-line arguments
 	// to pass to the command named in Cmd.
-	Args []string
+	Args []string `json:"args,omitempty"`
 
 	// Stdout and Stderr tell where to send the command's output.
 	// If either or both is nil,
 	// that output is saved in case the subprocess encounters an error.
 	// Then the returned error is a CommandErr containing that output.
-	Stdout, Stderr io.Writer
+	Stdout io.Writer `json:"-"`
+	Stderr io.Writer `json:"-"`
 
 	// Dir is the directory in which to run the command.
 	// The default is the value of GetDir(ctx) when the Run method is called.
-	Dir string
+	Dir string `json:"dir,omitempty"`
 
 	// Env is a list of VAR=VALUE strings to add to the environment when the command runs.
-	Env []string
+	Env []string `json:"env,omitempty"`
 
 	id string
 }
@@ -189,10 +161,14 @@ func (c *Command) Run(ctx context.Context) error {
 	var buf bytes.Buffer
 	cmd.Stdout, cmd.Stderr = c.Stdout, c.Stderr
 	if c.Stdout == nil {
-		c.Stdout = &buf
+		cmd.Stdout = &buf
 	}
 	if c.Stderr == nil {
-		c.Stderr = &buf
+		cmd.Stderr = &buf
+	}
+
+	if GetVerbose(ctx) {
+		fmt.Printf("  Running command %s\n", cmd)
 	}
 
 	err = cmd.Run()
@@ -258,18 +234,18 @@ type FilesCommand struct {
 var _ HashTarget = FilesCommand{}
 
 // Hash implements HashTarget.
-func (fc FilesCommand) Hash(_ context.Context) ([]byte, error) {
+func (fc FilesCommand) Hash(ctx context.Context) ([]byte, error) {
 	var (
 		inHashes  = make(map[string][]byte)
 		outHashes = make(map[string][]byte)
 	)
 	err := fillWithFileHashes(fc.In, inHashes)
 	if err != nil {
-		return nil, errors.Wrapf(err, "computing input hash(es) for %s", fc.ID())
+		return nil, errors.Wrapf(err, "computing input hash(es) for %s", Name(ctx, fc))
 	}
 	err = fillWithFileHashes(fc.Out, outHashes)
 	if err != nil {
-		return nil, errors.Wrapf(err, "computing output hash(es) for %s", fc.ID())
+		return nil, errors.Wrapf(err, "computing output hash(es) for %s", Name(ctx, fc))
 	}
 	s := struct {
 		*Command

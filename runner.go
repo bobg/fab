@@ -2,6 +2,7 @@ package fab
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -33,7 +34,7 @@ type outcome struct {
 //
 // A Runner remembers which targets it has already run
 // (whether in this call or any previous call to Run),
-// distinguishing targets by their ID() values.
+// distinguishing them by their ID() values.
 //
 // A separate goroutine is created for each Target passed to Run.
 // If the Runner has never yet run the Target,
@@ -112,38 +113,49 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 }
 
 func runTarget(ctx context.Context, db HashDB, target Target) error {
+	verbose := GetVerbose(ctx)
+
 	var ht HashTarget
 	if db != nil {
 		ht, _ = target.(HashTarget)
 		if ht != nil {
 			h, err := ht.Hash(ctx)
 			if err != nil {
-				return errors.Wrapf(err, "computing hash for %s", target.ID())
+				return errors.Wrapf(err, "computing hash for %s", Name(ctx, target))
 			}
 			has, err := db.Has(ctx, h)
 			if err != nil {
-				return errors.Wrapf(err, "checking hash db for hash of %s", target.ID())
+				return errors.Wrapf(err, "checking hash db for hash of %s", Name(ctx, target))
 			}
 			if has {
-				// Up to date!
+				if verbose {
+					fmt.Printf("%s is up to date\n", Name(ctx, target))
+				}
 				return nil
 			}
 		}
 	}
+
+	if verbose {
+		fmt.Printf("Running %s\n", Name(ctx, target))
+	}
+
 	err := target.Run(ctx)
 	if err != nil {
-		return errors.Wrapf(err, "running %s", target.ID())
+		return errors.Wrapf(err, "running %s", Name(ctx, target))
 	}
+
 	if ht != nil {
 		h, err := ht.Hash(ctx)
 		if err != nil {
-			return errors.Wrapf(err, "computing updated hash for %s", target.ID())
+			return errors.Wrapf(err, "computing updated hash for %s", Name(ctx, target))
 		}
 		err = db.Add(ctx, h)
 		if err != nil {
 			return errors.Wrap(err, "updating hash db")
 		}
 	}
+
 	return nil
 }
 
