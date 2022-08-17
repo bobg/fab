@@ -115,9 +115,11 @@ type Command struct {
 	Cmd  string
 	Args []string
 
-	Dir     string
-	Env     []string
-	Verbose bool
+	Stdout io.Writer
+	Stderr io.Writer
+
+	Dir string
+	Env []string
 
 	id string
 }
@@ -139,16 +141,17 @@ func (c *Command) Run(ctx context.Context) error {
 	}
 	cmd.Env = append(os.Environ(), c.Env...)
 
-	var buf *bytes.Buffer
-	if c.Verbose {
-		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-	} else {
-		buf = new(bytes.Buffer)
-		cmd.Stdout, cmd.Stderr = buf, buf
+	var buf bytes.Buffer
+	cmd.Stdout, cmd.Stderr = c.Stdout, c.Stderr
+	if c.Stdout == nil {
+		c.Stdout = &buf
+	}
+	if c.Stderr == nil {
+		c.Stderr = &buf
 	}
 
 	err = cmd.Run()
-	if err != nil && buf != nil {
+	if err != nil && buf.Len() > 0 {
 		err = CommandErr{
 			Err:    err,
 			Output: buf.Bytes(),
