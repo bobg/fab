@@ -1,4 +1,4 @@
-package p
+package build
 
 import "github.com/bobg/fab"
 
