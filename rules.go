@@ -4,119 +4,150 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"os/exec"
 
-	json "github.com/gibson042/canonicaljson-go"
+	"github.com/mattn/go-shellwords"
 	"github.com/pkg/errors"
 )
 
-// F is an adapter that turns a function into a Target.
-// The Target's Run method invokes the function.
-// The target's ID is F-<number> by default.
-func F(f func(context.Context) error, opts ...FOpt) Target {
-	result := &ftarget{
-		f:  f,
-		id: ID("F"),
-	}
-	for _, opt := range opts {
-		opt(result)
-	}
-	return result
+func Named(name string, target Target) Target {
+	return &named{name: name, target: target}
 }
 
-type ftarget struct {
-	f    func(context.Context) error
-	deps []Target
-	id   string
+type named struct {
+	name   string
+	target Target
+	id     string
 }
 
-// FOpt is the type of an option passed to F.
-type FOpt func(*ftarget)
+var _ Target = &named{}
 
-// FPrefix changes the target's ID prefix from the default of "F".
-func FPrefix(prefix string) FOpt {
-	return func(f *ftarget) {
-		f.id = ID(prefix)
+func (n *named) Run(ctx context.Context) error {
+	if GetVerbose(ctx) {
+		fmt.Printf("Running %s\n", n.ID())
 	}
+	return Run(ctx, n.target)
 }
 
-// FDeps adds dependencies to the target.
-// The target's Run method will ensure that the dependencies run
-// before the target's function.
-func FDeps(deps ...Target) FOpt {
-	return func(f *ftarget) {
-		f.deps = append(f.deps, deps...)
+func (n *named) ID() string {
+	if n.id == "" {
+		n.id = ID(n.name)
 	}
+	return n.id
 }
 
-var _ Target = &ftarget{}
+func All(targets ...Target) Target {
+	return &all{targets: targets}
+}
 
-func (f *ftarget) Run(ctx context.Context) error {
-	if len(f.deps) > 0 {
-		err := Run(ctx, f.deps...)
-		if err != nil {
-			return err
-		}
+type all struct {
+	targets []Target
+	id      string
+}
+
+var _ Target = &all{}
+
+func (a *all) Run(ctx context.Context) error {
+	return Run(ctx, a.targets...)
+}
+
+func (a *all) ID() string {
+	if a.id == "" {
+		a.id = ID("All")
 	}
-	return f.f(ctx)
+	return a.id
 }
 
-func (f *ftarget) ID() string {
+func Deps(target Target, depTargets ...Target) Target {
+	return &deps{target: target, deps: depTargets}
+}
+
+type deps struct {
+	target Target
+	deps   []Target
+	id     string
+}
+
+var _ Target = &deps{}
+
+func (d *deps) Run(ctx context.Context) error {
+	if err := Run(ctx, d.deps...); err != nil {
+		return err
+	}
+	return Run(ctx, d.target)
+}
+
+func (d *deps) ID() string {
+	if d.id == "" {
+		d.id = ID("Deps")
+	}
+	return d.id
+}
+
+type Func struct {
+	F  func(context.Context) error
+	id string
+}
+
+var _ Target = &Func{}
+
+func (f *Func) Run(ctx context.Context) error {
+	return f.F(ctx)
+}
+
+func (f *Func) ID() string {
+	if f.id == "" {
+		f.id = ID("Func")
+	}
 	return f.id
 }
 
-// Command is a Target that invokes a command in a subprocess in its Run method.
 type Command struct {
-	// Cmd is the command to run.
-	// It must be a full path,
-	// or appear in a directory in the PATH environment variable.
-	Cmd string `json:"cmd"`
+	// Shell is parsed into shell words to produce a command and args.
+	// It is mutually exclusive with Cmd+Args.
+	Shell string
 
-	// Args is the list of command-line arguments to pass to Cmd.
-	Args []string `json:"args,omitempty"`
+	Cmd  string
+	Args []string
 
-	// Dir is the directory in which to run the command;
-	// the current directory by default.
-	Dir string `json:"dir,omitempty"`
-
-	// Env is a list of environment variables to set while the command runs.
-	// It adds to or replaces the values in the existing environment.
-	Env []string `json:"env,omitempty"`
-
-	// Prefix is an optional human-readable prefix for the Command's unique ID.
-	// (The rest of the ID is auto-generated and random.)
-	Prefix string `json:"prefix,omitempty"`
-
-	// Verbose controls whether the Command runs verbosely.
-	// If this is true, or Verbose(ctx) is true when Run is called,
-	// then the subprocess's stdout and stderr are sent to os.Stdout and os.Stderr.
-	Verbose bool `json:"-"`
+	Dir     string
+	Env     []string
+	Verbose bool
 
 	id string
 }
 
 var _ Target = &Command{}
 
-// Run implements Target.Run.
 func (c *Command) Run(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, c.Cmd, c.Args...)
-	cmd.Dir = GetDir(ctx)
+	cmdname, args, err := c.getCmdAndArgs()
+	if err != nil {
+		return err
+	}
+
+	cmd := exec.CommandContext(ctx, cmdname, args...)
+
+	if c.Dir != "" {
+		cmd.Dir = c.Dir
+	} else {
+		cmd.Dir = GetDir(ctx)
+	}
 	cmd.Env = append(os.Environ(), c.Env...)
 
 	var buf *bytes.Buffer
-	if c.Verbose || GetVerbose(ctx) {
+	if c.Verbose {
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-		fmt.Printf("Running %s\n", c.ID())
 	} else {
 		buf = new(bytes.Buffer)
 		cmd.Stdout, cmd.Stderr = buf, buf
 	}
 
-	err := cmd.Run()
+	err = cmd.Run()
 	if err != nil && buf != nil {
 		err = CommandErr{
 			Err:    err,
@@ -126,16 +157,25 @@ func (c *Command) Run(ctx context.Context) error {
 	return err
 }
 
-// ID implements Target.ID.
 func (c *Command) ID() string {
 	if c.id == "" {
-		prefix := c.Prefix
-		if prefix == "" {
-			prefix = "Command"
-		}
-		c.id = ID(prefix)
+		c.id = ID("Command")
 	}
 	return c.id
+}
+
+func (c *Command) getCmdAndArgs() (string, []string, error) {
+	if c.Cmd != "" {
+		return c.Cmd, c.Args, nil
+	}
+	words, err := shellwords.Parse(c.Shell)
+	if err != nil {
+		return "", nil, err
+	}
+	if len(words) == 0 {
+		return "", nil, fmt.Errorf("empty shell command")
+	}
+	return words[0], words[1:], nil
 }
 
 // CommandErr is a type of error that may be returned from Command.Run.

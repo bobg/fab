@@ -2,22 +2,17 @@ package p
 
 import "github.com/bobg/fab"
 
-var Build = &fab.Command{
-	Cmd:    "go",
-	Args:   []string{"build", "./..."},
-	Prefix: "Build",
-}
-
-var Test = &fab.Command{
-	Cmd:     "go",
-	Args:    []string{"test", "-race", "-cover", "./..."},
-	Prefix:  "Test",
+var Build = fab.Named("Build", &fab.Command{
+	Shell: "go build ./...",
 	Verbose: true,
-}
+})
 
-var Lint = &fab.Command{
-	Cmd:     "staticcheck",
-	Args:    []string{"./..."},
-	Prefix:  "Lint",
+var Test = fab.Named("Test", &fab.Command{
+	Shell:   "go test -race -cover ./...",
 	Verbose: true,
-}
+})
+
+var Lint = fab.Named("Lint", &fab.Command{
+	Shell:   "staticcheck ./...",
+	Verbose: true,
+})
