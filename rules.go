@@ -15,6 +15,9 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Named produces a Target with a give name prefix
+// (the suffix is a session-unique number)
+// that wraps another Target.
 func Named(name string, target Target) Target {
 	return &named{name: name, target: target}
 }
@@ -41,6 +44,7 @@ func (n *named) ID() string {
 	return n.id
 }
 
+// All produces a target that runs a collection of targets in parallel.
 func All(targets ...Target) Target {
 	return &all{targets: targets}
 }
@@ -63,63 +67,102 @@ func (a *all) ID() string {
 	return a.id
 }
 
+// Seq produces a target that runs a collection of targets in sequence.
+// It exits early when a target in the sequence fails.
+func Seq(targets ...Target) Target {
+	return &seq{targets: targets}
+}
+
+type seq struct {
+	targets []Target
+	id      string
+}
+
+var _ Target = &seq{}
+
+func (s *seq) Run(ctx context.Context) error {
+	for _, t := range s.targets {
+		if err := Run(ctx, t); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *seq) ID() string {
+	if s.id == "" {
+		s.id = ID("Seq")
+	}
+	return s.id
+}
+
+// Deps wraps a target with a set of dependencies,
+// making sure those run first.
+//
+// It is equivalent to Seq(All(depTargets...), target).
 func Deps(target Target, depTargets ...Target) Target {
-	return &deps{target: target, deps: depTargets}
+	return Seq(All(depTargets...), target)
 }
 
-type deps struct {
-	target Target
-	deps   []Target
-	id     string
+// F produces a target whose Run function invokes the given function.
+func F(f func(context.Context) error) Target {
+	return &ftarget{f: f}
 }
 
-var _ Target = &deps{}
-
-func (d *deps) Run(ctx context.Context) error {
-	if err := Run(ctx, d.deps...); err != nil {
-		return err
-	}
-	return Run(ctx, d.target)
-}
-
-func (d *deps) ID() string {
-	if d.id == "" {
-		d.id = ID("Deps")
-	}
-	return d.id
-}
-
-type Func struct {
-	F  func(context.Context) error
+type ftarget struct {
+	f  func(context.Context) error
 	id string
 }
 
-var _ Target = &Func{}
+var _ Target = &ftarget{}
 
-func (f *Func) Run(ctx context.Context) error {
-	return f.F(ctx)
+func (f *ftarget) Run(ctx context.Context) error {
+	return f.f(ctx)
 }
 
-func (f *Func) ID() string {
+func (f *ftarget) ID() string {
 	if f.id == "" {
-		f.id = ID("Func")
+		f.id = ID("F")
 	}
 	return f.id
 }
 
+// Command is a target whose Run function executes a command in a subprocess.
 type Command struct {
-	// Shell is parsed into shell words to produce a command and args.
-	// It is mutually exclusive with Cmd+Args.
+	// Shell is the command to run,
+	// as a single string with command name and arguments together.
+	// It is parsed as if by a Unix shell,
+	// with quoting and so on,
+	// in order to produce the command name
+	// and a list of individual argument strings.
+	//
+	// To bypass this parsing behavior,
+	// you may specify Cmd and Args directly.
 	Shell string
 
-	Cmd  string
+	// Cmd is the command to invoke,
+	// either the path to a file,
+	// or an executable file found in some directory
+	// named in the PATH environment variable.
+	//
+	// Leave Cmd blank and specify Shell instead
+	// to get shell-like parsing of a command and its arguments.
+	Cmd string
+
+	// Args is the list of command-line arguments
+	// to pass to the command named in Cmd.
 	Args []string
 
 	Stdout io.Writer
 	Stderr io.Writer
 
+	// Dir is the directory in which to run the command.
+	// The default is the value of GetDir(ctx) when the Run method is called.
 	Dir string
+
+	// Env is a list of VAR=VALUE strings to add to the environment when the command runs.
 	Env []string
+
 
 	id string
 }
@@ -183,7 +226,7 @@ func (c *Command) getCmdAndArgs() (string, []string, error) {
 
 // CommandErr is a type of error that may be returned from Command.Run.
 // If output was suppressed
-// (because Command.Verbose and Verbose(ctx) were both false)
+// (because the Verbose field was false)
 // this contains both the underlying error and the subprocess's combined output.
 type CommandErr struct {
 	Err    error
