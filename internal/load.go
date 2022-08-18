@@ -26,6 +26,37 @@ import (
 //go:embed driver.go.tmpl
 var driverStr string
 
+// Load builds a Go binary out of the Go package at `pkgdir` and a special main function.
+// It then prepares an exec.Cmd for running that binary and passes it to a callback function.
+//
+// After the Go package at `pkgdir` is loaded,
+// it is scanned for exported symbols
+// whose types satisfy the fab.Target interface.
+// Those become named targets
+// runnable from the command line of the generated binary.
+// For the command line,
+// the exported names are transformed from Upper to lower case,
+// and from CamelCase to snake_case.
+//
+// The arguments for the generated binary are:
+//
+//   - "-v" [optional] run verbosely
+//   - DIR [required] the directory in which rules should run
+//   - OUTFILE [required] the name of a file in which to write the output
+//
+// ...followed by zero or more targets names
+// (downcased and snake_cased as described).
+// If there are zero targets,
+// a target named Default is used,
+// if one is defined;
+// otherwise this is an error.
+//
+// The output of the binary,
+// placed in OUTFILE,
+// is a JSON-encoded array of error strings
+// produced by the targets that ran.
+// If this are no errors,
+// this will be an empty array.
 func Load(ctx context.Context, pkgdir string, f func(*exec.Cmd) error) error {
 	loadpath := pkgdir
 	if !filepath.IsAbs(pkgdir) {

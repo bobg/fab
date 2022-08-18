@@ -165,7 +165,7 @@ var DefaultRunner = NewRunner()
 // Run runs the given targets with a Runner.
 // If `ctx` contains a Runner
 // (e.g., because this is a recursive call
-// and the ctx has been decorated using WithRunner)
+// and the context has been decorated using WithRunner)
 // then it uses that Runner,
 // otherwise it uses DefaultRunner.
 func Run(ctx context.Context, targets ...Target) error {

@@ -13,7 +13,7 @@ Unlike Make, recipes are written in Go.
 ## How it works
 
 You create a package of Go code in your project.
-By default the `fab` program looks for the package in the `.fab` subdir.
+By default the `fab` program looks for the package in the `fab.d` subdir.
 Every exported symbol in that package
 whose type satisfies the `fab.Target` interface
 is a target that fab can run.

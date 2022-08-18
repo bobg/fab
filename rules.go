@@ -39,7 +39,7 @@ func (a *all) ID() string {
 }
 
 // Seq produces a target that runs a collection of targets in sequence.
-// It exits early when a target in the sequence fails.
+// Its Run method exits early when a target in the sequence fails.
 func Seq(targets ...Target) Target {
 	return &seq{targets: targets}
 }
