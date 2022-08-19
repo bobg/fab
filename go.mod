@@ -13,6 +13,7 @@ require (
 )
 
 require (
+	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/bobg/go-generics v1.0.1 // indirect
 	github.com/mattn/go-shellwords v1.0.12 // indirect
 	go.uber.org/atomic v1.7.0 // indirect

@@ -203,9 +203,9 @@ func (c *Command) getCmdAndArgs() (string, []string, error) {
 }
 
 // CommandErr is a type of error that may be returned from Command.Run.
-// If output was suppressed
-// (because the Verbose field was false)
-// this contains both the underlying error and the subprocess's combined output.
+// If the Command's Stdout or Stderr field was nil,
+// then that output from the subprocess is in CommandErr.Output
+// and the underlying error is in CommandErr.Err.
 type CommandErr struct {
 	Err    error
 	Output []byte

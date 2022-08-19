@@ -20,22 +20,23 @@ func TestHashTarget(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	inPath := filepath.Join(dir, "in")
-	outPath := filepath.Join(dir, "out")
+	var (
+		inpath  = filepath.Join(dir, "in")
+		outpath = filepath.Join(dir, "out")
+		teststr = "foo"
+	)
 
-	teststr := "foo"
-
-	err = os.WriteFile(inPath, []byte(teststr), 0644)
+	err = os.WriteFile(inpath, []byte(teststr), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	fc := &FilesCommand{
 		Command: &Command{
-			Shell: fmt.Sprintf("sh -c 'cat %s >> %s'", inPath, outPath),
+			Shell: fmt.Sprintf("sh -c 'cat %s >> %s'", inpath, outpath),
 		},
-		In:  []string{inPath},
-		Out: []string{outPath},
+		In:  []string{inpath},
+		Out: []string{outpath},
 	}
 
 	ctx := context.Background()
@@ -51,9 +52,9 @@ func TestHashTarget(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			got, err := os.ReadFile(outPath)
+			got, err := os.ReadFile(outpath)
 			if err != nil && !errors.Is(err, fs.ErrNotExist) {
-				t.Fatalf("Reading %s: %s", outPath, err)
+				t.Fatalf("Reading %s: %s", outpath, err)
 			}
 			if err != nil {
 				got = nil
@@ -72,63 +73,63 @@ func TestHashTarget(t *testing.T) {
 		}
 	}
 
-	t.Run("first run, no db", try(true))
+	t.Run("1 no db", try(true))
 
 	db := memdb(set.New[string]())
 	ctx = WithHashDB(ctx, db)
 
-	t.Run("second run, with empty db", try(true))
-	t.Run("third run, with non-empty db", try(false))
+	t.Run("2 empty db", try(true))
+	t.Run("3 non-empty db", try(false))
 
-	// Rewrite inPath but don't change its contents.
-	err = os.WriteFile(inPath, []byte(teststr), 0644)
+	// Rewrite inpath but don't change its contents.
+	err = os.WriteFile(inpath, []byte(teststr), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Run("fourth run, with unaltered inPath but new modtime", try(false))
+	t.Run("4 unaltered inpath but new modtime", try(false))
 
-	// Rewrite inPath and do change its contents.
+	// Rewrite inpath and do change its contents.
 	teststr = "bar"
-	err = os.WriteFile(inPath, []byte(teststr), 0644)
+	err = os.WriteFile(inpath, []byte(teststr), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Run("fifth run, with altered inPath", try(true))
+	t.Run("5 altered inpath", try(true))
 
-	// Remove outPath.
-	err = os.Remove(outPath)
+	// Remove outpath.
+	err = os.Remove(outpath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	expect = ""
 
-	t.Run("sixth run, with removed outPath", try(true))
+	t.Run("6 removed outpath", try(true))
 
-	// Alter outPath.
+	// Alter outpath.
 	expect = teststr + "x"
-	err = os.WriteFile(outPath, []byte(expect), 0644)
+	err = os.WriteFile(outpath, []byte(expect), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Run("seventh run, with altered outPath", try(true))
+	t.Run("7 altered outpath", try(true))
 
-	// Set inPath and outPath to an earlier state that's in the db.
+	// Set inpath and outpath to an earlier state that's in the db.
 	expect = "foofoo"
 	teststr = "foo"
-	err = os.WriteFile(inPath, []byte(teststr), 0644)
+	err = os.WriteFile(inpath, []byte(teststr), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.WriteFile(outPath, []byte(expect), 0644)
+	err = os.WriteFile(outpath, []byte(expect), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Run("eighth run, with an earlier state restored", try(false))
+	t.Run("8 earlier state restored", try(false))
 }
 
 type memdb set.Of[string]
