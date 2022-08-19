@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"time"
 
 	"github.com/bobg/fab"
 	"github.com/bobg/fab/internal"
@@ -24,7 +25,7 @@ func main() {
 	ctx := context.Background()
 	ctx = fab.WithVerbose(ctx, verbose)
 	if dbfile != "" {
-		db, err := sqlite.Open(ctx, dbfile)
+		db, err := sqlite.Open(ctx, dbfile, sqlite.Keep(30*24*time.Hour)) // keep db entries for 30 days
 		if err != nil {
 			log.Fatalf("Error opening %s: %s", dbfile, err)
 		}
