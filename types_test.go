@@ -1,4 +1,4 @@
-package internal
+package fab
 
 import (
 	"go/types"
@@ -11,7 +11,7 @@ func TestImplementsTarget(t *testing.T) {
 	config := &packages.Config{
 		Mode: packages.NeedName | packages.NeedTypes | packages.NeedDeps,
 	}
-	pkgs, err := packages.Load(config, "..")
+	pkgs, err := packages.Load(config, ".")
 	if err != nil {
 		t.Fatal(err)
 	}

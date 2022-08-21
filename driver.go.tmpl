@@ -17,6 +17,8 @@ import (
 	subpkg "x/pkg/{{ .Subpkg }}"
 )
 
+var dirHash = "{{ .Dirhash }}"
+
 func main() {
 	index := map[string]fab.Target{
 		{{ range .Targets }}

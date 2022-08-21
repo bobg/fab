@@ -1,4 +1,4 @@
-package internal
+package fab
 
 import (
 	"context"
@@ -7,8 +7,6 @@ import (
 	"reflect"
 
 	"github.com/pkg/errors"
-
-	"github.com/bobg/fab"
 )
 
 var targetMethods = make(map[string]reflect.Method)
@@ -16,13 +14,13 @@ var targetMethods = make(map[string]reflect.Method)
 // nullTarget is here so we can get reflection info about Target
 type nullTarget struct{}
 
-var _ fab.Target = nullTarget{}
+var _ Target = nullTarget{}
 
 func (nullTarget) ID() string                { return "" }
 func (nullTarget) Run(context.Context) error { return nil }
 
 func init() {
-	var nt fab.Target = nullTarget{}
+	var nt Target = nullTarget{}
 	targetType := reflect.TypeOf(nt)
 	for i := 0; i < targetType.NumMethod(); i++ {
 		method := targetType.Method(i)
