@@ -3,7 +3,9 @@ package fab
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -14,6 +16,8 @@ import (
 //
 // A zero runner is not usable. Use NewRunner to obtain one instead.
 type Runner struct {
+	depth int32
+
 	mu  sync.Mutex // protects ran
 	ran map[string]*outcome
 }
@@ -74,6 +78,9 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 
 	ctx = WithRunner(ctx, r)
 
+	atomic.AddInt32(&r.depth, 1)
+	defer atomic.AddInt32(&r.depth, -1)
+
 	var (
 		db   = GetHashDB(ctx)
 		errs = make([]error, len(targets))
@@ -99,7 +106,7 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 				o.g.wait()
 				errs[i] = o.err
 			} else {
-				err := runTarget(ctx, db, target)
+				err := r.runTarget(ctx, db, target)
 				errs[i] = err
 				o.err = err
 				o.g.set(true)
@@ -112,7 +119,7 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 	return multierr.Combine(errs...)
 }
 
-func runTarget(ctx context.Context, db HashDB, target Target) error {
+func (r *Runner) runTarget(ctx context.Context, db HashDB, target Target) error {
 	verbose := GetVerbose(ctx)
 
 	var ht HashTarget
@@ -129,7 +136,7 @@ func runTarget(ctx context.Context, db HashDB, target Target) error {
 			}
 			if has {
 				if verbose {
-					fmt.Printf("%s is up to date\n", Name(ctx, target))
+					r.Indentf("%s is up to date", Name(ctx, target))
 				}
 				return nil
 			}
@@ -137,7 +144,7 @@ func runTarget(ctx context.Context, db HashDB, target Target) error {
 	}
 
 	if verbose {
-		fmt.Printf("Running %s\n", Name(ctx, target))
+		r.Indentf("Running %s", Name(ctx, target))
 	}
 
 	err := target.Run(ctx)
@@ -157,6 +164,14 @@ func runTarget(ctx context.Context, db HashDB, target Target) error {
 	}
 
 	return nil
+}
+
+func (r *Runner) Indentf(format string, args ...any) {
+	if depth := atomic.LoadInt32(&r.depth); depth > 0 {
+		fmt.Print(strings.Repeat("  ", int(depth)))
+	}
+	fmt.Printf(format, args...)
+	fmt.Println("")
 }
 
 // DefaultRunner is a Runner used by default in Run.
