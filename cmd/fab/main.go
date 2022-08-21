@@ -4,10 +4,8 @@ import (
 	"context"
 	"flag"
 	"log"
-	"time"
 
 	"github.com/bobg/fab"
-	"github.com/bobg/fab/sqlite"
 )
 
 func main() {
@@ -23,16 +21,14 @@ func main() {
 
 	ctx := context.Background()
 	ctx = fab.WithVerbose(ctx, verbose)
-	if dbfile != "" {
-		db, err := sqlite.Open(ctx, dbfile, sqlite.Keep(30*24*time.Hour)) // keep db entries for 30 days
-		if err != nil {
-			log.Fatalf("Error opening %s: %s", dbfile, err)
-		}
-		defer db.Close()
-		ctx = fab.WithHashDB(ctx, db)
-	}
 
-	err := fab.CompileAndRun(ctx, pkgdir, flag.Args()...)
+	var args []string
+	if dbfile != "" {
+		args = append(args, "-db", dbfile)
+	}
+	args = append(args, flag.Args()...)
+
+	err := fab.CompileAndRun(ctx, pkgdir, args...)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -84,27 +84,8 @@ func (c *compiler) compile(ctx context.Context, f func(*exec.Cmd) error) error {
 	}
 	defer os.RemoveAll(tmpdir)
 
-	fabsubdir := filepath.Join(tmpdir, "fab")
-	if err = os.Mkdir(fabsubdir, 0755); err != nil {
-		return errors.Wrapf(err, "creating %s", fabsubdir)
-	}
-	embFiles, err := embeds.ReadDir(".")
-	if err != nil {
-		return errors.Wrap(err, "reading embeds")
-	}
-	for _, emb := range embFiles {
-		if strings.HasSuffix(emb.Name(), "_test.go") {
-			continue
-		}
-		contents, err := embeds.ReadFile(emb.Name())
-		if err != nil {
-			return errors.Wrapf(err, "reading embedded file %s", emb.Name())
-		}
-		dest := filepath.Join(fabsubdir, emb.Name())
-		err = os.WriteFile(dest, contents, 0644)
-		if err != nil {
-			return errors.Wrapf(err, "writing %s", dest)
-		}
+	if err = populateFabDir(tmpdir); err != nil {
+		return errors.Wrap(err, "copying fab code")
 	}
 
 	subpkgdir := filepath.Join(tmpdir, "pkg", c.pkg.Name)
@@ -190,16 +171,14 @@ func (c *compiler) compile(ctx context.Context, f func(*exec.Cmd) error) error {
 	if err != nil {
 		return errors.Wrapf(err, "parsing %s", gomodPath)
 	}
-	err = mf.AddReplace("github.com/bobg/fab", "", "./fab", "")
-	if err != nil {
+	if err = mf.AddReplace("github.com/bobg/fab", "", "./fab", ""); err != nil {
 		return errors.Wrapf(err, "adding replace directive in %s", gomodPath)
 	}
 	gomodData, err = mf.Format()
 	if err != nil {
 		return errors.Wrapf(err, "formatting go.mod in %s", gomodPath)
 	}
-	err = os.WriteFile(gomodPath, gomodData, 0644)
-	if err != nil {
+	if err = os.WriteFile(gomodPath, gomodData, 0644); err != nil {
 		return errors.Wrapf(err, "rewriting %s", gomodPath)
 	}
 
@@ -219,6 +198,42 @@ func (c *compiler) compile(ctx context.Context, f func(*exec.Cmd) error) error {
 
 	cmd = exec.CommandContext(ctx, filepath.Join(tmpdir, "x"))
 	return f(cmd)
+}
+
+func populateFabDir(tmpdir string) error {
+	return populateFabSubdir(filepath.Join(tmpdir, "fab"), ".")
+}
+
+func populateFabSubdir(destdir, subdir string) error {
+	if err := os.MkdirAll(destdir, 0755); err != nil {
+		return errors.Wrapf(err, "creating %s", destdir)
+	}
+	entries, err := embeds.ReadDir(subdir)
+	if err != nil {
+		return errors.Wrap(err, "reading embeds")
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			err = populateFabSubdir(filepath.Join(destdir, entry.Name()), filepath.Join(subdir, entry.Name()))
+			if err != nil {
+				return errors.Wrapf(err, "populating dir %s", entry.Name())
+			}
+			continue
+		}
+		if strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		contents, err := embeds.ReadFile(filepath.Join(subdir, entry.Name()))
+		if err != nil {
+			return errors.Wrapf(err, "reading embedded file %s", entry.Name())
+		}
+		dest := filepath.Join(destdir, entry.Name())
+		err = os.WriteFile(dest, contents, 0644)
+		if err != nil {
+			return errors.Wrapf(err, "writing %s", dest)
+		}
+	}
+	return nil
 }
 
 func copyAndHash(filename, destdir string, dh *DirHasher) error {
@@ -282,7 +297,8 @@ func CompileAndRun(ctx context.Context, pkgdir string, args ...string) error {
 		if GetVerbose(ctx) {
 			cmd.Args = append(cmd.Args, "-v")
 		}
-		cmd.Args = append(cmd.Args, cwd, tmpfile.Name())
+		cmd.Args = append(cmd.Args, "-rundir", cwd)
+		cmd.Args = append(cmd.Args, "-o", tmpfile.Name())
 		cmd.Args = append(cmd.Args, args...)
 
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
