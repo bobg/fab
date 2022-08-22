@@ -92,6 +92,7 @@ func (c *compiler) compile(ctx context.Context, f func(*exec.Cmd) error) error {
 	if err = os.MkdirAll(subpkgdir, 0755); err != nil {
 		return errors.Wrapf(err, "creating %s", subpkgdir)
 	}
+
 	entries, err := os.ReadDir(c.pkgdir)
 	if err != nil {
 		return errors.Wrapf(err, "reading entries from %s", c.pkgdir)
@@ -125,10 +126,12 @@ func (c *compiler) compile(ctx context.Context, f func(*exec.Cmd) error) error {
 	data := struct {
 		Subpkg  string
 		Dirhash string
+		Pkgdir  string
 		Targets []templateTarget
 	}{
 		Subpkg:  c.pkg.Name,
 		Dirhash: dirhash,
+		Pkgdir:  c.pkgdir,
 	}
 	for _, target := range targets {
 		data.Targets = append(data.Targets, templateTarget{

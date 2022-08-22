@@ -8,18 +8,23 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
 
 	"github.com/bobg/fab"
 	"github.com/bobg/fab/sqlite"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	subpkg "x/pkg/{{ .Subpkg }}"
 )
 
-var dirHash = "{{ .Dirhash }}"
+var (
+	wantDirhash = "{{ .Dirhash }}"
+	pkgdir      = "{{ .Pkgdir }}"
+)
 
 func main() {
 	index := map[string]fab.Target{
@@ -43,12 +48,11 @@ func main() {
 	ctx = fab.WithNames(ctx, names)
 
 	var (
-		verbose bool
-		dbfile  string
-		rundir  string
-		outfile string
+		verbose, nocheck        bool
+		dbfile, rundir, outfile string
 	)
 	flag.BoolVar(&verbose, "v", false, "run verbosely")
+	flag.BoolVar(&nocheck, "nocheck", false, "suppress dirhash checking")
 	flag.StringVar(&dbfile, "db", "", "path to Sqlite3 hash database file")
 	flag.StringVar(&rundir, "rundir", "", "directory in which to execute rules")
 	flag.StringVar(&outfile, "o", "", "file in which to place JSON-encoded error output")
@@ -56,6 +60,35 @@ func main() {
 
 	if outfile == "" {
 		log.Fatal("Must specify an output file with -o")
+	}
+
+	if !nocheck {
+		entries, err := os.ReadDir(pkgdir)
+		if err != nil {
+			log.Fatalf("Reading directory %s: %s", pkgdir, err)
+		}
+		dh := fab.NewDirHasher()
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			if strings.HasSuffix(entry.Name(), "_test.go") {
+				continue
+			}
+			if !strings.HasSuffix(entry.Name(), ".go") {
+				continue
+			}
+			if err = addFileToHash(dh, filepath.Join(pkgdir, entry.Name())); err != nil {
+				log.Fatalf("Hashing file %s/%s: %s", pkgdir, entry.Name(), err)
+			}
+		}
+		gotDirhash, err := dh.Hash()
+		if err != nil {
+			log.Fatalf("Reading dirhash: %s", err)
+		}
+		if gotDirhash != wantDirhash {
+			log.Fatalf("Dirhash mismatch: got %s, want %s", gotDirhash, wantDirhash)
+		}
 	}
 
 	f, err := os.OpenFile(outfile, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
@@ -117,4 +150,14 @@ func main() {
 		output = append(output, e.Error())
 	}
 	enc.Encode(output)
+}
+
+func addFileToHash(dh *fab.DirHasher, filename string) error {
+	f, err := os.Open(filename)
+	if err != nil {
+		return errors.Wrapf(err, "opening %s", filename)
+	}
+	defer f.Close()
+
+	return dh.File(filename, f)
 }
