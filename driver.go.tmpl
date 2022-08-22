@@ -3,11 +3,11 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -16,7 +16,6 @@ import (
 	"github.com/bobg/fab"
 	"github.com/bobg/fab/sqlite"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	subpkg "x/pkg/{{ .Subpkg }}"
 )
@@ -24,6 +23,7 @@ import (
 var (
 	wantDirhash = "{{ .Dirhash }}"
 	pkgdir      = "{{ .Pkgdir }}"
+	binfile     = "{{ .Binfile }}"
 )
 
 func main() {
@@ -49,18 +49,13 @@ func main() {
 
 	var (
 		verbose, nocheck        bool
-		dbfile, rundir, outfile string
+		dbfile, rundir, binfile string
 	)
 	flag.BoolVar(&verbose, "v", false, "run verbosely")
 	flag.BoolVar(&nocheck, "nocheck", false, "suppress dirhash checking")
 	flag.StringVar(&dbfile, "db", "", "path to Sqlite3 hash database file")
 	flag.StringVar(&rundir, "rundir", "", "directory in which to execute rules")
-	flag.StringVar(&outfile, "o", "", "file in which to place JSON-encoded error output")
 	flag.Parse()
-
-	if outfile == "" {
-		log.Fatal("Must specify an output file with -o")
-	}
 
 	if !nocheck {
 		entries, err := os.ReadDir(pkgdir)
@@ -87,17 +82,25 @@ func main() {
 			log.Fatalf("Reading dirhash: %s", err)
 		}
 		if gotDirhash != wantDirhash {
-			log.Fatalf("Dirhash mismatch: got %s, want %s", gotDirhash, wantDirhash)
+			fmt.Printf("Recompiling %s\n", binfile)
+			err = fab.Compile(ctx, pkgdir, binfile)
+			if err != nil {
+				log.Fatalf("Compiling %s: %s", binfile, err)
+			}
+			abs, err := filepath.Abs(binfile)
+			if err != nil {
+				log.Fatalf("Computing absolute pathname for %s", binfile)
+			}
+			args := []string{"-nocheck"}
+			args = append(args, os.Args[1:]...)
+			cmd := exec.CommandContext(ctx, abs, args...)
+			cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+			if err = cmd.Run(); err != nil {
+				log.Fatalf("Running %s %s: %s", abs, strings.Join(args, " "), err)
+			}
+			return
 		}
 	}
-
-	f, err := os.OpenFile(outfile, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
-	if err != nil {
-		log.Fatalf("Opening %s for writing: %s", outfile, err)
-	}
-	defer f.Close()
-	enc := json.NewEncoder(f)
-	enc.SetIndent("", "  ")
 
 	ctx = fab.WithVerbose(ctx, verbose)
 	if rundir != "" {
@@ -133,23 +136,14 @@ func main() {
 		}
 	}
 
-	var errs []error
-
 	if len(unknown) > 0 {
-		errs = append(errs, fmt.Errorf("unknown target(s): %s", strings.Join(unknown, " ")))
-	} else {
-		runner := fab.NewRunner()
-		err := runner.Run(ctx, targets...)
-		if err != nil {
-			errs = multierr.Errors(err)
-		}
+		log.Fatalf("Unknown target(s): %s", strings.Join(unknown, " "))
 	}
 
-	output := []string{} // n.b. not nil, which JSON-encodes as "null"
-	for _, e := range errs {
-		output = append(output, e.Error())
+	runner := fab.NewRunner()
+	if err := runner.Run(ctx, targets...); err != nil {
+		log.Fatal(err)
 	}
-	enc.Encode(output)
 }
 
 func addFileToHash(dh *fab.DirHasher, filename string) error {

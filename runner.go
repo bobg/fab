@@ -190,3 +190,14 @@ func Run(ctx context.Context, targets ...Target) error {
 	}
 	return runner.Run(ctx, targets...)
 }
+
+func Indentf(ctx context.Context, format string, args ...any) {
+	if !strings.HasSuffix(format, "\n") {
+		format += "\n"
+	}
+	if runner := GetRunner(ctx); runner != nil {
+		runner.Indentf(format, args...)
+	} else {
+		fmt.Printf(format, args...)
+	}
+}
