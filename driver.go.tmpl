@@ -48,8 +48,8 @@ func main() {
 	ctx = fab.WithNames(ctx, names)
 
 	var (
-		verbose, nocheck        bool
-		dbfile, rundir, binfile string
+		verbose, nocheck bool
+		dbfile, rundir   string
 	)
 	flag.BoolVar(&verbose, "v", false, "run verbosely")
 	flag.BoolVar(&nocheck, "nocheck", false, "suppress dirhash checking")

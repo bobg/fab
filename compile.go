@@ -15,14 +15,23 @@ import (
 
 	"github.com/fatih/camelcase"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/packages"
 )
 
 func Compile(ctx context.Context, pkgdir, binfile string) error {
-	pkgpath := pkgdir
-	if !filepath.IsAbs(pkgdir) {
-		_, err := os.Stat(pkgdir)
+	var (
+		pkgpath string
+		err     error
+	)
+	if filepath.IsAbs(pkgdir) {
+		pkgpath, err = moduleRelPath(pkgdir)
+		if err != nil {
+			return errors.Wrapf(err, "getting module-relative path of %s", pkgdir)
+		}
+	} else {
+		_, err = os.Stat(pkgdir)
 		if errors.Is(err, fs.ErrNotExist) {
 			// do nothing
 		} else if err != nil {
@@ -42,7 +51,15 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 	if len(pkgs) != 1 {
 		return errors.Wrapf(err, "found %d packages in %s, want 1", len(pkgs), pkgpath)
 	}
-	c := compiler{pkg: pkgs[0], pkgdir: pkgdir, binfile: binfile}
+	pkg := pkgs[0]
+	if len(pkg.Errors) > 0 {
+		err = nil
+		for _, e := range pkg.Errors {
+			err = multierr.Append(err, e)
+		}
+		return err
+	}
+	c := compiler{pkg: pkg, pkgdir: pkgdir, binfile: binfile}
 	return c.compile(ctx)
 }
 
@@ -264,4 +281,31 @@ func toSnake(inp string) string {
 		parts[i] = strings.ToLower(parts[i])
 	}
 	return strings.Join(parts, "_")
+}
+
+// Returns the relative path from the directory containing go.mod down to dir.
+func moduleRelPath(dir string) (string, error) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", errors.Wrapf(err, "getting absolute path of %s", dir)
+	}
+	var (
+		parent = filepath.Dir(abs)
+		base   = filepath.Base(abs)
+	)
+	if parent == abs {
+		return "", fmt.Errorf("no module found for %s", dir)
+	}
+	_, err = os.Stat(filepath.Join(parent, "go.mod"))
+	if err == nil {
+		return "./" + base, nil
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		return "", errors.Wrapf(err, "statting %s", parent)
+	}
+	got, err := moduleRelPath(parent)
+	if err != nil {
+		return "", err
+	}
+	return got + "/" + base, nil
 }
