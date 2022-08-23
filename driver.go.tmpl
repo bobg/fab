@@ -5,7 +5,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -60,7 +59,7 @@ func main() {
 	if !nocheck {
 		entries, err := os.ReadDir(pkgdir)
 		if err != nil {
-			log.Fatalf("Reading directory %s: %s", pkgdir, err)
+			fatalf("Reading directory %s: %s", pkgdir, err)
 		}
 		dh := fab.NewDirHasher()
 		for _, entry := range entries {
@@ -74,29 +73,29 @@ func main() {
 				continue
 			}
 			if err = addFileToHash(dh, filepath.Join(pkgdir, entry.Name())); err != nil {
-				log.Fatalf("Hashing file %s/%s: %s", pkgdir, entry.Name(), err)
+				fatalf("Hashing file %s/%s: %s", pkgdir, entry.Name(), err)
 			}
 		}
 		gotDirhash, err := dh.Hash()
 		if err != nil {
-			log.Fatalf("Reading dirhash: %s", err)
+			fatalf("Reading dirhash: %s", err)
 		}
 		if gotDirhash != wantDirhash {
 			fmt.Printf("Recompiling %s\n", binfile)
 			err = fab.Compile(ctx, pkgdir, binfile)
 			if err != nil {
-				log.Fatalf("Compiling %s: %s", binfile, err)
+				fatalf("Compiling %s: %s", binfile, err)
 			}
 			abs, err := filepath.Abs(binfile)
 			if err != nil {
-				log.Fatalf("Computing absolute pathname for %s", binfile)
+				fatalf("Computing absolute pathname for %s", binfile)
 			}
 			args := []string{"-nocheck"}
 			args = append(args, os.Args[1:]...)
 			cmd := exec.CommandContext(ctx, abs, args...)
 			cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 			if err = cmd.Run(); err != nil {
-				log.Fatalf("Running %s %s: %s", abs, strings.Join(args, " "), err)
+				fatalf("Running %s %s: %s", abs, strings.Join(args, " "), err)
 			}
 			return
 		}
@@ -107,7 +106,7 @@ func main() {
 	if dbfile != "" {
 		db, err := sqlite.Open(ctx, dbfile, sqlite.Keep(30*24*time.Hour)) // keep db entries for 30 days
 		if err != nil {
-			log.Fatalf("Error opening %s: %s", dbfile, err)
+			fatalf("Error opening %s: %s", dbfile, err)
 		}
 		defer db.Close()
 		ctx = fab.WithHashDB(ctx, db)
@@ -116,7 +115,7 @@ func main() {
 	args := flag.Args()
 	if len(args) == 0 {
 		if _, ok := index["default"]; !ok {
-			log.Fatal("No targets given and no default target defined")
+			fatalf("No targets given and no default target defined")
 		}
 		args = []string{"default"}
 	}
@@ -135,13 +134,21 @@ func main() {
 	}
 
 	if len(unknown) > 0 {
-		log.Fatalf("Unknown target(s): %s", strings.Join(unknown, " "))
+		fatalf("Unknown target(s): %s", strings.Join(unknown, " "))
 	}
 
 	runner := fab.NewRunner()
 	if err := runner.Run(ctx, targets...); err != nil {
-		log.Fatal(err)
+		fatalf("Error: %s", err)
 	}
+}
+
+func fatalf(format string, args ...any) {
+	fmt.Printf(format, args...)
+	if !strings.HasSuffix(format, "\n") {
+		fmt.Println("")
+	}
+	os.Exit(1)
 }
 
 func addFileToHash(dh *fab.DirHasher, filename string) error {

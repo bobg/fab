@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
+	"fmt"
+	"os"
 
 	"github.com/bobg/fab"
 )
@@ -32,6 +33,7 @@ func main() {
 		Args:    flag.Args(),
 	}
 	if err := m.Run(context.Background()); err != nil {
-		log.Fatalf("Error: %s", err)
+		fmt.Printf("Error: %s\n", err)
+		os.Exit(1)
 	}
 }
