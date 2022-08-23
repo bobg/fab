@@ -48,13 +48,13 @@ func main() {
 	ctx = fab.WithNames(ctx, names)
 
 	var (
-		verbose, nocheck bool
-		dbfile, rundir   string
+		verbose bool
+		nocheck bool
+		dbfile  string
 	)
 	flag.BoolVar(&verbose, "v", false, "run verbosely")
 	flag.BoolVar(&nocheck, "nocheck", false, "suppress dirhash checking")
 	flag.StringVar(&dbfile, "db", "", "path to Sqlite3 hash database file")
-	flag.StringVar(&rundir, "rundir", "", "directory in which to execute rules")
 	flag.Parse()
 
 	if !nocheck {
@@ -103,9 +103,7 @@ func main() {
 	}
 
 	ctx = fab.WithVerbose(ctx, verbose)
-	if rundir != "" {
-		ctx = fab.WithDir(ctx, rundir)
-	}
+
 	if dbfile != "" {
 		db, err := sqlite.Open(ctx, dbfile, sqlite.Keep(30*24*time.Hour)) // keep db entries for 30 days
 		if err != nil {

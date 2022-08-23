@@ -23,19 +23,6 @@ func TestWithVerbose(t *testing.T) {
 	}
 }
 
-func TestWithDir(t *testing.T) {
-	ctx := context.Background()
-	got := GetDir(ctx)
-	if got != "" {
-		t.Errorf(`got %s, want ""`, got)
-	}
-	ctx = WithDir(ctx, "foo")
-	got = GetDir(ctx)
-	if got != "foo" {
-		t.Errorf("got %s, want foo", got)
-	}
-}
-
 func TestWithRunner(t *testing.T) {
 	ctx := context.Background()
 	got := GetRunner(ctx)

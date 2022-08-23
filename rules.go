@@ -151,11 +151,7 @@ func (c *Command) Run(ctx context.Context) error {
 
 	cmd := exec.CommandContext(ctx, cmdname, args...)
 
-	if c.Dir != "" {
-		cmd.Dir = c.Dir
-	} else {
-		cmd.Dir = GetDir(ctx)
-	}
+	cmd.Dir = c.Dir
 	cmd.Env = append(os.Environ(), c.Env...)
 
 	var buf bytes.Buffer
