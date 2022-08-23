@@ -101,25 +101,3 @@ func TestCompile(t *testing.T) {
 		t.Error("driver did not get rebuilt but should have")
 	}
 }
-
-func TestModuleRelPath(t *testing.T) {
-	cases := []struct {
-		dir, want string
-	}{{
-		dir: "foo", want: "./foo",
-	}, {
-		dir: "foo/bar", want: "./foo/bar",
-	}}
-
-	for _, tc := range cases {
-		t.Run(tc.dir, func(t *testing.T) {
-			got, err := moduleRelPath(filepath.Join("_testdata/module_rel_path", tc.dir))
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got != tc.want {
-				t.Errorf("got %s, want %s", got, tc.want)
-			}
-		})
-	}
-}

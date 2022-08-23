@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"go/ast"
 	"io"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,25 +20,22 @@ import (
 )
 
 func Compile(ctx context.Context, pkgdir, binfile string) error {
-	var (
-		pkgpath string
-		err     error
-	)
 	if filepath.IsAbs(pkgdir) {
-		pkgpath, err = moduleRelPath(pkgdir)
+		cwd, err := os.Getwd()
 		if err != nil {
-			return errors.Wrapf(err, "getting module-relative path of %s", pkgdir)
+			return errors.Wrap(err, "getting current directory")
 		}
-	} else {
-		_, err = os.Stat(pkgdir)
-		if errors.Is(err, fs.ErrNotExist) {
-			// do nothing
-		} else if err != nil {
-			return errors.Wrapf(err, "statting %s", pkgdir)
-		} else {
-			pkgpath = "./" + filepath.Clean(pkgdir)
+		rel, err := filepath.Rel(cwd, pkgdir)
+		if err != nil {
+			return errors.Wrapf(err, "getting relative path to %s", pkgdir)
 		}
+		if strings.HasPrefix(rel, "../") {
+			return fmt.Errorf("pkgdir must be in or under current directory")
+		}
+		pkgdir = rel
 	}
+	pkgpath := "./" + filepath.Clean(pkgdir)
+
 	config := &packages.Config{
 		Mode:    packages.NeedName | packages.NeedFiles | packages.NeedTypes | packages.NeedDeps,
 		Context: ctx,
@@ -281,31 +277,4 @@ func toSnake(inp string) string {
 		parts[i] = strings.ToLower(parts[i])
 	}
 	return strings.Join(parts, "_")
-}
-
-// Returns the relative path from the directory containing go.mod down to dir.
-func moduleRelPath(dir string) (string, error) {
-	abs, err := filepath.Abs(dir)
-	if err != nil {
-		return "", errors.Wrapf(err, "getting absolute path of %s", dir)
-	}
-	var (
-		parent = filepath.Dir(abs)
-		base   = filepath.Base(abs)
-	)
-	if parent == abs {
-		return "", fmt.Errorf("no module found for %s", dir)
-	}
-	_, err = os.Stat(filepath.Join(parent, "go.mod"))
-	if err == nil {
-		return "./" + base, nil
-	}
-	if !errors.Is(err, fs.ErrNotExist) {
-		return "", errors.Wrapf(err, "statting %s", parent)
-	}
-	got, err := moduleRelPath(parent)
-	if err != nil {
-		return "", err
-	}
-	return got + "/" + base, nil
 }
