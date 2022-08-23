@@ -2,7 +2,6 @@ package fab
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"go/ast"
 	"io"
@@ -21,10 +20,18 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-func Compile(ctx context.Context, pkgdir string, f func(*exec.Cmd) error) error {
-	pkgpath := pkgdir
-	if !filepath.IsAbs(pkgdir) {
-		_, err := os.Stat(pkgdir)
+func Compile(ctx context.Context, pkgdir, binfile string) error {
+	var (
+		pkgpath string
+		err     error
+	)
+	if filepath.IsAbs(pkgdir) {
+		pkgpath, err = moduleRelPath(pkgdir)
+		if err != nil {
+			return errors.Wrapf(err, "getting module-relative path of %s", pkgdir)
+		}
+	} else {
+		_, err = os.Stat(pkgdir)
 		if errors.Is(err, fs.ErrNotExist) {
 			// do nothing
 		} else if err != nil {
@@ -44,16 +51,25 @@ func Compile(ctx context.Context, pkgdir string, f func(*exec.Cmd) error) error 
 	if len(pkgs) != 1 {
 		return errors.Wrapf(err, "found %d packages in %s, want 1", len(pkgs), pkgpath)
 	}
-	c := compiler{pkg: pkgs[0], pkgdir: pkgdir}
-	return c.compile(ctx, f)
+	pkg := pkgs[0]
+	if len(pkg.Errors) > 0 {
+		err = nil
+		for _, e := range pkg.Errors {
+			err = multierr.Append(err, e)
+		}
+		return err
+	}
+	c := compiler{pkg: pkg, pkgdir: pkgdir, binfile: binfile}
+	return c.compile(ctx)
 }
 
 type compiler struct {
-	pkg    *packages.Package
-	pkgdir string
+	pkg     *packages.Package
+	pkgdir  string
+	binfile string
 }
 
-func (c *compiler) compile(ctx context.Context, f func(*exec.Cmd) error) error {
+func (c *compiler) compile(ctx context.Context) error {
 	var (
 		scope   = c.pkg.Types.Scope()
 		idents  = scope.Names()
@@ -92,6 +108,7 @@ func (c *compiler) compile(ctx context.Context, f func(*exec.Cmd) error) error {
 	if err = os.MkdirAll(subpkgdir, 0755); err != nil {
 		return errors.Wrapf(err, "creating %s", subpkgdir)
 	}
+
 	entries, err := os.ReadDir(c.pkgdir)
 	if err != nil {
 		return errors.Wrapf(err, "reading entries from %s", c.pkgdir)
@@ -125,10 +142,14 @@ func (c *compiler) compile(ctx context.Context, f func(*exec.Cmd) error) error {
 	data := struct {
 		Subpkg  string
 		Dirhash string
+		Pkgdir  string
+		Binfile string
 		Targets []templateTarget
 	}{
 		Subpkg:  c.pkg.Name,
 		Dirhash: dirhash,
+		Pkgdir:  c.pkgdir,
+		Binfile: c.binfile,
 	}
 	for _, target := range targets {
 		data.Targets = append(data.Targets, templateTarget{
@@ -196,8 +217,7 @@ func (c *compiler) compile(ctx context.Context, f func(*exec.Cmd) error) error {
 		return fmt.Errorf("error in go build: %w; output follows\n%s", err, string(output))
 	}
 
-	cmd = exec.CommandContext(ctx, filepath.Join(tmpdir, "x"))
-	return f(cmd)
+	return os.Rename(filepath.Join(tmpdir, "x"), c.binfile)
 }
 
 func populateFabDir(tmpdir string) error {
@@ -263,76 +283,29 @@ func toSnake(inp string) string {
 	return strings.Join(parts, "_")
 }
 
-// CompileAndRun uses Compile to turn the Go package in the given directory into an executable binary.
-// It then runs the program as:
-//
-//   PROG [-v] CWD TMPFILE ARGS...
-//
-// where CWD is the current working directory,
-// TMPFILE is the name of a temporary file where the program sends its output,
-// and ARGS are the additional arguments passed to Run.
-//
-// Run parses the output in the temporary file:
-// a JSON-encoded list of error strings.
-// If the list is empty, Run returns nil.
-// Otherwise it converts those strings to an error
-// (using multierr.Combine if there are two or more)
-// and returns it.
-func CompileAndRun(ctx context.Context, pkgdir string, args ...string) error {
-	cwd, err := os.Getwd()
+// Returns the relative path from the directory containing go.mod down to dir.
+func moduleRelPath(dir string) (string, error) {
+	abs, err := filepath.Abs(dir)
 	if err != nil {
-		return errors.Wrap(err, "getting working directory")
+		return "", errors.Wrapf(err, "getting absolute path of %s", dir)
 	}
-	tmpfile, err := os.CreateTemp("", "fab")
+	var (
+		parent = filepath.Dir(abs)
+		base   = filepath.Base(abs)
+	)
+	if parent == abs {
+		return "", fmt.Errorf("no module found for %s", dir)
+	}
+	_, err = os.Stat(filepath.Join(parent, "go.mod"))
+	if err == nil {
+		return "./" + base, nil
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		return "", errors.Wrapf(err, "statting %s", parent)
+	}
+	got, err := moduleRelPath(parent)
 	if err != nil {
-		return errors.Wrap(err, "creating tempfile")
+		return "", err
 	}
-	err = tmpfile.Close()
-	if err != nil {
-		return errors.Wrap(err, "closing tempfile")
-	}
-	defer os.Remove(tmpfile.Name())
-
-	return Compile(ctx, pkgdir, func(cmd *exec.Cmd) error {
-		if GetVerbose(ctx) {
-			cmd.Args = append(cmd.Args, "-v")
-		}
-		cmd.Args = append(cmd.Args, "-rundir", cwd)
-		cmd.Args = append(cmd.Args, "-o", tmpfile.Name())
-		cmd.Args = append(cmd.Args, args...)
-
-		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-
-		err := cmd.Run()
-		if err != nil {
-			return errors.Wrap(err, "running subprocess")
-		}
-
-		// Output from cmd is now in tmpfile.
-
-		f, err := os.Open(tmpfile.Name())
-		if err != nil {
-			return errors.Wrapf(err, "opening tempfile")
-		}
-		defer f.Close()
-		dec := json.NewDecoder(f)
-		var errstrs []string
-		err = dec.Decode(&errstrs)
-		if err != nil {
-			return errors.Wrap(err, "parsing subprocess output")
-		}
-
-		switch len(errstrs) {
-		case 0:
-			return nil
-		case 1:
-			return errors.New(errstrs[0])
-		default:
-			errs := make([]error, 0, len(errstrs))
-			for _, e := range errstrs {
-				errs = append(errs, errors.New(e))
-			}
-			return multierr.Combine(errs...)
-		}
-	})
+	return got + "/" + base, nil
 }

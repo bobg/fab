@@ -167,11 +167,13 @@ func (r *Runner) runTarget(ctx context.Context, db HashDB, target Target) error 
 }
 
 func (r *Runner) Indentf(format string, args ...any) {
+	if !strings.HasSuffix(format, "\n") {
+		format += "\n"
+	}
 	if depth := atomic.LoadInt32(&r.depth); depth > 0 {
 		fmt.Print(strings.Repeat("  ", int(depth)))
 	}
 	fmt.Printf(format, args...)
-	fmt.Println("")
 }
 
 // DefaultRunner is a Runner used by default in Run.
@@ -189,4 +191,15 @@ func Run(ctx context.Context, targets ...Target) error {
 		runner = DefaultRunner
 	}
 	return runner.Run(ctx, targets...)
+}
+
+func Indentf(ctx context.Context, format string, args ...any) {
+	if !strings.HasSuffix(format, "\n") {
+		format += "\n"
+	}
+	if runner := GetRunner(ctx); runner != nil {
+		runner.Indentf(format, args...)
+	} else {
+		fmt.Printf(format, args...)
+	}
 }

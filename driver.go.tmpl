@@ -3,23 +3,28 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
 
 	"github.com/bobg/fab"
 	"github.com/bobg/fab/sqlite"
-	"go.uber.org/multierr"
+	"github.com/pkg/errors"
 
 	subpkg "x/pkg/{{ .Subpkg }}"
 )
 
-var dirHash = "{{ .Dirhash }}"
+var (
+	wantDirhash = "{{ .Dirhash }}"
+	pkgdir      = "{{ .Pkgdir }}"
+	binfile     = "{{ .Binfile }}"
+)
 
 func main() {
 	index := map[string]fab.Target{
@@ -43,28 +48,59 @@ func main() {
 	ctx = fab.WithNames(ctx, names)
 
 	var (
-		verbose bool
-		dbfile  string
-		rundir  string
-		outfile string
+		verbose, nocheck bool
+		dbfile, rundir   string
 	)
 	flag.BoolVar(&verbose, "v", false, "run verbosely")
+	flag.BoolVar(&nocheck, "nocheck", false, "suppress dirhash checking")
 	flag.StringVar(&dbfile, "db", "", "path to Sqlite3 hash database file")
 	flag.StringVar(&rundir, "rundir", "", "directory in which to execute rules")
-	flag.StringVar(&outfile, "o", "", "file in which to place JSON-encoded error output")
 	flag.Parse()
 
-	if outfile == "" {
-		log.Fatal("Must specify an output file with -o")
+	if !nocheck {
+		entries, err := os.ReadDir(pkgdir)
+		if err != nil {
+			log.Fatalf("Reading directory %s: %s", pkgdir, err)
+		}
+		dh := fab.NewDirHasher()
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			if strings.HasSuffix(entry.Name(), "_test.go") {
+				continue
+			}
+			if !strings.HasSuffix(entry.Name(), ".go") {
+				continue
+			}
+			if err = addFileToHash(dh, filepath.Join(pkgdir, entry.Name())); err != nil {
+				log.Fatalf("Hashing file %s/%s: %s", pkgdir, entry.Name(), err)
+			}
+		}
+		gotDirhash, err := dh.Hash()
+		if err != nil {
+			log.Fatalf("Reading dirhash: %s", err)
+		}
+		if gotDirhash != wantDirhash {
+			fmt.Printf("Recompiling %s\n", binfile)
+			err = fab.Compile(ctx, pkgdir, binfile)
+			if err != nil {
+				log.Fatalf("Compiling %s: %s", binfile, err)
+			}
+			abs, err := filepath.Abs(binfile)
+			if err != nil {
+				log.Fatalf("Computing absolute pathname for %s", binfile)
+			}
+			args := []string{"-nocheck"}
+			args = append(args, os.Args[1:]...)
+			cmd := exec.CommandContext(ctx, abs, args...)
+			cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+			if err = cmd.Run(); err != nil {
+				log.Fatalf("Running %s %s: %s", abs, strings.Join(args, " "), err)
+			}
+			return
+		}
 	}
-
-	f, err := os.OpenFile(outfile, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
-	if err != nil {
-		log.Fatalf("Opening %s for writing: %s", outfile, err)
-	}
-	defer f.Close()
-	enc := json.NewEncoder(f)
-	enc.SetIndent("", "  ")
 
 	ctx = fab.WithVerbose(ctx, verbose)
 	if rundir != "" {
@@ -100,21 +136,22 @@ func main() {
 		}
 	}
 
-	var errs []error
-
 	if len(unknown) > 0 {
-		errs = append(errs, fmt.Errorf("unknown target(s): %s", strings.Join(unknown, " ")))
-	} else {
-		runner := fab.NewRunner()
-		err := runner.Run(ctx, targets...)
-		if err != nil {
-			errs = multierr.Errors(err)
-		}
+		log.Fatalf("Unknown target(s): %s", strings.Join(unknown, " "))
 	}
 
-	output := []string{} // n.b. not nil, which JSON-encodes as "null"
-	for _, e := range errs {
-		output = append(output, e.Error())
+	runner := fab.NewRunner()
+	if err := runner.Run(ctx, targets...); err != nil {
+		log.Fatal(err)
 	}
-	enc.Encode(output)
+}
+
+func addFileToHash(dh *fab.DirHasher, filename string) error {
+	f, err := os.Open(filename)
+	if err != nil {
+		return errors.Wrapf(err, "opening %s", filename)
+	}
+	defer f.Close()
+
+	return dh.File(filename, f)
 }

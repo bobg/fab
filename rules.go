@@ -168,11 +168,7 @@ func (c *Command) Run(ctx context.Context) error {
 	}
 
 	if GetVerbose(ctx) {
-		if runner := GetRunner(ctx); runner != nil {
-			runner.Indentf("  Running command %s", cmd)
-		} else {
-			fmt.Printf("  Running command %s\n", cmd)
-		}
+		Indentf(ctx, "  Running command %s", cmd)
 	}
 
 	err = cmd.Run()
