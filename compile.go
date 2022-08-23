@@ -19,6 +19,34 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+// Compile compiles a "driver binary" from a directory of user code
+// and places the executable result in a given file.
+// The driver converts command-line target names into the necessary Fab rule invocations.
+//
+// When the driver exists, the "fab" command simply executes it.
+// When it doesn't exist, the fab command compiles it and _then_ executes it.
+//
+// The driver binary knows the "dir hash" of the Go files from which it was compiled.
+// When the driver runs, it checks that the dir hash is still the same.
+// If it's not, then the build rules have changed and the driver binary is out of date.
+// In this case the driver recompiles, replaces, and reruns itself.
+//
+// When Compile runs
+// (including when the driver recompiles itself)
+// the "go" program must exist in the user's PATH.
+//
+// How it works:
+//
+// - The user's code is loaded with packages.Load.
+// - The set of exported top-level identifiers is filtered
+//   to find those implementing the fab.Target interface.
+// - The user's code is then copied to a temp directory
+//   together with a main package (and main() function)
+//   that records the set of targets,
+//   the dir hash of the user's code,
+//   and the value of binfile.
+// - The go compiler is invoked to produce an executable,
+//   which is renamed into place as binfile.
 func Compile(ctx context.Context, pkgdir, binfile string) error {
 	if filepath.IsAbs(pkgdir) {
 		cwd, err := os.Getwd()

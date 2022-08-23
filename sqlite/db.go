@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3" // to get the "sqlite3" driver for sql.Open
 	"github.com/pkg/errors"
 
 	"github.com/bobg/fab"

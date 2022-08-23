@@ -10,12 +10,14 @@ import (
 	"github.com/pkg/errors"
 )
 
+// NewDirHasher produces a new DirHasher.
 func NewDirHasher() *DirHasher {
 	return &DirHasher{
 		hashes: make(map[string][]byte),
 	}
 }
 
+// File adds the given contents with the given filename to the DirHasher.
 func (d *DirHasher) File(name string, r io.Reader) error {
 	hasher := sha256.New()
 	_, err := io.Copy(hasher, r)
@@ -27,6 +29,8 @@ func (d *DirHasher) File(name string, r io.Reader) error {
 	return nil
 }
 
+// Hash computes the hash of the files added to the DirHasher.
+// The result is insensitive to the order of calls to File.
 func (d *DirHasher) Hash() (string, error) {
 	j, err := json.Marshal(d.hashes)
 	if err != nil {
@@ -37,6 +41,13 @@ func (d *DirHasher) Hash() (string, error) {
 	return hex.EncodeToString(h), nil
 }
 
+// DirHasher computes a hash for a set of files.
+// Instantiate a DirHasher,
+// add files to it by repeated calls to File,
+// then get the result by calling Hash.
+//
+// The zero value of DirHasher is not usable.
+// Obtain one with NewDirHasher.
 type DirHasher struct {
 	hashes map[string][]byte
 }

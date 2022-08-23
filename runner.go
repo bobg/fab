@@ -166,6 +166,12 @@ func (r *Runner) runTarget(ctx context.Context, db HashDB, target Target) error 
 	return nil
 }
 
+// Indentf formats and prints its arguments
+// with leading indentation based on the nesting depth of the Runner.
+// The nesting depth increases with each call to Runner.Run
+// and decreases at the end of the call.
+//
+// A newline is added to the end of the string if one is not already there.
 func (r *Runner) Indentf(format string, args ...any) {
 	if !strings.HasSuffix(format, "\n") {
 		format += "\n"
@@ -193,13 +199,17 @@ func Run(ctx context.Context, targets ...Target) error {
 	return runner.Run(ctx, targets...)
 }
 
+// Indentf calls Runner.Indent with the given format and args
+// if a Runner can be found in the given context.
+// If one cannot, then the formatted string is simply printed
+// (with a trailing newline added if needed).
 func Indentf(ctx context.Context, format string, args ...any) {
-	if !strings.HasSuffix(format, "\n") {
-		format += "\n"
-	}
 	if runner := GetRunner(ctx); runner != nil {
 		runner.Indentf(format, args...)
 	} else {
+		if !strings.HasSuffix(format, "\n") {
+			format += "\n"
+		}
 		fmt.Printf(format, args...)
 	}
 }
