@@ -4,11 +4,15 @@ import (
 	"context"
 	"fmt"
 	"go/ast"
+	"go/doc"
+	"go/parser"
+	"go/token"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -37,16 +41,16 @@ import (
 //
 // How it works:
 //
-// - The user's code is loaded with packages.Load.
-// - The set of exported top-level identifiers is filtered
-//   to find those implementing the fab.Target interface.
-// - The user's code is then copied to a temp directory
-//   together with a main package (and main() function)
-//   that records the set of targets,
-//   the dir hash of the user's code,
-//   and the value of binfile.
-// - The go compiler is invoked to produce an executable,
-//   which is renamed into place as binfile.
+//   - The user's code is loaded with packages.Load.
+//   - The set of exported top-level identifiers is filtered
+//     to find those implementing the fab.Target interface.
+//   - The user's code is then copied to a temp directory
+//     together with a main package (and main() function)
+//     that records the set of targets,
+//     the dir hash of the user's code,
+//     and the value of binfile.
+//   - The go compiler is invoked to produce an executable,
+//     which is renamed into place as binfile.
 func Compile(ctx context.Context, pkgdir, binfile string) error {
 	if filepath.IsAbs(pkgdir) {
 		cwd, err := os.Getwd()
@@ -68,34 +72,37 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		Mode:    packages.NeedName | packages.NeedFiles | packages.NeedTypes | packages.NeedDeps,
 		Context: ctx,
 	}
-	pkgs, err := packages.Load(config, pkgpath)
+	ppkgs, err := packages.Load(config, pkgpath)
 	if err != nil {
 		return errors.Wrapf(err, "loading %s", pkgpath)
 	}
-	if len(pkgs) != 1 {
-		return errors.Wrapf(err, "found %d packages in %s, want 1", len(pkgs), pkgpath)
+	if len(ppkgs) != 1 {
+		return fmt.Errorf("found %d packages in %s, want 1", len(ppkgs), pkgpath)
 	}
-	pkg := pkgs[0]
-	if len(pkg.Errors) > 0 {
+	ppkg := ppkgs[0]
+	if len(ppkg.Errors) > 0 {
 		err = nil
-		for _, e := range pkg.Errors {
+		for _, e := range ppkg.Errors {
 			err = multierr.Append(err, e)
 		}
 		return err
 	}
-	c := compiler{pkg: pkg, pkgdir: pkgdir, binfile: binfile}
-	return c.compile(ctx)
-}
 
-type compiler struct {
-	pkg     *packages.Package
-	pkgdir  string
-	binfile string
-}
+	fset := token.NewFileSet()
+	astpkgs, err := parser.ParseDir(fset, pkgdir, nil, parser.ParseComments)
+	if err != nil {
+		return errors.Wrapf(err, "parsing %s", pkgdir)
+	}
+	if len(astpkgs) != 1 {
+		return fmt.Errorf("found %d packages in %s, want 1", len(astpkgs), pkgdir)
+	}
+	astpkg, ok := astpkgs[ppkg.Name]
+	if !ok {
+		return fmt.Errorf("package %s not found in %s", ppkg.Name, pkgdir)
+	}
 
-func (c *compiler) compile(ctx context.Context) error {
 	var (
-		scope   = c.pkg.Types.Scope()
+		scope   = ppkg.Types.Scope()
 		idents  = scope.Names()
 		targets []string // Top-level identifiers with types that implement fab.Target
 	)
@@ -113,10 +120,26 @@ func (c *compiler) compile(ctx context.Context) error {
 		targets = append(targets, ident)
 	}
 	if len(targets) == 0 {
-		return fmt.Errorf("found no targets after loading %s", c.pkg.Name)
+		return fmt.Errorf("found no targets after loading %s", ppkg.Name)
 	}
 
 	sort.Strings(targets)
+
+	docstrs := make(map[string]string) // ident -> docstring
+	for _, target := range targets {
+		docstrs[target] = ""
+	}
+
+	dpkg := doc.New(astpkg, pkgpath, 0)
+	for _, v := range dpkg.Vars {
+		for _, name := range v.Names {
+			if _, ok := docstrs[name]; ok {
+				dstr := string(dpkg.Text(v.Doc))
+				dstr = strings.TrimSpace(dstr)
+				docstrs[name] = strconv.Quote(dstr)
+			}
+		}
+	}
 
 	tmpdir, err := os.MkdirTemp("", "fab")
 	if err != nil {
@@ -128,14 +151,14 @@ func (c *compiler) compile(ctx context.Context) error {
 		return errors.Wrap(err, "copying fab code")
 	}
 
-	subpkgdir := filepath.Join(tmpdir, "pkg", c.pkg.Name)
+	subpkgdir := filepath.Join(tmpdir, "pkg", ppkg.Name)
 	if err = os.MkdirAll(subpkgdir, 0755); err != nil {
 		return errors.Wrapf(err, "creating %s", subpkgdir)
 	}
 
-	entries, err := os.ReadDir(c.pkgdir)
+	entries, err := os.ReadDir(pkgdir)
 	if err != nil {
-		return errors.Wrapf(err, "reading entries from %s", c.pkgdir)
+		return errors.Wrapf(err, "reading entries from %s", pkgdir)
 	}
 
 	dh := NewDirHasher()
@@ -150,7 +173,7 @@ func (c *compiler) compile(ctx context.Context) error {
 		if !strings.HasSuffix(entry.Name(), ".go") {
 			continue
 		}
-		if err = copyAndHash(filepath.Join(c.pkgdir, entry.Name()), subpkgdir, dh); err != nil {
+		if err = copyAndHash(filepath.Join(pkgdir, entry.Name()), subpkgdir, dh); err != nil {
 			return errors.Wrapf(err, "copying %s to tmp subdir", entry.Name())
 		}
 	}
@@ -161,7 +184,7 @@ func (c *compiler) compile(ctx context.Context) error {
 	}
 
 	type templateTarget struct {
-		Name, SnakeName string
+		Name, SnakeName, Doc string
 	}
 	data := struct {
 		Subpkg  string
@@ -170,15 +193,16 @@ func (c *compiler) compile(ctx context.Context) error {
 		Binfile string
 		Targets []templateTarget
 	}{
-		Subpkg:  c.pkg.Name,
+		Subpkg:  ppkg.Name,
 		Dirhash: dirhash,
-		Pkgdir:  c.pkgdir,
-		Binfile: c.binfile,
+		Pkgdir:  pkgdir,
+		Binfile: binfile,
 	}
 	for _, target := range targets {
 		data.Targets = append(data.Targets, templateTarget{
 			Name:      target,
 			SnakeName: toSnake(target),
+			Doc:       docstrs[target],
 		})
 	}
 
@@ -241,7 +265,7 @@ func (c *compiler) compile(ctx context.Context) error {
 		return fmt.Errorf("error in go build: %w; output follows\n%s", err, string(output))
 	}
 
-	return os.Rename(filepath.Join(tmpdir, "x"), c.binfile)
+	return os.Rename(filepath.Join(tmpdir, "x"), binfile)
 }
 
 func populateFabDir(tmpdir string) error {

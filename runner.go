@@ -34,7 +34,7 @@ type outcome struct {
 
 // Run runs the given targets, skipping any that have already run.
 //
-// THEORY OF OPERATION
+// # THEORY OF OPERATION
 //
 // A Runner remembers which targets it has already run
 // (whether in this call or any previous call to Run),
