@@ -9,11 +9,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/bobg/fab"
 	"github.com/bobg/fab/sqlite"
+	"github.com/bobg/go-generics/maps"
 	"github.com/pkg/errors"
 
 	subpkg "x/pkg/{{ .Subpkg }}"
@@ -29,6 +31,12 @@ func main() {
 	index := map[string]fab.Target{
 		{{ range .Targets }}
 		"{{ .SnakeName }}": subpkg.{{ .Name }},
+		{{ end }}
+	}
+
+	doc := map[string]string{
+		{{ range .Targets }}
+		"{{ .SnakeName }}": {{ .Doc }},
 		{{ end }}
 	}
 
@@ -49,10 +57,12 @@ func main() {
 	var (
 		verbose bool
 		nocheck bool
+		list    bool
 		dbfile  string
 	)
 	flag.BoolVar(&verbose, "v", false, "run verbosely")
 	flag.BoolVar(&nocheck, "nocheck", false, "suppress dirhash checking")
+	flag.BoolVar(&list, "list", false, "list available targets")
 	flag.StringVar(&dbfile, "db", "", "path to Sqlite3 hash database file")
 	flag.Parse()
 
@@ -114,10 +124,28 @@ func main() {
 
 	args := flag.Args()
 	if len(args) == 0 {
-		if _, ok := index["default"]; !ok {
-			fatalf("No targets given and no default target defined")
+		if _, ok := index["default"]; ok {
+			args = []string{"default"}
+		} else if !list {
+			fmt.Print("Specify one or more of the following targets:\n\n")
+			list = true
 		}
-		args = []string{"default"}
+	}
+
+	if list {
+		targetNames := maps.Keys(index)
+		sort.Strings(targetNames)
+		for i, name := range targetNames {
+			if i > 0 {
+				fmt.Print("\n")
+			}
+			fmt.Print(name)
+			if d := doc[name]; d != "" {
+				fmt.Printf(": %s", d)
+			}
+			fmt.Print("\n")
+		}
+		return
 	}
 
 	var (

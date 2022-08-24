@@ -17,6 +17,7 @@ type Main struct {
 	Binfile string
 	DBFile  string
 	Verbose bool
+	List    bool
 	Force   bool
 	Args    []string
 }
@@ -25,6 +26,9 @@ func (m Main) Run(ctx context.Context) error {
 	var args []string
 	if m.Verbose {
 		args = append(args, "-v")
+	}
+	if m.List {
+		args = append(args, "-list")
 	}
 	if m.DBFile != "" {
 		args = append(args, "-db", m.DBFile)
