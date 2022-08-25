@@ -34,13 +34,12 @@ type outcome struct {
 
 // Run runs the given targets, skipping any that have already run.
 //
-// # THEORY OF OPERATION
-//
 // A Runner remembers which targets it has already run
 // (whether in this call or any previous call to Run),
 // distinguishing them by their ID() values.
 //
-// A separate goroutine is created for each Target passed to Run.
+// The targets are executed concurrently.
+// A separate goroutine is created for each one passed to Run.
 // If the Runner has never yet run the Target,
 // it does so, and caches the result (error or no error).
 // If the Target did already run, the cached error value is used.
@@ -52,7 +51,7 @@ type outcome struct {
 // if the Target is a HashTarget
 // and there is a HashDB attached to the context,
 // then the HashTarget's hash is computed
-// and sought in the HashDB.
+// and looked up in the HashDB.
 // If it's found,
 // the target's outputs are already up to date
 // and its Run method can be skipped.
@@ -68,8 +67,8 @@ type outcome struct {
 // The runner is added to the context with WithRunner
 // and can be retrieved with GetRunner.
 // Calls to Run
-// (the global function, not the Runner method)
-// will use this Runner instead of DefaultRunner
+// (the global function, not the Runner.Run method)
+// will use it instead of DefaultRunner
 // by finding it in the context.
 func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 	if len(targets) == 0 {
@@ -187,7 +186,7 @@ var DefaultRunner = NewRunner()
 
 // Run runs the given targets with a Runner.
 // If `ctx` contains a Runner
-// (e.g., because this is a recursive call
+// (e.g., because this call is nested inside a pending call to Runner.Run
 // and the context has been decorated using WithRunner)
 // then it uses that Runner,
 // otherwise it uses DefaultRunner.

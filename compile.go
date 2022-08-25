@@ -23,11 +23,16 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-// Compile compiles a "driver binary" from a directory of user code
+// Compile compiles a "driver" from a directory of user code
+// (combined with a main function supplied by fab)
 // and places the executable result in a given file.
 // The driver converts command-line target names into the necessary Fab rule invocations.
 //
-// When the driver exists, the "fab" command simply executes it.
+// The package of user code should contain one or more exported identifiers
+// whose types satisfy the [Target] interface.
+// These become the build rules that the driver can invoke.
+//
+// When the driver already exists, the "fab" command simply executes it.
 // When it doesn't exist, the fab command compiles it and _then_ executes it.
 //
 // The driver binary knows the "dir hash" of the Go files from which it was compiled.
@@ -38,6 +43,7 @@ import (
 // When Compile runs
 // (including when the driver recompiles itself)
 // the "go" program must exist in the user's PATH.
+// It must be Go version 1.19 or later.
 //
 // How it works:
 //

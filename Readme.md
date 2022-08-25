@@ -65,14 +65,23 @@ and express dependencies by calling the `Run` function in your type’s `Run` me
 ```go
 type myTargetType struct {
   dependencies []fab.Target
+  id           string
 }
 
-func (tt myTargetType) ID() string { return fab.ID("MyTargetType”) }
-func (tt myTargetType) Run(ctx, context.Context) error {
+func (tt *myTargetType) Run(ctx, context.Context) error {
   if err := fab.Run(ctx, tt.dependencies...); err != nil {
     return err
   }
   // ...other myTargetType build logic...
+}
+
+// Each instance of any Target type must have a persistent, distinct ID.
+// The fab.ID function can help with this.
+func (tt *myTargetType) ID() string {
+  if tt.id == "" {
+    tt.id = fab.ID("MyTargetType”)
+  }
+  return tt.id
 }
 ```
 

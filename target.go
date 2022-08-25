@@ -20,12 +20,15 @@ type Target interface {
 	Run(context.Context) error
 
 	// ID is a unique ID for the target.
+	// Each instance of each Target must have a persistent, unique ID.
+	// The ID function can help with that.
 	ID() string
 }
 
 var idcounter uint32
 
 // ID produces an ID string by appending a unique counter value to the given prefix.
+// For example, ID("Foo") might produce "Foo-17".
 func ID(prefix string) string {
 	return fmt.Sprintf("%s-%d", prefix, atomic.AddUint32(&idcounter, 1))
 }

@@ -12,16 +12,39 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Main is the structure whose Run methods implements the main logic of the fab command.
 type Main struct {
-	Pkgdir  string
+	// Pkgdir is where to find the user's build-rules Go package, e.g. "fab.d".
+	Pkgdir string
+
+	// Binfile is where to place the compiled driver binary, e.g. "fab.bin".
 	Binfile string
-	DBFile  string
+
+	// DBFile is where to find the hash DB file, e.g. ".fab.db".
+	DBFile string
+
+	// Verbose tells whether to run the driver in verbose mode
+	// (by supplying the -v command-line flag).
 	Verbose bool
-	List    bool
-	Force   bool
-	Args    []string
+
+	// List tells whether to run the driver in list-targets mode
+	// (by supplying the -list command-line flag).
+	List bool
+
+	// Force tells whether to force recompilation of the driver before running it.
+	Force bool
+
+	// Args contains the additional command-line arguments to pass to the driver, e.g. target names.
+	Args []string
 }
 
+// Run executes the main logic of the fab command.
+// If m.Binfile does not exist,
+// or if m.Force is true,
+// it is created with Compile.
+// It is then invoked with the command-line arguments indicated by the fields of m.
+// Typically this will include one or more target names,
+// in which case the driver will execute the associated rules as defined by the code in m.Pkgdir.
 func (m Main) Run(ctx context.Context) error {
 	var args []string
 	if m.Verbose {

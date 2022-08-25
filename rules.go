@@ -27,10 +27,12 @@ type all struct {
 
 var _ Target = &all{}
 
+// Run implements Target.Run.
 func (a *all) Run(ctx context.Context) error {
 	return Run(ctx, a.targets...)
 }
 
+// ID implements Target.ID.
 func (a *all) ID() string {
 	if a.id == "" {
 		a.id = ID("All")
@@ -51,6 +53,7 @@ type seq struct {
 
 var _ Target = &seq{}
 
+// Run implements Target.Run.
 func (s *seq) Run(ctx context.Context) error {
 	for _, t := range s.targets {
 		if err := Run(ctx, t); err != nil {
@@ -60,6 +63,7 @@ func (s *seq) Run(ctx context.Context) error {
 	return nil
 }
 
+// ID implements Target.ID.
 func (s *seq) ID() string {
 	if s.id == "" {
 		s.id = ID("Seq")
@@ -87,10 +91,12 @@ type ftarget struct {
 
 var _ Target = &ftarget{}
 
+// Run implements Target.Run.
 func (f *ftarget) Run(ctx context.Context) error {
 	return f.f(ctx)
 }
 
+// ID implements Target.ID.
 func (f *ftarget) ID() string {
 	if f.id == "" {
 		f.id = ID("F")
@@ -143,6 +149,7 @@ type Command struct {
 
 var _ Target = &Command{}
 
+// Run implements Target.Run.
 func (c *Command) Run(ctx context.Context) error {
 	cmdname, args, err := c.getCmdAndArgs()
 	if err != nil {
@@ -177,6 +184,7 @@ func (c *Command) Run(ctx context.Context) error {
 	return err
 }
 
+// ID implements Target.ID.
 func (c *Command) ID() string {
 	if c.id == "" {
 		c.id = ID("Command")
@@ -229,7 +237,7 @@ type FilesCommand struct {
 
 var _ HashTarget = FilesCommand{}
 
-// Hash implements HashTarget.
+// Hash implements HashTarget.Hash.
 func (fc FilesCommand) Hash(ctx context.Context) ([]byte, error) {
 	var (
 		inHashes  = make(map[string][]byte)
