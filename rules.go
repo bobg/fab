@@ -225,40 +225,42 @@ func (e CommandErr) Unwrap() error {
 	return e.Err
 }
 
-// FilesCommand is a HashTarget.
-// It contains a Command,
-// a list of input files,
+// FilesTarget is a HashTarget.
+// It contains a list of input files,
 // and a list of expected output files.
-type FilesCommand struct {
-	*Command
+// It also contains an embedded Target
+// whose Run method should produce the expected output files.
+// The Target must be of a type that can be JSON-marshaled.
+type FilesTarget struct {
+	Target
 	In  []string
 	Out []string
 }
 
-var _ HashTarget = FilesCommand{}
+var _ HashTarget = FilesTarget{}
 
 // Hash implements HashTarget.Hash.
-func (fc FilesCommand) Hash(ctx context.Context) ([]byte, error) {
+func (ft FilesTarget) Hash(ctx context.Context) ([]byte, error) {
 	var (
 		inHashes  = make(map[string][]byte)
 		outHashes = make(map[string][]byte)
 	)
-	err := fillWithFileHashes(fc.In, inHashes)
+	err := fillWithFileHashes(ft.In, inHashes)
 	if err != nil {
-		return nil, errors.Wrapf(err, "computing input hash(es) for %s", Name(ctx, fc))
+		return nil, errors.Wrapf(err, "computing input hash(es) for %s", Name(ctx, ft))
 	}
-	err = fillWithFileHashes(fc.Out, outHashes)
+	err = fillWithFileHashes(ft.Out, outHashes)
 	if err != nil {
-		return nil, errors.Wrapf(err, "computing output hash(es) for %s", Name(ctx, fc))
+		return nil, errors.Wrapf(err, "computing output hash(es) for %s", Name(ctx, ft))
 	}
 	s := struct {
-		*Command
+		Target
 		In  map[string][]byte `json:"in,omitempty"`
 		Out map[string][]byte `json:"out,omitempty"`
 	}{
-		Command: fc.Command,
-		In:      inHashes,
-		Out:     outHashes,
+		Target: ft.Target,
+		In:     inHashes,
+		Out:    outHashes,
 	}
 	j, err := json.Marshal(s)
 	if err != nil {
