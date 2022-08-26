@@ -10,8 +10,8 @@ a system for orchestrating software builds.
 It’s like [Make](https://en.wikipedia.org/wiki/Make_(software)),
 except that you express build rules and dependencies as [Go](https://go.dev/) code.
 
-(But that doesn’t mean it’s for building Go programs only.
-After all, writing shell commands in a Makefile doesn’t mean Make is for shell programs only.)
+(But that doesn’t mean it’s for building Go programs only,
+any more than writing shell commands in a Makefile means Make builds only shell programs.)
 
 Running `fab` on one or more targets ensures that the targets’ prerequisites,
 and the targets themselves,
