@@ -3,7 +3,6 @@ package fab
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sync/atomic"
 )
 
@@ -31,23 +30,4 @@ var idcounter uint32
 // For example, ID("Foo") might produce "Foo-17".
 func ID(prefix string) string {
 	return fmt.Sprintf("%s-%d", prefix, atomic.AddUint32(&idcounter, 1))
-}
-
-// Name returns a name for `target`.
-// Normally this is just target.ID().
-// But if `ctx` has been decorated with a name map using WithNames
-// and target's address is in it,
-// then that name is used instead.
-func Name(ctx context.Context, target Target) string {
-	names := GetNames(ctx)
-	if names != nil {
-		v := reflect.ValueOf(target)
-		if v.Kind() == reflect.Pointer {
-			name, ok := names[v.Pointer()]
-			if ok {
-				return name
-			}
-		}
-	}
-	return target.ID()
 }

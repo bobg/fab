@@ -120,7 +120,7 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		if obj == nil {
 			continue
 		}
-		if err := checkImplementsTarget(obj.Type()); err != nil {
+		if !implementsTarget(obj.Type()) {
 			continue
 		}
 		targets = append(targets, ident)
@@ -153,7 +153,7 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 	}
 	defer os.RemoveAll(tmpdir)
 
-	if err = populateFabDir(tmpdir); err != nil {
+	if err = populateFabDir(filepath.Join(tmpdir, "fab")); err != nil {
 		return errors.Wrap(err, "copying fab code")
 	}
 
@@ -272,42 +272,6 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 	}
 
 	return os.Rename(filepath.Join(tmpdir, "x"), binfile)
-}
-
-func populateFabDir(tmpdir string) error {
-	return populateFabSubdir(filepath.Join(tmpdir, "fab"), ".")
-}
-
-func populateFabSubdir(destdir, subdir string) error {
-	if err := os.MkdirAll(destdir, 0755); err != nil {
-		return errors.Wrapf(err, "creating %s", destdir)
-	}
-	entries, err := embeds.ReadDir(subdir)
-	if err != nil {
-		return errors.Wrap(err, "reading embeds")
-	}
-	for _, entry := range entries {
-		if entry.IsDir() {
-			err = populateFabSubdir(filepath.Join(destdir, entry.Name()), filepath.Join(subdir, entry.Name()))
-			if err != nil {
-				return errors.Wrapf(err, "populating dir %s", entry.Name())
-			}
-			continue
-		}
-		if strings.HasSuffix(entry.Name(), "_test.go") {
-			continue
-		}
-		contents, err := embeds.ReadFile(filepath.Join(subdir, entry.Name()))
-		if err != nil {
-			return errors.Wrapf(err, "reading embedded file %s", entry.Name())
-		}
-		dest := filepath.Join(destdir, entry.Name())
-		err = os.WriteFile(dest, contents, 0644)
-		if err != nil {
-			return errors.Wrapf(err, "writing %s", dest)
-		}
-	}
-	return nil
 }
 
 func copyAndHash(filename, destdir string, dh *DirHasher) error {

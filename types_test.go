@@ -26,8 +26,8 @@ func TestImplementsTarget(t *testing.T) {
 		t.Fatalf("runnerObj is a %T, want types.TypeName", runnerObj)
 	}
 	runnerType := runnerTypeName.Type()
-	if checkImplementsTarget(runnerType) == nil {
-		t.Errorf("checkImplementsTarget(fab.Runner) wrongly reports true")
+	if implementsTarget(runnerType) {
+		t.Error("implementsTarget(fab.Runner) wrongly reports true")
 	}
 
 	filesTargetObj := scope.Lookup("FilesTarget")
@@ -36,7 +36,7 @@ func TestImplementsTarget(t *testing.T) {
 		t.Fatalf("filesTargetObj is a %T, want types.TypeName", filesTargetObj)
 	}
 	filesTargetType := filesTargetTypeName.Type()
-	if err = checkImplementsTarget(filesTargetType); err != nil {
-		t.Errorf("checkImplementsTarget(fab.FilesTarget) wrongly reports false: %s", err)
+	if !implementsTarget(filesTargetType) {
+		t.Error("implementsTarget(fab.FilesTarget) wrongly reports false")
 	}
 }

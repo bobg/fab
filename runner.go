@@ -3,6 +3,7 @@ package fab
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -211,4 +212,23 @@ func Indentf(ctx context.Context, format string, args ...any) {
 		}
 		fmt.Printf(format, args...)
 	}
+}
+
+// Name returns a name for `target`.
+// Normally this is just target.ID().
+// But if `ctx` has been decorated with a name map using WithNames
+// and target's address is in it,
+// then that name is used instead.
+func Name(ctx context.Context, target Target) string {
+	names := GetNames(ctx)
+	if names != nil {
+		v := reflect.ValueOf(target)
+		if v.Kind() == reflect.Pointer {
+			name, ok := names[v.Pointer()]
+			if ok {
+				return name
+			}
+		}
+	}
+	return target.ID()
 }
