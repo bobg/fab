@@ -91,7 +91,7 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		for _, e := range ppkg.Errors {
 			err = multierr.Append(err, e)
 		}
-		return err
+		return errors.Wrapf(err, "loading package %s", ppkg.Name)
 	}
 
 	fset := token.NewFileSet()

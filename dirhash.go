@@ -22,7 +22,7 @@ func newDirHasher() *dirHasher {
 
 // File adds the given contents with the given filename to the dirHasher.
 func (d *dirHasher) file(name string, r io.Reader) error {
-	hasher := sha256.New()
+	hasher := sha256.New224()
 	_, err := io.Copy(hasher, r)
 	if err != nil {
 		return errors.Wrap(err, "hashing input")
@@ -39,9 +39,8 @@ func (d *dirHasher) hash() (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "in JSON encoding")
 	}
-	hasher := sha256.New()
-	h := hasher.Sum(j)
-	return hex.EncodeToString(h), nil
+	h := sha256.Sum224(j)
+	return hex.EncodeToString(h[:]), nil
 }
 
 // dirHasher computes a hash for a set of files.
