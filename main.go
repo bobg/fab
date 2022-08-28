@@ -17,11 +17,8 @@ type Main struct {
 	// Pkgdir is where to find the user's build-rules Go package, e.g. "fab.d".
 	Pkgdir string
 
-	// Binfile is where to place the compiled driver binary, e.g. "fab.bin".
-	Binfile string
-
-	// DBFile is where to find the hash DB file, e.g. ".fab.db".
-	DBFile string
+	// Fabdir is where to find the user's hash DB and compiled binaries, default $HOME/.fab.
+	Fabdir string
 
 	// Verbose tells whether to run the driver in verbose mode
 	// (by supplying the -v command-line flag).
@@ -46,63 +43,93 @@ type Main struct {
 // Typically this will include one or more target names,
 // in which case the driver will execute the associated rules as defined by the code in m.Pkgdir.
 func (m Main) Run(ctx context.Context) error {
-	var args []string
+	args := []string{"-fab", m.Fabdir}
 	if m.Verbose {
 		args = append(args, "-v")
 	}
 	if m.List {
 		args = append(args, "-list")
 	}
-	if m.DBFile != "" {
-		args = append(args, "-db", m.DBFile)
+	args = append(args, m.Args...)
+
+	driver, err := m.getDriver(ctx)
+	if err != nil {
+		return errors.Wrap(err, "ensuring driver binary is up to date")
 	}
 
-	var compile bool
+	cmd := exec.CommandContext(ctx, driver, args...)
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	err = cmd.Run()
+	return errors.Wrapf(err, "running %s %s", driver, strings.Join(args, " "))
+}
 
-	info, err := os.Stat(m.Binfile)
+func (m Main) getDriver(ctx context.Context) (string, error) {
+	entries, err := os.ReadDir(m.Pkgdir)
+	if err != nil {
+		return "", errors.Wrapf(err, "reading directory %s", m.Pkgdir)
+	}
+	dh := newDirHasher()
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		if !strings.HasSuffix(entry.Name(), ".go") {
+			continue
+		}
+		if err = addFileToHash(dh, filepath.Join(m.Pkgdir, entry.Name())); err != nil {
+			return "", errors.Wrapf(err, "hashing file %s/%s", m.Pkgdir, entry.Name())
+		}
+	}
+	dhval, err := dh.hash()
+	if err != nil {
+		return "", errors.Wrapf(err, "computing hash for directory %s", m.Pkgdir)
+	}
+
+	var (
+		driver  = filepath.Join(m.Fabdir, dhval)
+		compile bool
+	)
+	info, err := os.Stat(driver)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		if m.Verbose {
-			fmt.Printf("Compiling %s\n", m.Binfile)
+			fmt.Println("Compiling driver")
 		}
 		compile = true
-
 	case err != nil:
-		return errors.Wrapf(err, "statting %s", m.Binfile)
-
-	case info.IsDir():
-		return fmt.Errorf("%s is a directory", m.Binfile)
-
+		return "", errors.Wrapf(err, "statting %s", driver)
 	case info.Mode().Perm()&1 == 0:
-		return fmt.Errorf("file %s exists but is not world-executable", m.Binfile)
-
+		return "", fmt.Errorf("file %s exists but is not world-executable", driver)
 	case m.Force:
 		if m.Verbose {
-			fmt.Printf("Forcing recompilation of %s\n", m.Binfile)
+			fmt.Println("Forcing recompilation of driver")
 		}
 		compile = true
-
-	default:
-		if m.Verbose {
-			fmt.Printf("Using existing %s\n", m.Binfile)
-		}
+	case m.Verbose:
+		fmt.Println("Using existing driver")
 	}
 
-	if compile {
-		if err := Compile(ctx, m.Pkgdir, m.Binfile); err != nil {
-			return errors.Wrapf(err, "compiling %s", m.Binfile)
-		}
-		args = append(args, "-nocheck")
+	if !compile {
+		return driver, nil
 	}
 
-	args = append(args, m.Args...)
+	if err = os.MkdirAll(m.Fabdir, 0755); err != nil {
+		return "", errors.Wrapf(err, "creating directory %s", m.Fabdir)
+	}
 
-	abs, err := filepath.Abs(m.Binfile)
+	err = Compile(ctx, m.Pkgdir, driver)
+	return driver, errors.Wrapf(err, "compiling %s", driver)
+}
+
+func addFileToHash(dh *dirHasher, filename string) error {
+	f, err := os.Open(filename)
 	if err != nil {
-		return errors.Wrapf(err, "computing absolute pathname for %s", m.Binfile)
+		return errors.Wrapf(err, "opening %s", filename)
 	}
-	cmd := exec.CommandContext(ctx, abs, args...)
-	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-	err = cmd.Run()
-	return errors.Wrapf(err, "running %s %s", abs, strings.Join(args, " "))
+	defer f.Close()
+
+	return dh.file(filename, f)
 }

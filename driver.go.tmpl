@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -16,15 +15,8 @@ import (
 	"github.com/bobg/fab"
 	"github.com/bobg/fab/sqlite"
 	"github.com/bobg/go-generics/maps"
-	"github.com/pkg/errors"
 
 	subpkg "x/pkg/{{ .Subpkg }}"
-)
-
-var (
-	wantDirhash = "{{ .Dirhash }}"
-	pkgdir      = "{{ .Pkgdir }}"
-	binfile     = "{{ .Binfile }}"
 )
 
 func main() {
@@ -54,73 +46,34 @@ func main() {
 	ctx := context.Background()
 	ctx = fab.WithNames(ctx, names)
 
-	var (
-		verbose bool
-		nocheck bool
-		list    bool
-		dbfile  string
-	)
-	flag.BoolVar(&verbose, "v", false, "run verbosely")
-	flag.BoolVar(&nocheck, "nocheck", false, "suppress dirhash checking")
-	flag.BoolVar(&list, "list", false, "list available targets")
-	flag.StringVar(&dbfile, "db", "", "path to Sqlite3 hash database file")
-	flag.Parse()
-
-	if !nocheck {
-		entries, err := os.ReadDir(pkgdir)
-		if err != nil {
-			fatalf("Reading directory %s: %s", pkgdir, err)
-		}
-		dh := fab.NewDirHasher()
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-			if strings.HasSuffix(entry.Name(), "_test.go") {
-				continue
-			}
-			if !strings.HasSuffix(entry.Name(), ".go") {
-				continue
-			}
-			if err = addFileToHash(dh, filepath.Join(pkgdir, entry.Name())); err != nil {
-				fatalf("Hashing file %s/%s: %s", pkgdir, entry.Name(), err)
-			}
-		}
-		gotDirhash, err := dh.Hash()
-		if err != nil {
-			fatalf("Reading dirhash: %s", err)
-		}
-		if gotDirhash != wantDirhash {
-			fmt.Printf("Recompiling %s\n", binfile)
-			err = fab.Compile(ctx, pkgdir, binfile)
-			if err != nil {
-				fatalf("Compiling %s: %s", binfile, err)
-			}
-			abs, err := filepath.Abs(binfile)
-			if err != nil {
-				fatalf("Computing absolute pathname for %s", binfile)
-			}
-			args := []string{"-nocheck"}
-			args = append(args, os.Args[1:]...)
-			cmd := exec.CommandContext(ctx, abs, args...)
-			cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-			if err = cmd.Run(); err != nil {
-				fatalf("Running %s %s: %s", abs, strings.Join(args, " "), err)
-			}
-			return
-		}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fatalf("Error getting home dir: %s", err)
 	}
+
+	var (
+		fabdir  string
+		verbose bool
+		list    bool
+	)
+	flag.StringVar(&fabdir, "fab", filepath.Join(home, ".fab"), "directory containing driver binaries and hash DB")
+	flag.BoolVar(&verbose, "v", false, "run verbosely")
+	flag.BoolVar(&list, "list", false, "list available targets")
+	flag.Parse()
 
 	ctx = fab.WithVerbose(ctx, verbose)
 
-	if dbfile != "" {
-		db, err := sqlite.Open(ctx, dbfile, sqlite.Keep(30*24*time.Hour)) // keep db entries for 30 days
-		if err != nil {
-			fatalf("Error opening %s: %s", dbfile, err)
-		}
-		defer db.Close()
-		ctx = fab.WithHashDB(ctx, db)
+	if err = os.MkdirAll(fabdir, 0755); err != nil {
+		fatalf("Error creating %s: %s", fabdir, err)
 	}
+
+	dbfile := filepath.Join(fabdir, "hash.db")
+	db, err := sqlite.Open(ctx, dbfile, sqlite.Keep(30*24*time.Hour)) // keep db entries for 30 days
+	if err != nil {
+		fatalf("Error opening %s: %s", dbfile, err)
+	}
+	defer db.Close()
+	ctx = fab.WithHashDB(ctx, db)
 
 	args := flag.Args()
 	if len(args) == 0 {
@@ -177,14 +130,4 @@ func fatalf(format string, args ...any) {
 		fmt.Println("")
 	}
 	os.Exit(1)
-}
-
-func addFileToHash(dh *fab.DirHasher, filename string) error {
-	f, err := os.Open(filename)
-	if err != nil {
-		return errors.Wrapf(err, "opening %s", filename)
-	}
-	defer f.Close()
-
-	return dh.File(filename, f)
 }
