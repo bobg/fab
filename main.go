@@ -36,7 +36,7 @@ type Main struct {
 }
 
 // Run executes the main logic of the fab command.
-// If m.Binfile does not exist,
+// If a driver binary with the right dirhash does not exist in m.Fabdir,
 // or if m.Force is true,
 // it is created with Compile.
 // It is then invoked with the command-line arguments indicated by the fields of m.

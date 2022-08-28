@@ -32,16 +32,7 @@ import (
 // whose types satisfy the [Target] interface.
 // These become the build rules that the driver can invoke.
 //
-// When the driver already exists, the "fab" command simply executes it.
-// When it doesn't exist, the fab command compiles it and _then_ executes it.
-//
-// The driver binary knows the "dir hash" of the Go files from which it was compiled.
-// When the driver runs, it checks that the dir hash is still the same.
-// If it's not, then the build rules have changed and the driver binary is out of date.
-// In this case the driver recompiles, replaces, and reruns itself.
-//
 // When Compile runs
-// (including when the driver recompiles itself)
 // the "go" program must exist in the user's PATH.
 // It must be Go version 1.19 or later.
 //
@@ -52,9 +43,7 @@ import (
 //     to find those implementing the fab.Target interface.
 //   - The user's code is then copied to a temp directory
 //     together with a main package (and main() function)
-//     that records the set of targets,
-//     the dir hash of the user's code,
-//     and the value of binfile.
+//     that records the set of targets.
 //   - The go compiler is invoked to produce an executable,
 //     which is renamed into place as binfile.
 func Compile(ctx context.Context, pkgdir, binfile string) error {
