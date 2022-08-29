@@ -3,11 +3,13 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"time"
 
 	"github.com/benbjohnson/clock"
 	_ "github.com/mattn/go-sqlite3" // to get the "sqlite3" driver for sql.Open
 	"github.com/pkg/errors"
+	"github.com/pressly/goose/v3"
 
 	"github.com/bobg/fab"
 )
@@ -22,28 +24,26 @@ type DB struct {
 
 var _ fab.HashDB = &DB{}
 
-const schema = `
-CREATE TABLE IF NOT EXISTS hashes (
-  hash BLOB NOT NULL PRIMARY KEY,
-  unix_secs INT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS unix_secs_idx ON hashes (unix_secs);
-`
+//go:embed migrations/*.sql
+var migrations embed.FS
 
 // Open opens the given file and returns it as a *DB.
 // The file is created if it doesn't already exist.
-// The database schema is created in the file if needed.
 // Callers should call Close when finished operating on the database.
 func Open(ctx context.Context, path string, opts ...Option) (*DB, error) {
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return nil, errors.Wrapf(err, "opening sqlite db %s", path)
 	}
-	_, err = db.ExecContext(ctx, schema)
-	if err != nil {
-		return nil, errors.Wrap(err, "creating schema")
+
+	goose.SetBaseFS(migrations)
+	if err = goose.SetDialect("sqlite3"); err != nil {
+		return nil, errors.Wrap(err, "setting migration dialect")
 	}
+	if err = goose.Up(db, "migrations"); err != nil {
+		return nil, errors.Wrap(err, "executing db migrations")
+	}
+
 	result := &DB{
 		db:             db,
 		updateOnAccess: true,
