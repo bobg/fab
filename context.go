@@ -3,36 +3,24 @@ package fab
 import "context"
 
 type (
-	verboseKeyType struct{}
-	runnerKeyType  struct{}
+	forceKeyType   struct{}
 	hashDBKeyType  struct{}
 	namesKeyType   struct{}
+	runnerKeyType  struct{}
+	verboseKeyType struct{}
 )
 
-// WithVerbose decorates a context with the value of a "verbose" boolean.
-// Retrieve it with GetVerbose.
-func WithVerbose(ctx context.Context, verbose bool) context.Context {
-	return context.WithValue(ctx, verboseKeyType{}, verbose)
+// WithForce decorates a context with the value of a "force" boolean.
+// Retrieve it with GetForce.
+func WithForce(ctx context.Context, force bool) context.Context {
+	return context.WithValue(ctx, forceKeyType{}, force)
 }
 
-// GetVerbose returns the value of the verbose boolean added to `ctx` with WithVerbose.
-// The default, if WithVerbose was not used, is false.
-func GetVerbose(ctx context.Context) bool {
-	val, _ := ctx.Value(verboseKeyType{}).(bool)
+// GetForce returns the value of the force boolean added to `ctx` with WithForce.
+// The default, if WithForce was not used, is false.
+func GetForce(ctx context.Context) bool {
+	val, _ := ctx.Value(forceKeyType{}).(bool)
 	return val
-}
-
-// WithRunner decorates a context with a Runner.
-// Retrieve it with GetRunner.
-func WithRunner(ctx context.Context, r *Runner) context.Context {
-	return context.WithValue(ctx, runnerKeyType{}, r)
-}
-
-// GetRunner returns the value of the Runner added to `ctx` with WithRunner.
-// The default, if WithRunner was not used, is nil.
-func GetRunner(ctx context.Context) *Runner {
-	r, _ := ctx.Value(runnerKeyType{}).(*Runner)
-	return r
 }
 
 // WithHashDB decorates a context with a HashDB.
@@ -62,4 +50,30 @@ func WithNames(ctx context.Context, names map[uintptr]string) context.Context {
 func GetNames(ctx context.Context) map[uintptr]string {
 	names, _ := ctx.Value(namesKeyType{}).(map[uintptr]string)
 	return names
+}
+
+// WithRunner decorates a context with a Runner.
+// Retrieve it with GetRunner.
+func WithRunner(ctx context.Context, r *Runner) context.Context {
+	return context.WithValue(ctx, runnerKeyType{}, r)
+}
+
+// GetRunner returns the value of the Runner added to `ctx` with WithRunner.
+// The default, if WithRunner was not used, is nil.
+func GetRunner(ctx context.Context) *Runner {
+	r, _ := ctx.Value(runnerKeyType{}).(*Runner)
+	return r
+}
+
+// WithVerbose decorates a context with the value of a "verbose" boolean.
+// Retrieve it with GetVerbose.
+func WithVerbose(ctx context.Context, verbose bool) context.Context {
+	return context.WithValue(ctx, verboseKeyType{}, verbose)
+}
+
+// GetVerbose returns the value of the verbose boolean added to `ctx` with WithVerbose.
+// The default, if WithVerbose was not used, is false.
+func GetVerbose(ctx context.Context) bool {
+	val, _ := ctx.Value(verboseKeyType{}).(bool)
+	return val
 }

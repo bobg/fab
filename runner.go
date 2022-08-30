@@ -119,12 +119,15 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 }
 
 func (r *Runner) runTarget(ctx context.Context, db HashDB, target Target) error {
-	verbose := GetVerbose(ctx)
+	var (
+		verbose = GetVerbose(ctx)
+		force   = GetForce(ctx)
+	)
 
 	var ht HashTarget
 	if db != nil {
 		ht, _ = target.(HashTarget)
-		if ht != nil {
+		if ht != nil && !force {
 			h, err := ht.Hash(ctx)
 			if err != nil {
 				return errors.Wrapf(err, "computing hash for %s", Name(ctx, target))
@@ -154,7 +157,7 @@ func (r *Runner) runTarget(ctx context.Context, db HashDB, target Target) error 
 	if ht != nil {
 		h, err := ht.Hash(ctx)
 		if err != nil {
-			return errors.Wrapf(err, "computing updated hash for %s", Name(ctx, target))
+			return errors.Wrapf(err, "computing new updatedhash for %s", Name(ctx, target))
 		}
 		err = db.Add(ctx, h)
 		if err != nil {

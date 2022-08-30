@@ -55,13 +55,16 @@ func main() {
 		fabdir  string
 		verbose bool
 		list    bool
+		force   bool
 	)
 	flag.StringVar(&fabdir, "fab", filepath.Join(home, ".fab"), "directory containing driver binaries and hash DB")
 	flag.BoolVar(&verbose, "v", false, "run verbosely")
 	flag.BoolVar(&list, "list", false, "list available targets")
+	flag.BoolVar(&force, "f", false, "force rebuilding of targets")
 	flag.Parse()
 
 	ctx = fab.WithVerbose(ctx, verbose)
+	ctx = fab.WithForce(ctx, force)
 
 	if err = os.MkdirAll(fabdir, 0755); err != nil {
 		fatalf("Error creating %s: %s", fabdir, err)

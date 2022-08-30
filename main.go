@@ -52,6 +52,9 @@ func (m Main) Run(ctx context.Context) error {
 	if m.List {
 		args = append(args, "-list")
 	}
+	if m.Force {
+		args = append(args, "-f")
+	}
 	args = append(args, m.Args...)
 
 	driver, err := m.getDriver(ctx)
