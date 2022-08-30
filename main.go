@@ -108,6 +108,18 @@ func (m Main) getDriver(ctx context.Context) (string, error) {
 			fmt.Println("Forcing recompilation of driver")
 		}
 	} else {
+		_, err = os.Stat(driver)
+		if errors.Is(err, fs.ErrNotExist) {
+			compile = true
+			if m.Verbose {
+				fmt.Println("Compiling driver")
+			}
+		} else if err != nil {
+			return "", errors.Wrapf(err, "statting %s", driver)
+		}
+	}
+
+	if !compile {
 		oldhash, err = os.ReadFile(hashfile)
 		if errors.Is(err, fs.ErrNotExist) {
 			compile = true
