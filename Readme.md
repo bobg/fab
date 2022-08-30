@@ -91,21 +91,16 @@ or calls to `Run`, etc.
 
 ## Details
 
-Running `fab` combines your build rules with its own `main` function to produce a _driver_,
-which is an executable binary that performs the actual execution of your rules.
-By default, your rules are found in the `fab.d` subdir and the driver is named `fab.bin`
-(but these can be overridden).
+By default, your build rules are found in the `fab.d` subdir.
+Running `fab` combines your rules with its own `main` function to produce a _driver_,
+which lives in `$HOME/.fab` by default.
+(These defaults can be overridden.)
 
-When you run `fab` and `fab.bin` is already present and up to date
-(see next paragraph)
+When you run `fab` and the driver is already present and up to date
+(as determined by a _hash_ of the code in the `fab.d` dir),
 then `fab` simply executes the driver without rebuilding it.
 
-The `fab.bin` driver embeds a _hash_ of the code in the `fab.d` dir.
-At startup it can check to see whether that hash has changed.
-If it has, then the driver is out of date with respect to your build rules.
-In that case `fab.bin` will automatically recompile, replace, and rerun itself.
-
-You can also specify a _hash database_ to fab.
+The directory `$HOME/.fab` also contains a _hash database_.
 When certain targets run -
 those satisfying the `HashTarget` interface -
 a hash representing the complete state of the target
@@ -114,7 +109,7 @@ is stored in the database.
 The next time you want to build that target,
 if it’s already up to date -
 because the current state hashes to a value already in the database -
-fab can skip recompilation.
+`fab` can skip recompilation.
 
 ## Installation
 

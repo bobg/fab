@@ -5,22 +5,27 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/bobg/fab"
 )
 
 func main() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Printf("Error getting home dir: %s\n", err)
+		os.Exit(1)
+	}
+
 	var (
 		pkgdir  string
-		binfile string
-		dbfile  string
+		fabdir  string
 		verbose bool
 		list    bool
 		force   bool
 	)
-	flag.StringVar(&pkgdir, "d", "fab.d", "directory containing fab rules")
-	flag.StringVar(&binfile, "bin", "fab.bin", "path of executable file to create/run")
-	flag.StringVar(&dbfile, "db", "", "path to Sqlite3 hash database file")
+	flag.StringVar(&pkgdir, "pkg", "fab.d", "directory containing Go package of build rules")
+	flag.StringVar(&fabdir, "fab", filepath.Join(home, ".fab"), "directory containing fab DB and compiled drivers")
 	flag.BoolVar(&verbose, "v", false, "run verbosely")
 	flag.BoolVar(&list, "list", false, "list available targets")
 	flag.BoolVar(&force, "f", false, "force compilation of -bin executable")
@@ -28,8 +33,7 @@ func main() {
 
 	m := fab.Main{
 		Pkgdir:  pkgdir,
-		Binfile: binfile,
-		DBFile:  dbfile,
+		Fabdir:  fabdir,
 		Verbose: verbose,
 		List:    list,
 		Force:   force,

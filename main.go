@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
+	"golang.org/x/tools/go/packages"
 )
 
 // Main is the structure whose Run methods implements the main logic of the fab command.
@@ -17,11 +19,8 @@ type Main struct {
 	// Pkgdir is where to find the user's build-rules Go package, e.g. "fab.d".
 	Pkgdir string
 
-	// Binfile is where to place the compiled driver binary, e.g. "fab.bin".
-	Binfile string
-
-	// DBFile is where to find the hash DB file, e.g. ".fab.db".
-	DBFile string
+	// Fabdir is where to find the user's hash DB and compiled binaries, default $HOME/.fab.
+	Fabdir string
 
 	// Verbose tells whether to run the driver in verbose mode
 	// (by supplying the -v command-line flag).
@@ -39,70 +38,159 @@ type Main struct {
 }
 
 // Run executes the main logic of the fab command.
-// If m.Binfile does not exist,
+// If a driver binary with the right dirhash does not exist in m.Fabdir,
 // or if m.Force is true,
 // it is created with Compile.
 // It is then invoked with the command-line arguments indicated by the fields of m.
 // Typically this will include one or more target names,
 // in which case the driver will execute the associated rules as defined by the code in m.Pkgdir.
 func (m Main) Run(ctx context.Context) error {
-	var args []string
+	args := []string{"-fab", m.Fabdir}
 	if m.Verbose {
 		args = append(args, "-v")
 	}
 	if m.List {
 		args = append(args, "-list")
 	}
-	if m.DBFile != "" {
-		args = append(args, "-db", m.DBFile)
+	args = append(args, m.Args...)
+
+	driver, err := m.getDriver(ctx)
+	if err != nil {
+		return errors.Wrap(err, "ensuring driver is up to date")
 	}
 
-	var compile bool
+	cmd := exec.CommandContext(ctx, driver, args...)
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	err = cmd.Run()
+	return errors.Wrapf(err, "running %s %s", driver, strings.Join(args, " "))
+}
 
-	info, err := os.Stat(m.Binfile)
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
-		if m.Verbose {
-			fmt.Printf("Compiling %s\n", m.Binfile)
+func (m Main) getDriver(ctx context.Context) (string, error) {
+	config := &packages.Config{
+		Mode:    packages.NeedName | packages.NeedFiles,
+		Context: ctx,
+	}
+	pkgpath, err := toRelPath(m.Pkgdir)
+	if err != nil {
+		return "", errors.Wrapf(err, "getting relative path for %s", m.Pkgdir)
+	}
+	pkgs, err := packages.Load(config, pkgpath)
+	if err != nil {
+		return "", errors.Wrapf(err, "loading %s", pkgpath)
+	}
+	if len(pkgs) != 1 {
+		return "", fmt.Errorf("found %d packages in %s, want 1", len(pkgs), pkgpath)
+	}
+	pkg := pkgs[0]
+	if len(pkg.Errors) > 0 {
+		err = nil
+		for _, e := range pkg.Errors {
+			err = multierr.Append(err, e)
 		}
+		return "", errors.Wrapf(err, "loading package %s", pkg.Name)
+	}
+
+	driverdir := filepath.Join(m.Fabdir, pkg.PkgPath)
+	if err = os.MkdirAll(driverdir, 0755); err != nil {
+		return "", errors.Wrapf(err, "ensuring directory %s/%s exists", m.Fabdir, pkg.PkgPath)
+	}
+
+	var (
+		hashfile = filepath.Join(driverdir, "hash")
+		driver   = filepath.Join(driverdir, "fab.bin")
+		compile  bool
+		oldhash  []byte
+	)
+
+	if m.Force {
 		compile = true
-
-	case err != nil:
-		return errors.Wrapf(err, "statting %s", m.Binfile)
-
-	case info.IsDir():
-		return fmt.Errorf("%s is a directory", m.Binfile)
-
-	case info.Mode().Perm()&1 == 0:
-		return fmt.Errorf("file %s exists but is not world-executable", m.Binfile)
-
-	case m.Force:
 		if m.Verbose {
-			fmt.Printf("Forcing recompilation of %s\n", m.Binfile)
+			fmt.Println("Forcing recompilation of driver")
 		}
-		compile = true
+	} else {
+		_, err = os.Stat(driver)
+		if errors.Is(err, fs.ErrNotExist) {
+			compile = true
+			if m.Verbose {
+				fmt.Println("Compiling driver")
+			}
+		} else if err != nil {
+			return "", errors.Wrapf(err, "statting %s", driver)
+		}
+	}
 
-	default:
-		if m.Verbose {
-			fmt.Printf("Using existing %s\n", m.Binfile)
+	if !compile {
+		oldhash, err = os.ReadFile(hashfile)
+		if errors.Is(err, fs.ErrNotExist) {
+			compile = true
+			if m.Verbose {
+				fmt.Println("Compiling driver")
+			}
+		} else if err != nil {
+			return "", errors.Wrapf(err, "reading %s", hashfile)
+		}
+	}
+
+	dh := newDirHasher()
+	for _, filename := range pkg.GoFiles {
+		if err = addFileToHash(dh, filename); err != nil {
+			return "", errors.Wrapf(err, "hashing file %s", filename)
+		}
+	}
+	newhash, err := dh.hash()
+	if err != nil {
+		return "", errors.Wrapf(err, "computing hash of directory %s", m.Pkgdir)
+	}
+
+	if !compile {
+		if newhash == string(oldhash) {
+			if m.Verbose {
+				fmt.Println("Using existing driver")
+			}
+		} else {
+			compile = true
+			if m.Verbose {
+				fmt.Println("Recompiling driver")
+			}
 		}
 	}
 
 	if compile {
-		if err := Compile(ctx, m.Pkgdir, m.Binfile); err != nil {
-			return errors.Wrapf(err, "compiling %s", m.Binfile)
+		if err = Compile(ctx, m.Pkgdir, driver); err != nil {
+			return "", errors.Wrapf(err, "compiling driver %s", driver)
 		}
-		args = append(args, "-nocheck")
+		if err = os.WriteFile(hashfile, []byte(newhash), 0644); err != nil {
+			return "", errors.Wrapf(err, "writing %s", hashfile)
+		}
 	}
 
-	args = append(args, m.Args...)
+	return driver, nil
+}
 
-	abs, err := filepath.Abs(m.Binfile)
+func addFileToHash(dh *dirHasher, filename string) error {
+	f, err := os.Open(filename)
 	if err != nil {
-		return errors.Wrapf(err, "computing absolute pathname for %s", m.Binfile)
+		return errors.Wrapf(err, "opening %s", filename)
 	}
-	cmd := exec.CommandContext(ctx, abs, args...)
-	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-	err = cmd.Run()
-	return errors.Wrapf(err, "running %s %s", abs, strings.Join(args, " "))
+	defer f.Close()
+
+	return dh.file(filename, f)
+}
+
+func toRelPath(pkgdir string) (string, error) {
+	if filepath.IsAbs(pkgdir) {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", errors.Wrap(err, "getting current directory")
+		}
+		rel, err := filepath.Rel(cwd, pkgdir)
+		if err != nil {
+			return "", errors.Wrapf(err, "getting relative path to %s", pkgdir)
+		}
+		if strings.HasPrefix(rel, "../") {
+			return "", fmt.Errorf("package dir %s is not in or under current directory", pkgdir)
+		}
+		pkgdir = rel
+	}
+	return "./" + filepath.Clean(pkgdir), nil
 }

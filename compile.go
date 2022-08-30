@@ -32,16 +32,7 @@ import (
 // whose types satisfy the [Target] interface.
 // These become the build rules that the driver can invoke.
 //
-// When the driver already exists, the "fab" command simply executes it.
-// When it doesn't exist, the fab command compiles it and _then_ executes it.
-//
-// The driver binary knows the "dir hash" of the Go files from which it was compiled.
-// When the driver runs, it checks that the dir hash is still the same.
-// If it's not, then the build rules have changed and the driver binary is out of date.
-// In this case the driver recompiles, replaces, and reruns itself.
-//
 // When Compile runs
-// (including when the driver recompiles itself)
 // the "go" program must exist in the user's PATH.
 // It must be Go version 1.19 or later.
 //
@@ -52,27 +43,14 @@ import (
 //     to find those implementing the fab.Target interface.
 //   - The user's code is then copied to a temp directory
 //     together with a main package (and main() function)
-//     that records the set of targets,
-//     the dir hash of the user's code,
-//     and the value of binfile.
+//     that records the set of targets.
 //   - The go compiler is invoked to produce an executable,
 //     which is renamed into place as binfile.
 func Compile(ctx context.Context, pkgdir, binfile string) error {
-	if filepath.IsAbs(pkgdir) {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return errors.Wrap(err, "getting current directory")
-		}
-		rel, err := filepath.Rel(cwd, pkgdir)
-		if err != nil {
-			return errors.Wrapf(err, "getting relative path to %s", pkgdir)
-		}
-		if strings.HasPrefix(rel, "../") {
-			return fmt.Errorf("pkgdir must be in or under current directory")
-		}
-		pkgdir = rel
+	pkgpath, err := toRelPath(pkgdir)
+	if err != nil {
+		return errors.Wrapf(err, "getting relative path for %s", pkgdir)
 	}
-	pkgpath := "./" + filepath.Clean(pkgdir)
 
 	config := &packages.Config{
 		Mode:    packages.NeedName | packages.NeedFiles | packages.NeedTypes | packages.NeedDeps,
@@ -91,7 +69,7 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		for _, e := range ppkg.Errors {
 			err = multierr.Append(err, e)
 		}
-		return err
+		return errors.Wrapf(err, "loading package %s", ppkg.Name)
 	}
 
 	fset := token.NewFileSet()
@@ -167,8 +145,6 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		return errors.Wrapf(err, "reading entries from %s", pkgdir)
 	}
 
-	dh := NewDirHasher()
-
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -179,14 +155,9 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		if !strings.HasSuffix(entry.Name(), ".go") {
 			continue
 		}
-		if err = copyAndHash(filepath.Join(pkgdir, entry.Name()), subpkgdir, dh); err != nil {
+		if err = copyFile(filepath.Join(pkgdir, entry.Name()), subpkgdir); err != nil {
 			return errors.Wrapf(err, "copying %s to tmp subdir", entry.Name())
 		}
-	}
-
-	dirhash, err := dh.Hash()
-	if err != nil {
-		return errors.Wrap(err, "getting dirhash")
 	}
 
 	type templateTarget struct {
@@ -194,15 +165,9 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 	}
 	data := struct {
 		Subpkg  string
-		Dirhash string
-		Pkgdir  string
-		Binfile string
 		Targets []templateTarget
 	}{
-		Subpkg:  ppkg.Name,
-		Dirhash: dirhash,
-		Pkgdir:  pkgdir,
-		Binfile: binfile,
+		Subpkg: ppkg.Name,
 	}
 	for _, target := range targets {
 		data.Targets = append(data.Targets, templateTarget{
@@ -310,7 +275,7 @@ func populateFabSubdir(destdir, subdir string) error {
 	return nil
 }
 
-func copyAndHash(filename, destdir string, dh *DirHasher) error {
+func copyFile(filename, destdir string) error {
 	outfilename := filepath.Join(destdir, filepath.Base(filename))
 	out, err := os.OpenFile(outfilename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
@@ -324,9 +289,8 @@ func copyAndHash(filename, destdir string, dh *DirHasher) error {
 	}
 	defer in.Close()
 
-	// Send one copy of the file to out and one copy to the dirhasher.
-	tee := io.TeeReader(in, out)
-	return dh.File(filename, tee)
+	_, err = io.Copy(out, in)
+	return errors.Wrapf(err, "copying %s to %s", filename, destdir)
 }
 
 func toSnake(inp string) string {

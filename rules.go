@@ -266,7 +266,7 @@ func (ft FilesTarget) Hash(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "in JSON marshaling")
 	}
-	sum := sha256.Sum256(j)
+	sum := sha256.Sum224(j)
 	return sum[:], nil
 }
 
@@ -289,7 +289,7 @@ func hashFile(path string) ([]byte, error) {
 		return nil, errors.Wrapf(err, "opening %s", path)
 	}
 	defer f.Close()
-	hasher := sha256.New()
+	hasher := sha256.New224()
 	_, err = io.Copy(hasher, f)
 	if err != nil {
 		return nil, errors.Wrapf(err, "hashing %s", path)

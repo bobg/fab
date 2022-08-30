@@ -13,82 +13,48 @@ import (
 )
 
 func TestCompile(t *testing.T) {
-	tbCompile(t)
-}
+	tbCompile(t, func(tmpdir, pkgdir string) {
+		var (
+			fabdir  = filepath.Join(tmpdir, "fab")
+			rulesgo = filepath.Join(pkgdir, "rules.go")
+		)
 
-func BenchmarkCompile(b *testing.B) {
-	tbCompile(b)
-}
-
-// Test or benchmark the compiler.
-func tbCompile(tb testing.TB) {
-	tmpdir, err := os.MkdirTemp("", "fab")
-	if err != nil {
-		tb.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
-
-	ctx := context.Background()
-
-	if err = copy.Copy("_testdata/compile", tmpdir); err != nil {
-		tb.Fatal(err)
-	}
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		tb.Fatal(err)
-	}
-	if err = os.Chdir(tmpdir); err != nil {
-		tb.Fatal(err)
-	}
-	defer os.Chdir(cwd)
-
-	tmpfile, err := os.CreateTemp("", "fab")
-	if err != nil {
-		tb.Fatal(err)
-	}
-	tmpname := tmpfile.Name()
-	defer os.Remove(tmpname)
-	if err = tmpfile.Close(); err != nil {
-		tb.Fatal(err)
-	}
-
-	pkgdir := filepath.Join(tmpdir, "pkg")
-
-	if b, ok := tb.(*testing.B); ok {
-		b.ResetTimer()
-
-		for i := 0; i < b.N; i++ {
-			if err = Compile(ctx, pkgdir, tmpname); err != nil {
-				b.Fatal(err)
-			}
+		m := Main{
+			Pkgdir:  pkgdir,
+			Fabdir:  fabdir,
+			Verbose: testing.Verbose(),
 		}
 
-		return
-	}
+		ctx := context.Background()
 
-	if t, ok := tb.(*testing.T); ok {
-		rulesgo := filepath.Join(pkgdir, "rules.go")
-
-		if err = Compile(ctx, pkgdir, tmpname); err != nil {
+		driver, err := m.getDriver(ctx)
+		if err != nil {
 			t.Fatal(err)
 		}
 
-		info, err := os.Stat(tmpname)
+		info, err := os.Stat(driver)
 		if err != nil {
 			t.Fatal(err)
 		}
 		modtime := info.ModTime()
 
-		time.Sleep(time.Second)
-
-		cmd := exec.CommandContext(ctx, tmpname, "noop")
+		cmd := exec.CommandContext(ctx, driver, "noop")
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 		if err = cmd.Run(); err != nil {
 			t.Fatal(err)
 		}
 
-		info, err = os.Stat(tmpname)
+		// If the driver is (wrongly) recompiled here,
+		// this sleep forces the modtime to be different
+		// (on systems where file-modtime granularity
+		// is no better than one second).
+		time.Sleep(time.Second)
+
+		driver, err = m.getDriver(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		info, err = os.Stat(driver)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -106,15 +72,11 @@ func tbCompile(tb testing.TB) {
 			t.Fatal(err)
 		}
 
-		time.Sleep(time.Second)
-
-		cmd = exec.CommandContext(ctx, tmpname, "noop")
-		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-		if err = cmd.Run(); err != nil {
+		driver, err = m.getDriver(ctx)
+		if err != nil {
 			t.Fatal(err)
 		}
-
-		info, err = os.Stat(tmpname)
+		info, err = os.Stat(driver)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -122,6 +84,62 @@ func tbCompile(tb testing.TB) {
 			t.Error("driver did not get rebuilt but should have")
 		}
 
-		return
+		cmd = exec.CommandContext(ctx, driver, "noop")
+		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+		if err = cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+func BenchmarkCompile(b *testing.B) {
+	tbCompile(b, func(_, pkgdir string) {
+		tmpfile, err := os.CreateTemp("", "fab")
+		if err != nil {
+			b.Fatal(err)
+		}
+		tmpname := tmpfile.Name()
+		defer os.Remove(tmpname)
+		if err = tmpfile.Close(); err != nil {
+			b.Fatal(err)
+		}
+
+		ctx := context.Background()
+
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			if err = Compile(ctx, pkgdir, tmpname); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
+
+// Test or benchmark the compiler.
+func tbCompile(tb testing.TB, f func(tmpdir, pkgdir string)) {
+	tmpdir, err := os.MkdirTemp("", "fab")
+	if err != nil {
+		tb.Fatal(err)
 	}
+	defer os.RemoveAll(tmpdir)
+
+	compiledir := filepath.Join(tmpdir, "compile")
+
+	if err = copy.Copy("_testdata/compile", compiledir); err != nil {
+		tb.Fatal(err)
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		tb.Fatal(err)
+	}
+	if err = os.Chdir(compiledir); err != nil {
+		tb.Fatal(err)
+	}
+	defer os.Chdir(cwd)
+
+	pkgdir := filepath.Join(compiledir, "pkg")
+
+	f(tmpdir, pkgdir)
 }
