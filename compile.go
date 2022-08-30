@@ -47,21 +47,10 @@ import (
 //   - The go compiler is invoked to produce an executable,
 //     which is renamed into place as binfile.
 func Compile(ctx context.Context, pkgdir, binfile string) error {
-	if filepath.IsAbs(pkgdir) {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return errors.Wrap(err, "getting current directory")
-		}
-		rel, err := filepath.Rel(cwd, pkgdir)
-		if err != nil {
-			return errors.Wrapf(err, "getting relative path to %s", pkgdir)
-		}
-		if strings.HasPrefix(rel, "../") {
-			return fmt.Errorf("pkgdir must be in or under current directory")
-		}
-		pkgdir = rel
+	pkgpath, err := toRelPath(pkgdir)
+	if err != nil {
+		return errors.Wrapf(err, "getting relative path for %s", pkgdir)
 	}
-	pkgpath := "./" + filepath.Clean(pkgdir)
 
 	config := &packages.Config{
 		Mode:    packages.NeedName | packages.NeedFiles | packages.NeedTypes | packages.NeedDeps,

@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
+	"golang.org/x/tools/go/packages"
 )
 
 // Main is the structure whose Run methods implements the main logic of the fab command.
@@ -54,7 +56,7 @@ func (m Main) Run(ctx context.Context) error {
 
 	driver, err := m.getDriver(ctx)
 	if err != nil {
-		return errors.Wrap(err, "ensuring driver binary is up to date")
+		return errors.Wrap(err, "ensuring driver is up to date")
 	}
 
 	cmd := exec.CommandContext(ctx, driver, args...)
@@ -64,64 +66,105 @@ func (m Main) Run(ctx context.Context) error {
 }
 
 func (m Main) getDriver(ctx context.Context) (string, error) {
-	entries, err := os.ReadDir(m.Pkgdir)
-	if err != nil {
-		return "", errors.Wrapf(err, "reading directory %s", m.Pkgdir)
+	config := &packages.Config{
+		Mode:    packages.NeedName | packages.NeedFiles,
+		Context: ctx,
 	}
-	dh := newDirHasher()
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		if strings.HasSuffix(entry.Name(), "_test.go") {
-			continue
-		}
-		if !strings.HasSuffix(entry.Name(), ".go") {
-			continue
-		}
-		if err = addFileToHash(dh, filepath.Join(m.Pkgdir, entry.Name())); err != nil {
-			return "", errors.Wrapf(err, "hashing file %s/%s", m.Pkgdir, entry.Name())
-		}
-	}
-	dhval, err := dh.hash()
+	pkgpath, err := toRelPath(m.Pkgdir)
 	if err != nil {
-		return "", errors.Wrapf(err, "computing hash for directory %s", m.Pkgdir)
+		return "", errors.Wrapf(err, "getting relative path for %s", m.Pkgdir)
+	}
+	pkgs, err := packages.Load(config, pkgpath)
+	if err != nil {
+		return "", errors.Wrapf(err, "loading %s", pkgpath)
+	}
+	if len(pkgs) != 1 {
+		return "", fmt.Errorf("found %d packages in %s, want 1", len(pkgs), pkgpath)
+	}
+	pkg := pkgs[0]
+	if len(pkg.Errors) > 0 {
+		err = nil
+		for _, e := range pkg.Errors {
+			err = multierr.Append(err, e)
+		}
+		return "", errors.Wrapf(err, "loading package %s", pkg.Name)
+	}
+
+	driverdir := filepath.Join(m.Fabdir, pkg.PkgPath)
+	if err = os.MkdirAll(driverdir, 0755); err != nil {
+		return "", errors.Wrapf(err, "ensuring directory %s/%s exists", m.Fabdir, pkg.PkgPath)
 	}
 
 	var (
-		driver  = filepath.Join(m.Fabdir, dhval)
-		compile bool
+		hashfile = filepath.Join(driverdir, "hash")
+		driver   = filepath.Join(driverdir, "fab.bin")
+		compile  bool
+		oldhash  []byte
 	)
-	info, err := os.Stat(driver)
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
-		if m.Verbose {
-			fmt.Println("Compiling driver")
-		}
+
+	if m.Force {
 		compile = true
-	case err != nil:
-		return "", errors.Wrapf(err, "statting %s", driver)
-	case info.Mode().Perm()&1 == 0:
-		return "", fmt.Errorf("file %s exists but is not world-executable", driver)
-	case m.Force:
 		if m.Verbose {
 			fmt.Println("Forcing recompilation of driver")
 		}
-		compile = true
-	case m.Verbose:
-		fmt.Println("Using existing driver")
+	} else {
+		_, err = os.Stat(driver)
+		if errors.Is(err, fs.ErrNotExist) {
+			compile = true
+			if m.Verbose {
+				fmt.Println("Compiling driver")
+			}
+		} else if err != nil {
+			return "", errors.Wrapf(err, "statting %s", driver)
+		}
 	}
 
 	if !compile {
-		return driver, nil
+		oldhash, err = os.ReadFile(hashfile)
+		if errors.Is(err, fs.ErrNotExist) {
+			compile = true
+			if m.Verbose {
+				fmt.Println("Compiling driver")
+			}
+		} else if err != nil {
+			return "", errors.Wrapf(err, "reading %s", hashfile)
+		}
 	}
 
-	if err = os.MkdirAll(m.Fabdir, 0755); err != nil {
-		return "", errors.Wrapf(err, "creating directory %s", m.Fabdir)
+	dh := newDirHasher()
+	for _, filename := range pkg.GoFiles {
+		if err = addFileToHash(dh, filename); err != nil {
+			return "", errors.Wrapf(err, "hashing file %s", filename)
+		}
+	}
+	newhash, err := dh.hash()
+	if err != nil {
+		return "", errors.Wrapf(err, "computing hash of directory %s", m.Pkgdir)
 	}
 
-	err = Compile(ctx, m.Pkgdir, driver)
-	return driver, errors.Wrapf(err, "compiling %s", driver)
+	if !compile {
+		if newhash == string(oldhash) {
+			if m.Verbose {
+				fmt.Println("Using existing driver")
+			}
+		} else {
+			compile = true
+			if m.Verbose {
+				fmt.Println("Recompiling driver")
+			}
+		}
+	}
+
+	if compile {
+		if err = Compile(ctx, m.Pkgdir, driver); err != nil {
+			return "", errors.Wrapf(err, "compiling driver %s", driver)
+		}
+		if err = os.WriteFile(hashfile, []byte(newhash), 0644); err != nil {
+			return "", errors.Wrapf(err, "writing %s", hashfile)
+		}
+	}
+
+	return driver, nil
 }
 
 func addFileToHash(dh *dirHasher, filename string) error {
@@ -132,4 +175,22 @@ func addFileToHash(dh *dirHasher, filename string) error {
 	defer f.Close()
 
 	return dh.file(filename, f)
+}
+
+func toRelPath(pkgdir string) (string, error) {
+	if filepath.IsAbs(pkgdir) {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", errors.Wrap(err, "getting current directory")
+		}
+		rel, err := filepath.Rel(cwd, pkgdir)
+		if err != nil {
+			return "", errors.Wrapf(err, "getting relative path to %s", pkgdir)
+		}
+		if strings.HasPrefix(rel, "../") {
+			return "", fmt.Errorf("package dir %s is not in or under current directory", pkgdir)
+		}
+		pkgdir = rel
+	}
+	return "./" + filepath.Clean(pkgdir), nil
 }
