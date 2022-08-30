@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"io"
+	"log"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -37,6 +39,8 @@ func Open(ctx context.Context, path string, opts ...Option) (*DB, error) {
 	}
 
 	goose.SetBaseFS(migrations)
+	goose.SetLogger(log.New(io.Discard, "", 0)) // Silence "no migrations to run" messages.
+
 	if err = goose.SetDialect("sqlite3"); err != nil {
 		return nil, errors.Wrap(err, "setting migration dialect")
 	}
