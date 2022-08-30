@@ -45,23 +45,6 @@ type Main struct {
 // Typically this will include one or more target names,
 // in which case the driver will execute the associated rules as defined by the code in m.Pkgdir.
 func (m Main) Run(ctx context.Context) error {
-	pkgdir := m.Pkgdir
-	if filepath.IsAbs(pkgdir) {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return errors.Wrap(err, "getting current directory")
-		}
-		rel, err := filepath.Rel(cwd, pkgdir)
-		if err != nil {
-			return errors.Wrapf(err, "getting relative path to %s", pkgdir)
-		}
-		if strings.HasPrefix(rel, "../") {
-			return fmt.Errorf("package dir %s is not in or under current directory", pkgdir)
-		}
-		pkgdir = rel
-	}
-	pkgpath := "./" + filepath.Clean(pkgdir)
-
 	args := []string{"-fab", m.Fabdir}
 	if m.Verbose {
 		args = append(args, "-v")
@@ -71,16 +54,32 @@ func (m Main) Run(ctx context.Context) error {
 	}
 	args = append(args, m.Args...)
 
+	driver, err := m.getDriver(ctx)
+	if err != nil {
+		return errors.Wrap(err, "ensuring driver is up to date")
+	}
+
+	cmd := exec.CommandContext(ctx, driver, args...)
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	err = cmd.Run()
+	return errors.Wrapf(err, "running %s %s", driver, strings.Join(args, " "))
+}
+
+func (m Main) getDriver(ctx context.Context) (string, error) {
 	config := &packages.Config{
 		Mode:    packages.NeedName | packages.NeedFiles,
 		Context: ctx,
 	}
+	pkgpath, err := toRelPath(m.Pkgdir)
+	if err != nil {
+		return "", errors.Wrapf(err, "getting relative path for %s", m.Pkgdir)
+	}
 	pkgs, err := packages.Load(config, pkgpath)
 	if err != nil {
-		return errors.Wrapf(err, "loading %s", pkgpath)
+		return "", errors.Wrapf(err, "loading %s", pkgpath)
 	}
 	if len(pkgs) != 1 {
-		return fmt.Errorf("found %d packages in %s, want 1", len(pkgs), pkgpath)
+		return "", fmt.Errorf("found %d packages in %s, want 1", len(pkgs), pkgpath)
 	}
 	pkg := pkgs[0]
 	if len(pkg.Errors) > 0 {
@@ -88,39 +87,12 @@ func (m Main) Run(ctx context.Context) error {
 		for _, e := range pkg.Errors {
 			err = multierr.Append(err, e)
 		}
-		return errors.Wrapf(err, "loading package %s", pkg.Name)
+		return "", errors.Wrapf(err, "loading package %s", pkg.Name)
 	}
-
-	// fset := token.NewFileSet()
-	// pkgmap, err := parser.ParseDir(fset, m.Pkgdir, nil, 0)
-	// if err != nil {
-	// 	return errors.Wrapf(err, "parsing directory %s", m.Pkgdir)
-	// }
-
-	// if len(pkgmap) != 1 {
-	// 	return fmt.Errorf("found %d Go packages in %s (want 1)", len(pkgmap), m.Pkgdir)
-	// }
-
-	// var (
-	// 	pkgname string
-	// 	astpkg  *ast.Package
-	// )
-	// for n, p := range pkgmap {
-	// 	pkgname, astpkg = n, p
-	// 	break
-	// }
-
-	// conf := types.Config{
-	// 	Importer: importer.Default(),
-	// }
-	// pkg, err := conf.Check(pkgname, fset, maps.Values(astpkg.Files), nil)
-	// if err != nil {
-	// 	return errors.Wrapf(err, "type-checking package %s in directory %s", pkgname, m.Pkgdir)
-	// }
 
 	driverdir := filepath.Join(m.Fabdir, pkg.PkgPath)
 	if err = os.MkdirAll(driverdir, 0755); err != nil {
-		return errors.Wrapf(err, "ensuring directory %s/%s exists", m.Fabdir, pkg.PkgPath)
+		return "", errors.Wrapf(err, "ensuring directory %s/%s exists", m.Fabdir, pkg.PkgPath)
 	}
 
 	var (
@@ -143,19 +115,19 @@ func (m Main) Run(ctx context.Context) error {
 				fmt.Println("Compiling driver")
 			}
 		} else if err != nil {
-			return errors.Wrapf(err, "reading %s", hashfile)
+			return "", errors.Wrapf(err, "reading %s", hashfile)
 		}
 	}
 
 	dh := newDirHasher()
 	for _, filename := range pkg.GoFiles {
 		if err = addFileToHash(dh, filename); err != nil {
-			return errors.Wrapf(err, "hashing file %s", filename)
+			return "", errors.Wrapf(err, "hashing file %s", filename)
 		}
 	}
 	newhash, err := dh.hash()
 	if err != nil {
-		return errors.Wrapf(err, "computing hash of directory %s", m.Pkgdir)
+		return "", errors.Wrapf(err, "computing hash of directory %s", m.Pkgdir)
 	}
 
 	if !compile {
@@ -173,17 +145,14 @@ func (m Main) Run(ctx context.Context) error {
 
 	if compile {
 		if err = Compile(ctx, m.Pkgdir, driver); err != nil {
-			return errors.Wrapf(err, "compiling driver %s", driver)
+			return "", errors.Wrapf(err, "compiling driver %s", driver)
 		}
 		if err = os.WriteFile(hashfile, []byte(newhash), 0644); err != nil {
-			return errors.Wrapf(err, "writing %s", hashfile)
+			return "", errors.Wrapf(err, "writing %s", hashfile)
 		}
 	}
 
-	cmd := exec.CommandContext(ctx, driver, args...)
-	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-	err = cmd.Run()
-	return errors.Wrapf(err, "running %s %s", driver, strings.Join(args, " "))
+	return driver, nil
 }
 
 func addFileToHash(dh *dirHasher, filename string) error {
@@ -194,4 +163,22 @@ func addFileToHash(dh *dirHasher, filename string) error {
 	defer f.Close()
 
 	return dh.file(filename, f)
+}
+
+func toRelPath(pkgdir string) (string, error) {
+	if filepath.IsAbs(pkgdir) {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", errors.Wrap(err, "getting current directory")
+		}
+		rel, err := filepath.Rel(cwd, pkgdir)
+		if err != nil {
+			return "", errors.Wrapf(err, "getting relative path to %s", pkgdir)
+		}
+		if strings.HasPrefix(rel, "../") {
+			return "", fmt.Errorf("package dir %s is not in or under current directory", pkgdir)
+		}
+		pkgdir = rel
+	}
+	return "./" + filepath.Clean(pkgdir), nil
 }
