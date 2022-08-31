@@ -38,7 +38,7 @@ func TestCompile(t *testing.T) {
 		}
 		modtime := info.ModTime()
 
-		cmd := exec.CommandContext(ctx, driver, "noop")
+		cmd := exec.CommandContext(ctx, driver, "Noop")
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 		if err = cmd.Run(); err != nil {
 			t.Fatal(err)
@@ -84,7 +84,7 @@ func TestCompile(t *testing.T) {
 			t.Error("driver did not get rebuilt but should have")
 		}
 
-		cmd = exec.CommandContext(ctx, driver, "noop")
+		cmd = exec.CommandContext(ctx, driver, "Noop")
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 		if err = cmd.Run(); err != nil {
 			t.Fatal(err)

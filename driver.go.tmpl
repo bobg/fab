@@ -22,13 +22,13 @@ import (
 func main() {
 	index := map[string]fab.Target{
 		{{ range .Targets }}
-		"{{ .SnakeName }}": subpkg.{{ .Name }},
+		"{{ .Name }}": subpkg.{{ .Name }},
 		{{ end }}
 	}
 
 	doc := map[string]string{
 		{{ range .Targets }}
-		"{{ .SnakeName }}": {{ .Doc }},
+		"{{ .Name }}": {{ .Doc }},
 		{{ end }}
 	}
 

@@ -5,7 +5,6 @@ go 1.19
 require (
 	github.com/benbjohnson/clock v1.3.0
 	github.com/bobg/go-generics v1.2.0
-	github.com/fatih/camelcase v1.0.0
 	github.com/gibson042/canonicaljson-go v1.0.3
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/mattn/go-sqlite3 v1.14.15

@@ -16,7 +16,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/fatih/camelcase"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"golang.org/x/mod/modfile"
@@ -161,7 +160,7 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 	}
 
 	type templateTarget struct {
-		Name, SnakeName, Doc string
+		Name, Doc string
 	}
 	data := struct {
 		Subpkg  string
@@ -171,9 +170,8 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 	}
 	for _, target := range targets {
 		data.Targets = append(data.Targets, templateTarget{
-			Name:      target,
-			SnakeName: toSnake(target),
-			Doc:       docstrs[target],
+			Name: target,
+			Doc:  docstrs[target],
 		})
 	}
 
@@ -291,12 +289,4 @@ func copyFile(filename, destdir string) error {
 
 	_, err = io.Copy(out, in)
 	return errors.Wrapf(err, "copying %s to %s", filename, destdir)
-}
-
-func toSnake(inp string) string {
-	parts := camelcase.Split(inp)
-	for i := 0; i < len(parts); i++ {
-		parts[i] = strings.ToLower(parts[i])
-	}
-	return strings.Join(parts, "_")
 }

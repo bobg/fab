@@ -26,9 +26,6 @@ Every exported symbol in that package
 whose type satisfies the `fab.Target` interface
 is a target that fab can run.
 
-Target names that appear in CamelCase in Go code
-are converted to snake_case for use by the fab command.
-
 For example, if you write this in `fab.d/build.go`:
 
 ```go
@@ -48,7 +45,7 @@ var (
 )
 ```
 
-then you can run `fab build`, `fab check`, etc. in the shell.
+then you can run `fab Build`, `fab Check`, etc. in the shell.
 
 To express a dependency between targets, use the `Deps` construct:
 
