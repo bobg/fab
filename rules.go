@@ -296,3 +296,32 @@ func hashFile(path string) ([]byte, error) {
 	}
 	return hasher.Sum(nil), nil
 }
+
+// Clean is a Target that deletes the files named in Files when it runs.
+// Files that don't exist are silently ignored.
+type Clean struct {
+	Files []string
+	id    string
+}
+
+// ID implements Target.ID.
+func (c *Clean) ID() string {
+	if c.id == "" {
+		c.id = ID("Clean")
+	}
+	return c.id
+}
+
+// Run implements Target.Run.
+func (c *Clean) Run(_ context.Context) error {
+	for _, f := range c.Files {
+		err := os.Remove(f)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return errors.Wrapf(err, "removing %s", f)
+		}
+	}
+	return nil
+}
