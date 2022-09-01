@@ -37,6 +37,10 @@ func TestMain(t *testing.T) {
 		Pkgdir: filepath.Join(compiledir, "pkg"),
 		Fabdir: fabdir,
 		Args:   []string{"Noop"},
+
+		// The following are here mainly to improve test coverage.
+		Verbose: true,
+		Force:   true,
 	}
 
 	cwd, err := os.Getwd()

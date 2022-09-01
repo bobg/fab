@@ -24,7 +24,7 @@ func TestClean(t *testing.T) {
 	}
 
 	r := NewRunner()
-	if err = r.Run(context.Background(), &Clean{Files: []string{tmpname}}); err != nil {
+	if err = r.Run(context.Background(), &Clean{Files: []string{tmpname, "/tmp/i-hope-i-am-a-file-that-does-not-exist"}}); err != nil {
 		t.Fatal(err)
 	}
 
