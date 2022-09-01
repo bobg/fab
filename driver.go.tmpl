@@ -79,13 +79,9 @@ func main() {
 	ctx = fab.WithHashDB(ctx, db)
 
 	args := flag.Args()
-	if len(args) == 0 {
-		if _, ok := index["Default"]; ok {
-			args = []string{"Default"}
-		} else if !list {
-			fmt.Print("Specify one or more of the following targets:\n\n")
-			list = true
-		}
+	if len(args) == 0 && !list {
+		fmt.Print("Specify one or more of the following targets:\n\n")
+		list = true
 	}
 
 	if list {
