@@ -80,8 +80,8 @@ func main() {
 
 	args := flag.Args()
 	if len(args) == 0 {
-		if _, ok := index["default"]; ok {
-			args = []string{"default"}
+		if _, ok := index["Default"]; ok {
+			args = []string{"Default"}
 		} else if !list {
 			fmt.Print("Specify one or more of the following targets:\n\n")
 			list = true
@@ -91,15 +91,11 @@ func main() {
 	if list {
 		targetNames := maps.Keys(index)
 		sort.Strings(targetNames)
-		for i, name := range targetNames {
-			if i > 0 {
-				fmt.Print("\n")
-			}
-			fmt.Print(name)
+		for _, name := range targetNames {
+			fmt.Println(name)
 			if d := doc[name]; d != "" {
-				fmt.Printf(": %s", d)
+				fmt.Println(d)
 			}
-			fmt.Print("\n")
 		}
 		return
 	}

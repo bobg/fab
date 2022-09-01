@@ -113,12 +113,17 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		docstrs[target] = ""
 	}
 
-	dpkg := doc.New(astpkg, pkgpath, 0)
+	var (
+		dpkg   = doc.New(astpkg, pkgpath, 0)
+		parser = dpkg.Parser()
+		pr     = dpkg.Printer()
+	)
+	pr.TextPrefix = "    "
 	for _, v := range dpkg.Vars {
 		for _, name := range v.Names {
 			if _, ok := docstrs[name]; ok {
-				dstr := string(dpkg.Text(v.Doc))
-				dstr = strings.TrimSpace(dstr)
+				dstr := string(pr.Text(parser.Parse(v.Doc)))
+				dstr = strings.TrimRight(dstr, "\r\n")
 				docstrs[name] = strconv.Quote(dstr)
 			}
 		}

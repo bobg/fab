@@ -28,6 +28,7 @@ func init() {
 	}
 }
 
+// checkImplementsTarget checks whether the given type implements the Target interface.
 func checkImplementsTarget(typ types.Type) error {
 	methodSet := types.NewMethodSet(typ)
 	for name, targetMethod := range targetMethods {

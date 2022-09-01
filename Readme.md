@@ -97,16 +97,24 @@ When you run `fab` and the driver is already present and up to date
 (as determined by a _hash_ of the code in the `fab.d` dir),
 then `fab` simply executes the driver without rebuilding it.
 
-The directory `$HOME/.fab` also contains a _hash database_.
-When certain targets run -
+The directory `$HOME/.fab` also contains a _hash database_
+to tell when certain targets -
 those satisfying the `HashTarget` interface -
-a hash representing the complete state of the target
-(all inputs, outputs, and build rules)
-is stored in the database.
-The next time you want to build that target,
-if it’s already up to date -
-because the current state hashes to a value already in the database -
-`fab` can skip recompilation.
+are up to date and do not need rebuilding.
+When a `HashTarget` runs,
+it first computes a hash representing the complete state of the target -
+all inputs, outputs, and build rules.
+If that hash is in the database,
+the target is considered up to date and `fab` skips the build rule.
+(Otherwise, the build rule runs,
+and the hash is recomputed and added to the database.)
+This approach is preferable to using file modification times
+(like Make does, for example)
+to know when a target is up to date.
+Those aren’t always sufficient for this purpose,
+nor are they entirely reliable,
+considering the limited resolution of filesystem timestamps,
+the possibility of clock skew, etc.
 
 ## Installation
 
@@ -123,14 +131,10 @@ go install github.com/bobg/fab/cmd/fab@latest
 
 ## Why not Mage?
 
-Fab was strongly inspired by [Mage](https://magefile.org/),
+Fab was strongly inspired by the excellent [Mage](https://magefile.org/) tool,
 which works similarly and has a similar feature set.
-However, the author found Mage a little cumbersome for a few particular uses:
+But Fab has some features the author needed and did not find in Mage:
 
-- Adding persistent hashes of targets
-  to determine when running one can be skipped,
-  because its outputs are already up to date
-  with respect to its inputs.
-- Propagating errors outward from within target implementations.
-- Defining targets as the result of suitably typed expressions assigned to top-level vars,
-  instead of having to be Go `func`s.
+- Errors from `Target` rules propagate out instead of causing an exit.
+- Targets are values, not functions, and are composable (e.g. with `Seq`, `All`, and `Deps`).
+- Rebuilding of up-to-date targets can be skipped based on file contents, not modtimes.
