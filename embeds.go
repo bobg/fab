@@ -2,7 +2,7 @@ package fab
 
 import "embed"
 
-//go:embed *.go go.* driver.go.tmpl sqlite
+//go:embed *.go go.* driver.go.tmpl deps sqlite
 var embeds embed.FS
 
 var driverStr string
