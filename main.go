@@ -73,7 +73,7 @@ func (m Main) getDriver(ctx context.Context) (string, error) {
 		Mode:    packages.NeedName | packages.NeedFiles,
 		Context: ctx,
 	}
-	pkgpath, err := toRelPath(m.Pkgdir)
+	pkgpath, err := ToRelPath(m.Pkgdir)
 	if err != nil {
 		return "", errors.Wrapf(err, "getting relative path for %s", m.Pkgdir)
 	}
@@ -180,7 +180,10 @@ func addFileToHash(dh *dirHasher, filename string) error {
 	return dh.file(filename, f)
 }
 
-func toRelPath(pkgdir string) (string, error) {
+// ToRelPath converts a Go package directory to a relative path beginning with ./
+// (suitable for use in a call to [packages.Load], for example).
+// It is an error for pkgdir to be outside the current working directory's tree.
+func ToRelPath(pkgdir string) (string, error) {
 	if filepath.IsAbs(pkgdir) {
 		cwd, err := os.Getwd()
 		if err != nil {

@@ -46,7 +46,7 @@ import (
 //   - The go compiler is invoked to produce an executable,
 //     which is renamed into place as binfile.
 func Compile(ctx context.Context, pkgdir, binfile string) error {
-	pkgpath, err := toRelPath(pkgdir)
+	pkgpath, err := ToRelPath(pkgdir)
 	if err != nil {
 		return errors.Wrapf(err, "getting relative path for %s", pkgdir)
 	}
