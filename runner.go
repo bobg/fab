@@ -18,7 +18,7 @@ import (
 type Runner struct {
 	depth int32
 
-	mu  sync.Mutex // protects ran
+	mu  sync.Mutex // protects ran and Indentf
 	ran map[string]*outcome
 }
 
@@ -175,6 +175,9 @@ func (r *Runner) runTarget(ctx context.Context, db HashDB, target Target) error 
 //
 // A newline is added to the end of the string if one is not already there.
 func (r *Runner) Indentf(format string, args ...any) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if !strings.HasSuffix(format, "\n") {
 		format += "\n"
 	}
