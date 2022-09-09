@@ -3,23 +3,15 @@ package fab
 import (
 	"context"
 	"fmt"
-	"go/ast"
-	"go/doc"
-	"go/parser"
-	"go/token"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
-	"strconv"
 	"strings"
 	"text/template"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"golang.org/x/mod/modfile"
-	"golang.org/x/tools/go/packages"
 )
 
 // Compile compiles a "driver" from a directory of user code
@@ -46,89 +38,6 @@ import (
 //   - The go compiler is invoked to produce an executable,
 //     which is renamed into place as binfile.
 func Compile(ctx context.Context, pkgdir, binfile string) error {
-	pkgpath, err := ToRelPath(pkgdir)
-	if err != nil {
-		return errors.Wrapf(err, "getting relative path for %s", pkgdir)
-	}
-
-	config := &packages.Config{
-		Mode:    packages.NeedName | packages.NeedFiles | packages.NeedTypes | packages.NeedDeps,
-		Context: ctx,
-	}
-	ppkgs, err := packages.Load(config, pkgpath)
-	if err != nil {
-		return errors.Wrapf(err, "loading %s", pkgpath)
-	}
-	if len(ppkgs) != 1 {
-		return fmt.Errorf("found %d packages in %s, want 1", len(ppkgs), pkgpath)
-	}
-	ppkg := ppkgs[0]
-	if len(ppkg.Errors) > 0 {
-		err = nil
-		for _, e := range ppkg.Errors {
-			err = multierr.Append(err, e)
-		}
-		return errors.Wrapf(err, "loading package %s", ppkg.Name)
-	}
-
-	fset := token.NewFileSet()
-	astpkgs, err := parser.ParseDir(fset, pkgdir, nil, parser.ParseComments)
-	if err != nil {
-		return errors.Wrapf(err, "parsing %s", pkgdir)
-	}
-	if len(astpkgs) != 1 {
-		return fmt.Errorf("found %d packages in %s, want 1", len(astpkgs), pkgdir)
-	}
-	astpkg, ok := astpkgs[ppkg.Name]
-	if !ok {
-		return fmt.Errorf("package %s not found in %s", ppkg.Name, pkgdir)
-	}
-
-	var (
-		scope   = ppkg.Types.Scope()
-		idents  = scope.Names()
-		targets []string // Top-level identifiers with types that implement fab.Target
-	)
-	for _, ident := range idents {
-		if !ast.IsExported(ident) {
-			continue
-		}
-		obj := scope.Lookup(ident)
-		if obj == nil {
-			continue
-		}
-		if !implementsTarget(obj.Type()) {
-			continue
-		}
-		targets = append(targets, ident)
-	}
-	if len(targets) == 0 {
-		return fmt.Errorf("found no targets after loading %s", ppkg.Name)
-	}
-
-	sort.Strings(targets)
-
-	docstrs := make(map[string]string) // ident -> docstring
-	for _, target := range targets {
-		docstrs[target] = ""
-	}
-
-	var (
-		dpkg   = doc.New(astpkg, pkgpath, 0)
-		parser = dpkg.Parser()
-		pr     = dpkg.Printer()
-	)
-	pr.TextPrefix = "    "
-	for _, v := range dpkg.Vars {
-		for _, name := range v.Names {
-			if _, ok := docstrs[name]; ok {
-				dstr := string(pr.Text(parser.Parse(v.Doc)))
-				dstr = strings.TrimRight(dstr, "\r\n")
-				docstrs[name] = strconv.Quote(dstr)
-			}
-		}
-	}
-
 	tmpdir, err := os.MkdirTemp("", "fab")
 	if err != nil {
 		return errors.Wrap(err, "creating tempdir")
@@ -164,20 +73,10 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		}
 	}
 
-	type templateTarget struct {
-		Name, Doc string
-	}
 	data := struct {
-		Subpkg  string
-		Targets []templateTarget
+		Subdir string
 	}{
-		Subpkg: ppkg.Name,
-	}
-	for _, target := range targets {
-		data.Targets = append(data.Targets, templateTarget{
-			Name: target,
-			Doc:  docstrs[target],
-		})
+		Subdir: ppkg.Name,
 	}
 
 	driverOut, err := os.Create(filepath.Join(tmpdir, "driver.go"))

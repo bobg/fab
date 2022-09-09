@@ -6,29 +6,22 @@ import (
 	"github.com/bobg/fab"
 )
 
-// Build runs "go build".
-var Build = &fab.Command{
-	Shell:  "go build ./...",
-	Stdout: os.Stdout,
+func init() {
+	fab.Register("build", &fab.Command{
+		Shell:  "go build ./...",
+		Stdout: os.Stdout,
+	})
+	fab.Register("test", &fab.Command{
+		Shell:  "go test -race -cover ./...",
+		Stdout: os.Stdout,
+	})
+	fab.Register("lint", &fab.Command{
+		Shell:  "staticcheck ./...",
+		Stdout: os.Stdout,
+	})
+	fab.Register("vet", &fab.Command{
+		Shell:  "go vet ./...",
+		Stdout: os.Stdout,
+	})
+	fab.Register("check", fab.All(Vet, Lint, Test))
 }
-
-// Test runs "go test" with the race detector enabled, plus coverage reporting.
-var Test = &fab.Command{
-	Shell:  "go test -race -cover ./...",
-	Stdout: os.Stdout,
-}
-
-// Lint runs staticcheck.
-var Lint = &fab.Command{
-	Shell:  "staticcheck ./...",
-	Stdout: os.Stdout,
-}
-
-// Vet runs "go vet".
-var Vet = &fab.Command{
-	Shell:  "go vet ./...",
-	Stdout: os.Stdout,
-}
-
-// Check runs all of Vet, Lint, and Test.
-var Check = fab.All(Vet, Lint, Test)
