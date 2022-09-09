@@ -97,7 +97,7 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		if obj == nil {
 			continue
 		}
-		if err := checkImplementsTarget(obj.Type()); err != nil {
+		if !implementsTarget(obj.Type()) {
 			continue
 		}
 		targets = append(targets, ident)
