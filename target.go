@@ -3,7 +3,6 @@ package fab
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sync/atomic"
 )
 
@@ -35,19 +34,30 @@ func ID(prefix string) string {
 
 // Name returns a name for `target`.
 // Normally this is just target.ID().
-// But if `ctx` has been decorated with a name map using WithNames
-// and target's address is in it,
-// then that name is used instead.
-func Name(ctx context.Context, target Target) string {
-	names := GetNames(ctx)
-	if names != nil {
-		v := reflect.ValueOf(target)
-		if v.Kind() == reflect.Pointer {
-			name, ok := names[v.Pointer()]
-			if ok {
-				return name
-			}
-		}
+// But Register can wrap a target with a human-friendlier name
+// and in that case Name will return that string instead.
+func Name(target Target) string {
+	if w, ok := target.(nameWrapper); ok {
+		return w.name()
 	}
 	return target.ID()
 }
+
+type nameWrapper interface {
+	Target
+	name() string
+}
+
+type namedTarget struct {
+	Target
+	n string
+}
+
+func (t namedTarget) name() string { return t.n }
+
+type namedHashTarget struct {
+	HashTarget
+	n string
+}
+
+func (t namedHashTarget) name() string { return t.n }

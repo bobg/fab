@@ -48,7 +48,8 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		return errors.Wrap(err, "copying fab code")
 	}
 
-	subpkgdir := filepath.Join(tmpdir, "pkg", ppkg.Name)
+	pkgbase := filepath.Base(pkgdir)
+	subpkgdir := filepath.Join(tmpdir, "pkg", pkgbase)
 	if err = os.MkdirAll(subpkgdir, 0755); err != nil {
 		return errors.Wrapf(err, "creating %s", subpkgdir)
 	}
@@ -74,9 +75,9 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 	}
 
 	data := struct {
-		Subdir string
+		Pkg string
 	}{
-		Subdir: ppkg.Name,
+		Pkg: pkgbase,
 	}
 
 	driverOut, err := os.Create(filepath.Join(tmpdir, "driver.go"))

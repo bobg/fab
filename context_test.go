@@ -23,20 +23,6 @@ func TestWithForce(t *testing.T) {
 	}
 }
 
-func TestWithNames(t *testing.T) {
-	ctx := context.Background()
-	got := GetNames(ctx)
-	if got != nil {
-		t.Errorf("got %v, want nil", got)
-	}
-	m := make(map[uintptr]string)
-	ctx = WithNames(ctx, m)
-	got = GetNames(ctx)
-	if got == nil {
-		t.Error("got nil, want non-nil")
-	}
-}
-
 func TestWithRunner(t *testing.T) {
 	ctx := context.Background()
 	got := GetRunner(ctx)

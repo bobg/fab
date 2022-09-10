@@ -8,10 +8,22 @@ import (
 )
 
 // Register places a target in the registry with a given name.
-func Register(name string, target Target) {
+func Register(name string, target Target) Target {
+	if h, ok := target.(HashTarget); ok {
+		target = namedHashTarget{
+			HashTarget: h,
+			n:          name,
+		}
+	} else {
+		target = namedTarget{
+			Target: target,
+			n:      name,
+		}
+	}
 	registryMu.Lock()
 	registry[name] = target
 	registryMu.Unlock()
+	return target
 }
 
 var (

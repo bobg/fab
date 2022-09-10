@@ -5,7 +5,6 @@ import "context"
 type (
 	forceKeyType   struct{}
 	hashDBKeyType  struct{}
-	namesKeyType   struct{}
 	runnerKeyType  struct{}
 	verboseKeyType struct{}
 )
@@ -34,22 +33,6 @@ func WithHashDB(ctx context.Context, db HashDB) context.Context {
 func GetHashDB(ctx context.Context) HashDB {
 	db, _ := ctx.Value(hashDBKeyType{}).(HashDB)
 	return db
-}
-
-// WithNames decorates a context with a map[uintptr]string.
-// The keys are the addresses of Target objects
-// and the values are their "pretty names."
-// When available, these are shown to the user at runtime
-// in preference to the value of Target.ID.
-func WithNames(ctx context.Context, names map[uintptr]string) context.Context {
-	return context.WithValue(ctx, namesKeyType{}, names)
-}
-
-// GetNames returns the map[uintptr]string added to `ctx` with WithNames.
-// The default, if WithNames was not used, is nil.
-func GetNames(ctx context.Context) map[uintptr]string {
-	names, _ := ctx.Value(namesKeyType{}).(map[uintptr]string)
-	return names
 }
 
 // WithRunner decorates a context with a Runner.
