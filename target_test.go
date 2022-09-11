@@ -28,20 +28,18 @@ func TestID(t *testing.T) {
 
 func TestName(t *testing.T) {
 	t1 := F(func(_ context.Context) error { return nil })
-	ctx := context.Background()
-	got := Name(ctx, t1)
+	got := Name(t1)
 	if got != t1.ID() {
 		t.Errorf("got %s, want %s [1]", got, t1.ID())
 	}
 	names := map[uintptr]string{0: "foo"}
-	ctx = WithNames(ctx, names)
-	got = Name(ctx, t1)
+	got = Name(t1)
 	if got != t1.ID() {
 		t.Errorf("got %s, want %s [2]", got, t1.ID())
 	}
 	v := reflect.ValueOf(t1)
 	names[v.Pointer()] = "plugh"
-	got = Name(ctx, t1)
+	got = Name(t1)
 	if got != "plugh" {
 		t.Errorf("got %s, want plugh", got)
 	}

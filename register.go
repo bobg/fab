@@ -8,7 +8,7 @@ import (
 )
 
 // Register places a target in the registry with a given name.
-func Register(name string, target Target) Target {
+func Register(name, doc string, target Target) Target {
 	if h, ok := target.(HashTarget); ok {
 		target = namedHashTarget{
 			HashTarget: h,
@@ -21,14 +21,19 @@ func Register(name string, target Target) Target {
 		}
 	}
 	registryMu.Lock()
-	registry[name] = target
+	registry[name] = targetDocPair{target: target, doc: doc}
 	registryMu.Unlock()
 	return target
 }
 
+type targetDocPair struct {
+	target Target
+	doc    string
+}
+
 var (
 	registryMu sync.Mutex // protects registry
-	registry   = map[string]Target{}
+	registry   = make(map[string]targetDocPair)
 )
 
 // RegistryNames returns the names in the registry.
@@ -41,8 +46,9 @@ func RegistryNames() []string {
 }
 
 // RegistryTarget returns the target in the registry with the given name.
-func RegistryTarget(name string) Target {
+func RegistryTarget(name string) (Target, string) {
 	registryMu.Lock()
-	defer registryMu.Unlock()
-	return registry[name]
+	pair := registry[name]
+	registryMu.Unlock()
+	return pair.target, pair.doc
 }

@@ -7,44 +7,21 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/bobg/fab"
 	"github.com/bobg/fab/sqlite"
-	"github.com/bobg/go-generics/maps"
 
 	subpkg "x/pkg/{{ .Subpkg }}"
 )
 
 func main() {
-	index := map[string]fab.Target{
-		{{ range .Targets }}
-		"{{ .Name }}": subpkg.{{ .Name }},
-		{{ end }}
-	}
-
-	doc := map[string]string{
-		{{ range .Targets }}
-		"{{ .Name }}": {{ .Doc }},
-		{{ end }}
-	}
-
-	var (
-		names = make(map[uintptr]string)
-		v     reflect.Value
-	)
 	{{ range .Targets }}
-	v = reflect.ValueOf(subpkg.{{ .Name }})
-	if v.Kind() == reflect.Pointer {
-		names[v.Pointer()] = "{{ .Name }}"
-	}
+	fab.Register("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }})
 	{{ end }}
 
 	ctx := context.Background()
-	ctx = fab.WithNames(ctx, names)
 
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -85,11 +62,10 @@ func main() {
 	}
 
 	if list {
-		targetNames := maps.Keys(index)
-		sort.Strings(targetNames)
+		targetNames := fab.RegistryNames()
 		for _, name := range targetNames {
 			fmt.Println(name)
-			if d := doc[name]; d != "" {
+			if _, d := fab.RegistryTarget(name); d != "" {
 				fmt.Println(d)
 			}
 		}
@@ -102,7 +78,7 @@ func main() {
 	)
 
 	for _, arg := range args {
-		if target, ok := index[arg]; ok {
+		if target, _ := fab.RegistryTarget(arg); target != nil {
 			targets = append(targets, target)
 		} else {
 			unknown = append(unknown, arg)

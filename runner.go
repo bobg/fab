@@ -130,15 +130,15 @@ func (r *Runner) runTarget(ctx context.Context, db HashDB, target Target) error 
 		if ht != nil && !force {
 			h, err := ht.Hash(ctx)
 			if err != nil {
-				return errors.Wrapf(err, "computing hash for %s", Name(ctx, target))
+				return errors.Wrapf(err, "computing hash for %s", Name(target))
 			}
 			has, err := db.Has(ctx, h)
 			if err != nil {
-				return errors.Wrapf(err, "checking hash db for hash of %s", Name(ctx, target))
+				return errors.Wrapf(err, "checking hash db for hash of %s", Name(target))
 			}
 			if has {
 				if verbose {
-					r.Indentf("%s is up to date", Name(ctx, target))
+					r.Indentf("%s is up to date", Name(target))
 				}
 				return nil
 			}
@@ -146,18 +146,18 @@ func (r *Runner) runTarget(ctx context.Context, db HashDB, target Target) error 
 	}
 
 	if verbose {
-		r.Indentf("Running %s", Name(ctx, target))
+		r.Indentf("Running %s", Name(target))
 	}
 
 	err := target.Run(ctx)
 	if err != nil {
-		return errors.Wrapf(err, "running %s", Name(ctx, target))
+		return errors.Wrapf(err, "running %s", Name(target))
 	}
 
 	if ht != nil {
 		h, err := ht.Hash(ctx)
 		if err != nil {
-			return errors.Wrapf(err, "computing new updatedhash for %s", Name(ctx, target))
+			return errors.Wrapf(err, "computing new updatedhash for %s", Name(target))
 		}
 		err = db.Add(ctx, h)
 		if err != nil {
