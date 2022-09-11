@@ -18,10 +18,12 @@ import (
 
 func main() {
 	{{ range .Targets }}
+	{{ if .IsFunc }}
+	fab.Register("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }}())
+	{{ else }}
 	fab.Register("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }})
 	{{ end }}
-
-	ctx := context.Background()
+	{{ end }}
 
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -40,6 +42,7 @@ func main() {
 	flag.BoolVar(&force, "f", false, "force rebuilding of targets")
 	flag.Parse()
 
+	ctx := context.Background()
 	ctx = fab.WithVerbose(ctx, verbose)
 	ctx = fab.WithForce(ctx, force)
 

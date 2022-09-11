@@ -11,11 +11,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"text/template"
 
+	"github.com/bobg/go-generics/maps"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"golang.org/x/mod/modfile"
@@ -84,10 +84,14 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		return fmt.Errorf("package %s not found in %s", ppkg.Name, pkgdir)
 	}
 
+	type targetTuple struct {
+		Name, Doc string
+		IsFunc    bool
+	}
 	var (
 		scope   = ppkg.Types.Scope()
 		idents  = scope.Names()
-		targets []string // Top-level identifiers with types that implement fab.Target
+		targets = make(map[string]*targetTuple)
 	)
 	for _, ident := range idents {
 		if !ast.IsExported(ident) {
@@ -97,20 +101,13 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		if obj == nil {
 			continue
 		}
-		if err := checkImplementsTarget(obj.Type()); err != nil {
+		tt := targetTuple{Name: ident}
+		if err := checkIsFuncReturningTarget(obj.Type()); err == nil { // sic
+			tt.IsFunc = true
+		} else if err := checkImplementsTarget(obj.Type()); err != nil {
 			continue
 		}
-		targets = append(targets, ident)
-	}
-	if len(targets) == 0 {
-		return fmt.Errorf("found no targets after loading %s", ppkg.Name)
-	}
-
-	sort.Strings(targets)
-
-	docstrs := make(map[string]string) // ident -> docstring
-	for _, target := range targets {
-		docstrs[target] = ""
+		targets[ident] = &tt
 	}
 
 	var (
@@ -121,11 +118,18 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 	pr.TextPrefix = "    "
 	for _, v := range dpkg.Vars {
 		for _, name := range v.Names {
-			if _, ok := docstrs[name]; ok {
+			if tt, ok := targets[name]; ok {
 				dstr := string(pr.Text(parser.Parse(v.Doc)))
 				dstr = strings.TrimRight(dstr, "\r\n")
-				docstrs[name] = strconv.Quote(dstr)
+				tt.Doc = strconv.Quote(dstr)
 			}
+		}
+	}
+	for _, f := range dpkg.Funcs {
+		if tt, ok := targets[f.Name]; ok {
+			dstr := string(pr.Text(parser.Parse(f.Doc)))
+			dstr = strings.TrimRight(dstr, "\r\n")
+			tt.Doc = strconv.Quote(dstr)
 		}
 	}
 
@@ -169,15 +173,10 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 	}
 	data := struct {
 		Subpkg  string
-		Targets []templateTarget
+		Targets []*targetTuple
 	}{
-		Subpkg: ppkg.Name,
-	}
-	for _, target := range targets {
-		data.Targets = append(data.Targets, templateTarget{
-			Name: target,
-			Doc:  docstrs[target],
-		})
+		Subpkg:  ppkg.Name,
+		Targets: maps.Values(targets),
 	}
 
 	driverOut, err := os.Create(filepath.Join(tmpdir, "driver.go"))
