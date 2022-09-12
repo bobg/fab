@@ -5,7 +5,6 @@ import "context"
 type (
 	forceKeyType   struct{}
 	hashDBKeyType  struct{}
-	namesKeyType   struct{}
 	runnerKeyType  struct{}
 	verboseKeyType struct{}
 )

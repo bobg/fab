@@ -21,11 +21,7 @@ var bolRegex = regexp.MustCompile("^")
 
 func main() {
 	{{- range .Targets }}
-	{{- if .IsFunc }}
-	fab.Register("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }}())
-	{{- else }}
 	fab.Register("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }})
-	{{- end }}
 	{{- end }}
 
 	home, err := os.UserHomeDir()

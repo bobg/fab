@@ -84,14 +84,13 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		return fmt.Errorf("package %s not found in %s", ppkg.Name, pkgdir)
 	}
 
-	type targetTuple struct {
+	type targetPair struct {
 		Name, Doc string
-		IsFunc    bool
 	}
 	var (
 		scope   = ppkg.Types.Scope()
 		idents  = scope.Names()
-		targets = make(map[string]*targetTuple)
+		targets = make(map[string]*targetPair)
 	)
 	for _, ident := range idents {
 		if !ast.IsExported(ident) {
@@ -101,13 +100,10 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		if obj == nil {
 			continue
 		}
-		tt := targetTuple{Name: ident}
-		if err := checkIsFuncReturningTarget(obj.Type()); err == nil { // sic
-			tt.IsFunc = true
-		} else if err := checkImplementsTarget(obj.Type()); err != nil {
+		if err := checkImplementsTarget(obj.Type()); err != nil {
 			continue
 		}
-		targets[ident] = &tt
+		targets[ident] = &targetPair{Name: ident}
 	}
 
 	var (
@@ -117,18 +113,11 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 	)
 	for _, v := range dpkg.Vars {
 		for _, name := range v.Names {
-			if tt, ok := targets[name]; ok {
+			if tp, ok := targets[name]; ok {
 				dstr := string(pr.Text(parser.Parse(v.Doc)))
 				dstr = strings.TrimRight(dstr, "\r\n")
-				tt.Doc = strconv.Quote(dstr)
+				tp.Doc = strconv.Quote(dstr)
 			}
-		}
-	}
-	for _, f := range dpkg.Funcs {
-		if tt, ok := targets[f.Name]; ok {
-			dstr := string(pr.Text(parser.Parse(f.Doc)))
-			dstr = strings.TrimRight(dstr, "\r\n")
-			tt.Doc = strconv.Quote(dstr)
 		}
 	}
 
@@ -172,7 +161,7 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 	}
 	data := struct {
 		Subpkg  string
-		Targets []*targetTuple
+		Targets []*targetPair
 	}{
 		Subpkg:  ppkg.Name,
 		Targets: maps.Values(targets),
