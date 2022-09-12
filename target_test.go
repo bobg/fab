@@ -2,7 +2,6 @@ package fab
 
 import (
 	"context"
-	"reflect"
 	"testing"
 
 	"github.com/bobg/go-generics/parallel"
@@ -32,14 +31,8 @@ func TestName(t *testing.T) {
 	if got != t1.ID() {
 		t.Errorf("got %s, want %s [1]", got, t1.ID())
 	}
-	names := map[uintptr]string{0: "foo"}
-	got = Name(t1)
-	if got != t1.ID() {
-		t.Errorf("got %s, want %s [2]", got, t1.ID())
-	}
-	v := reflect.ValueOf(t1)
-	names[v.Pointer()] = "plugh"
-	got = Name(t1)
+	t2 := Register("plugh", "", t1)
+	got = Name(t2)
 	if got != "plugh" {
 		t.Errorf("got %s, want plugh", got)
 	}
