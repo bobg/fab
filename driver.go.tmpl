@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -16,14 +17,16 @@ import (
 	subpkg "x/pkg/{{ .Subpkg }}"
 )
 
+var bolRegex = regexp.MustCompile("^")
+
 func main() {
-	{{ range .Targets }}
-	{{ if .IsFunc }}
+	{{- range .Targets }}
+	{{- if .IsFunc }}
 	fab.Register("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }}())
-	{{ else }}
+	{{- else }}
 	fab.Register("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }})
-	{{ end }}
-	{{ end }}
+	{{- end }}
+	{{- end }}
 
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -69,6 +72,7 @@ func main() {
 		for _, name := range targetNames {
 			fmt.Println(name)
 			if _, d := fab.RegistryTarget(name); d != "" {
+				d = bolRegex.ReplaceAllString(d, "    ")
 				fmt.Println(d)
 			}
 		}

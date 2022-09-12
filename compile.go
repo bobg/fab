@@ -115,7 +115,6 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		parser = dpkg.Parser()
 		pr     = dpkg.Printer()
 	)
-	pr.TextPrefix = "    "
 	for _, v := range dpkg.Vars {
 		for _, name := range v.Names {
 			if tt, ok := targets[name]; ok {
