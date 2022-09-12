@@ -52,6 +52,24 @@ func checkImplementsTarget(typ types.Type) error {
 	return nil
 }
 
+func checkIsFuncReturningTarget(typ types.Type) error {
+	sig, ok := typ.(*types.Signature)
+	if !ok {
+		return fmt.Errorf("not a function")
+	}
+	if params := sig.Params(); params != nil && params.Len() > 0 {
+		return fmt.Errorf("function takes %d arg(s), want 0", params.Len())
+	}
+	result := sig.Results()
+	if result == nil {
+		return fmt.Errorf("function returns no results, want 1")
+	}
+	if result.Len() != 1 {
+		return fmt.Errorf("function returns %d results, want 1", result.Len())
+	}
+	return checkImplementsTarget(result.At(0).Type())
+}
+
 func checkSignaturesMatch(sig *types.Signature, fn reflect.Type, skipReceiver bool) (err error) {
 	if fn.Kind() != reflect.Func {
 		return fmt.Errorf("kind is %v, not func", fn.Kind())

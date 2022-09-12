@@ -257,11 +257,11 @@ func (ft FilesTarget) Hash(ctx context.Context) ([]byte, error) {
 	)
 	err := fillWithFileHashes(ft.In, inHashes)
 	if err != nil {
-		return nil, errors.Wrapf(err, "computing input hash(es) for %s", Name(ctx, ft))
+		return nil, errors.Wrapf(err, "computing input hash(es) for %s", Name(ft))
 	}
 	err = fillWithFileHashes(ft.Out, outHashes)
 	if err != nil {
-		return nil, errors.Wrapf(err, "computing output hash(es) for %s", Name(ctx, ft))
+		return nil, errors.Wrapf(err, "computing output hash(es) for %s", Name(ft))
 	}
 	s := struct {
 		Target
