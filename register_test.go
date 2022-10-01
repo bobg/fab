@@ -6,15 +6,14 @@ import (
 )
 
 func TestRegister(t *testing.T) {
-	var (
-		target     Target
-		hashTarget HashTarget
-	)
-	Register("target", "target doc", target)
-	Register("hash_target", "hash_target doc", hashTarget)
+	target := Register("target", "target doc", &countTarget{Namer: NewNamer("count")})
+
+	if n := target.Name(); n != "target" {
+		t.Errorf("got name %s, want target", n)
+	}
 
 	gotNames := RegistryNames()
-	wantNames := []string{"hash_target", "target"}
+	wantNames := []string{"target"}
 	if !reflect.DeepEqual(gotNames, wantNames) {
 		t.Errorf("got %v, want %v", gotNames, wantNames)
 	}
@@ -23,10 +22,7 @@ func TestRegister(t *testing.T) {
 	if gotDoc != "target doc" {
 		t.Errorf(`got "%s", want "target doc"`, gotDoc)
 	}
-	_, gotDoc = RegistryTarget("hash_target")
-	if gotDoc != "hash_target doc" {
-		t.Errorf(`got "%s", want "hash_target doc"`, gotDoc)
-	}
+
 	gotTarget, _ := RegistryTarget("foobie_bletch")
 	if gotTarget != nil {
 		t.Errorf(`got non-nil target for "foobie_bletch", want nil`)

@@ -7,28 +7,16 @@ import (
 )
 
 // Build runs "go build".
-var Build = &fab.Command{
-	Shell:  "go build ./...",
-	Stdout: os.Stdout,
-}
+var Build = fab.Command("go build ./...", fab.CmdStdout(os.Stdout))
 
 // Test runs "go test" with the race detector enabled, plus coverage reporting.
-var Test = &fab.Command{
-	Shell:  "go test -race -cover ./...",
-	Stdout: os.Stdout,
-}
+var Test = fab.Command("go test -race -cover ./...", fab.CmdStdout(os.Stdout))
 
 // Lint runs staticcheck.
-var Lint = &fab.Command{
-	Shell:  "staticcheck ./...",
-	Stdout: os.Stdout,
-}
+var Lint = fab.Command("staticcheck ./...", fab.CmdStdout(os.Stdout))
 
 // Vet runs "go vet".
-var Vet = &fab.Command{
-	Shell:  "go vet ./...",
-	Stdout: os.Stdout,
-}
+var Vet = fab.Command("go vet ./...", fab.CmdStdout(os.Stdout))
 
 // Check runs all of Vet, Lint, and Test.
 var Check = fab.All(Vet, Lint, Test)

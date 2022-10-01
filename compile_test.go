@@ -124,6 +124,10 @@ func tbCompile(tb testing.TB, f func(tmpdir, pkgdir string)) {
 	}
 	defer os.RemoveAll(tmpdir)
 
+	if err = populateFabDir(tmpdir); err != nil {
+		tb.Fatal(err)
+	}
+
 	compiledir := filepath.Join(tmpdir, "compile")
 
 	if err = copy.Copy("_testdata/compile", compiledir); err != nil {
