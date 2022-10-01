@@ -32,11 +32,9 @@ func TestHashTarget(t *testing.T) {
 	}
 
 	fc := &FilesTarget{
-		Target: &Command{
-			Shell: fmt.Sprintf("sh -c 'cat %s >> %s'", inpath, outpath),
-		},
-		In:  []string{inpath},
-		Out: []string{outpath},
+		Target: Command(fmt.Sprintf("sh -c 'cat %s >> %s'", inpath, outpath)),
+		In:     []string{inpath},
+		Out:    []string{outpath},
 	}
 
 	ctx := context.Background()

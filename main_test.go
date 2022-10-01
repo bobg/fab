@@ -16,8 +16,12 @@ func TestMain(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 
+	if err = populateFabDir(tmpdir); err != nil {
+		t.Fatal(err)
+	}
+
 	var (
-		fabdir     = filepath.Join(tmpdir, "fab")
+		fabdir     = filepath.Join(tmpdir, ".fab")
 		compiledir = filepath.Join(tmpdir, "compile")
 	)
 	if err = os.Mkdir(fabdir, 0755); err != nil {

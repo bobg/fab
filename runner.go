@@ -36,7 +36,7 @@ type outcome struct {
 //
 // A Runner remembers which targets it has already run
 // (whether in this call or any previous call to Run),
-// distinguishing them by their ID() values.
+// distinguishing them by their Name() values.
 //
 // The targets are executed concurrently.
 // A separate goroutine is created for each one passed to Run.
@@ -91,13 +91,13 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 		go func() {
 			defer wg.Done()
 
-			id := target.ID()
+			name := target.Name()
 
 			r.mu.Lock()
-			o, ok := r.ran[id]
+			o, ok := r.ran[name]
 			if !ok {
 				o = &outcome{g: newGate(false)}
-				r.ran[id] = o
+				r.ran[name] = o
 			}
 			r.mu.Unlock()
 
@@ -130,15 +130,15 @@ func (r *Runner) runTarget(ctx context.Context, db HashDB, target Target) error 
 		if ht != nil && !force {
 			h, err := ht.Hash(ctx)
 			if err != nil {
-				return errors.Wrapf(err, "computing hash for %s", Name(target))
+				return errors.Wrapf(err, "computing hash for %s", target.Name())
 			}
 			has, err := db.Has(ctx, h)
 			if err != nil {
-				return errors.Wrapf(err, "checking hash db for hash of %s", Name(target))
+				return errors.Wrapf(err, "checking hash db for hash of %s", target.Name())
 			}
 			if has {
 				if verbose {
-					r.Indentf("%s is up to date", Name(target))
+					r.Indentf("%s is up to date", target.Name())
 				}
 				return nil
 			}
@@ -146,18 +146,18 @@ func (r *Runner) runTarget(ctx context.Context, db HashDB, target Target) error 
 	}
 
 	if verbose {
-		r.Indentf("Running %s", Name(target))
+		r.Indentf("Running %s", target.Name())
 	}
 
 	err := target.Run(ctx)
 	if err != nil {
-		return errors.Wrapf(err, "running %s", Name(target))
+		return errors.Wrapf(err, "running %s", target.Name())
 	}
 
 	if ht != nil {
 		h, err := ht.Hash(ctx)
 		if err != nil {
-			return errors.Wrapf(err, "computing new updatedhash for %s", Name(target))
+			return errors.Wrapf(err, "computing new updatedhash for %s", target.Name())
 		}
 		err = db.Add(ctx, h)
 		if err != nil {

@@ -9,17 +9,7 @@ import (
 
 // Register places a target in the registry with a given name.
 func Register(name, doc string, target Target) Target {
-	if h, ok := target.(HashTarget); ok {
-		target = namedHashTarget{
-			HashTarget: h,
-			n:          name,
-		}
-	} else {
-		target = namedTarget{
-			Target: target,
-			n:      name,
-		}
-	}
+	target.SetName(name)
 	registryMu.Lock()
 	registry[name] = targetDocPair{target: target, doc: doc}
 	registryMu.Unlock()

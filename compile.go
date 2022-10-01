@@ -156,9 +156,6 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		}
 	}
 
-	type templateTarget struct {
-		Name, Doc string
-	}
 	data := struct {
 		Subpkg  string
 		Targets []*targetPair
