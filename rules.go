@@ -160,13 +160,20 @@ func hashFile(path string) ([]byte, error) {
 
 // Clean is a Target that deletes the files named in Files when it runs.
 // Files that don't exist are silently ignored.
-type Clean struct {
-	Namer
+func Clean(files ...string) Target {
+	return &clean{
+		Namer: NewNamer("Clean"),
+		Files: files,
+	}
+}
+
+type clean struct {
+	*Namer
 	Files []string
 }
 
 // Run implements Target.Run.
-func (c *Clean) Run(_ context.Context) error {
+func (c *clean) Run(_ context.Context) error {
 	for _, f := range c.Files {
 		err := os.Remove(f)
 		if errors.Is(err, fs.ErrNotExist) {
