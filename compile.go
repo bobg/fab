@@ -42,9 +42,16 @@ import (
 //     to find those implementing the fab.Target interface.
 //   - The user's code is then copied to a temp directory
 //     together with a main package (and main() function)
-//     that records the set of targets.
+//     that registers (with Register) that set of targets.
 //   - The go compiler is invoked to produce an executable,
 //     which is renamed into place as binfile.
+//
+// For the synthesized calls to Register on Target-valued variables,
+// the driver uses the variable's name as the "name" argument
+// and the variable's doc comment as the "doc" argument.
+//
+// The user's code is able to make its own calls to Register during program initialization
+// in order to augment the set of available targets.
 func Compile(ctx context.Context, pkgdir, binfile string) error {
 	pkgpath, err := ToRelPath(pkgdir)
 	if err != nil {

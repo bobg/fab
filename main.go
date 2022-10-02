@@ -38,12 +38,16 @@ type Main struct {
 }
 
 // Run executes the main logic of the fab command.
-// If a driver binary with the right dirhash does not exist in m.Fabdir,
+// A driver binary with a name matching m.Pkgdir is sought in m.Fabdir.
+// If it does not exist,
+// or if its corresponding dirhash is wrong
+// (i.e., out of date with respect to the user's code),
 // or if m.Force is true,
 // it is created with Compile.
 // It is then invoked with the command-line arguments indicated by the fields of m.
 // Typically this will include one or more target names,
-// in which case the driver will execute the associated rules as defined by the code in m.Pkgdir.
+// in which case the driver will execute the associated rules
+// as defined by the code in m.Pkgdir.
 func (m Main) Run(ctx context.Context) error {
 	args := []string{"-fab", m.Fabdir}
 	if m.Verbose {

@@ -12,6 +12,16 @@ import (
 )
 
 // Command is a target whose Run function executes a command in a subprocess.
+//
+// If `CmdArgs` appears among the options,
+// then `cmd` is the name of a command to run
+// and its arguments are given by the `CmdArgs` option.
+// Otherwise `cmd` is the complete command
+// and is parsed as if by a Unix shell,
+// with quoting and so on
+// (but not tilde escapes or backtick substitution etc.)
+// in order to produce the command name
+// and argument list.
 func Command(cmd string, opts ...CommandOpt) Target {
 	c := &command{
 		Namer: NewNamer("Command"),
@@ -69,6 +79,10 @@ var _ Target = &command{}
 
 type CommandOpt func(*command)
 
+// CmdArgs sets the arguments for the command to run.
+// When this option is used,
+// the string passed to Command is used as argument 0
+// (i.e., the command name).
 func CmdArgs(args ...string) CommandOpt {
 	return func(c *command) {
 		c.Cmd = c.Shell
@@ -76,24 +90,28 @@ func CmdArgs(args ...string) CommandOpt {
 	}
 }
 
+// CmdStdout sets the stdout for the command.
 func CmdStdout(w io.Writer) CommandOpt {
 	return func(c *command) {
 		c.Stdout = w
 	}
 }
 
+// CmdStderr sets the stderr for the command.
 func CmdStderr(w io.Writer) CommandOpt {
 	return func(c *command) {
 		c.Stderr = w
 	}
 }
 
+// CmdDir sets the working directory for the command.
 func CmdDir(dir string) CommandOpt {
 	return func(c *command) {
 		c.Dir = dir
 	}
 }
 
+// CmdEnv adds to the environment variables for the command.
 func CmdEnv(env []string) CommandOpt {
 	return func(c *command) {
 		c.Env = env

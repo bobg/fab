@@ -37,15 +37,28 @@ import (
   "github.com/bobg/fab"
 )
 
-var (
-  Build = &fab.Command{Shell: "go build ./..."}
-  Vet   = &fab.Command{Shell: "go vet ./...", Stdout: os.Stdout}
-  Test  = &fab.Command{Shell: "go test -race -cover ./...", Stdout: os.Stdout}
-  Check = fab.All(Vet, Test)
-)
+// Build builds all available Go targets.
+var Build = fab.Command("go build ./...")
+
+// Vet runs “go vet” on all available Go targets.
+var Vet = fab.Command("go vet ./...", fab.CmdStdout(os.Stdout))
+
+// Test runs “go test” on all available Go targets.
+var Test = fab.Command("go test -race -cover ./...", fab.CmdStdout(os.Stdout))
+
+// Check runs the Vet and Test checks.
+Check = fab.All(Vet, Test)
 ```
 
 then you can run `fab Build`, `fab Check`, etc. in the shell.
+
+This is “static target registration.”
+The name of the variable is used as the name of the target,
+and the variable’s doc comment is used as the target’s documentation string.
+You can make additional targets available by registering them “dynamically”
+using calls to `fab.Register` during program initialization
+(e.g. in `init()` functions).
+Internally, calling `fab.Register` is how static registration works too.
 
 To express a dependency between targets, use the `Deps` construct:
 
@@ -61,8 +74,8 @@ and express dependencies by calling the `Run` function in your type’s `Run` me
 
 ```go
 type myTargetType struct {
+  *fab.Namer
   dependencies []fab.Target
-  id           string
 }
 
 func (tt *myTargetType) Run(ctx, context.Context) error {
@@ -71,16 +84,11 @@ func (tt *myTargetType) Run(ctx, context.Context) error {
   }
   // ...other myTargetType build logic...
 }
-
-// Each instance of any Target type must have a persistent, distinct ID.
-// The fab.ID function can help with this.
-func (tt *myTargetType) ID() string {
-  if tt.id == "" {
-    tt.id = fab.ID("MyTargetType”)
-  }
-  return tt.id
-}
 ```
+
+(Here, `*fab.Namer` is an embedded field
+that supplies the needed behavior
+for the Target interface’s `Name` and `SetName` methods.)
 
 Fab ensures that no target runs more than once during a build,
 no matter how many times that target shows up in other targets’ dependencies
@@ -106,8 +114,8 @@ it first computes a hash representing the complete state of the target -
 all inputs, outputs, and build rules.
 If that hash is in the database,
 the target is considered up to date and `fab` skips the build rule.
-(Otherwise, the build rule runs,
-and the hash is recomputed and added to the database.)
+Otherwise, the build rule runs,
+and the hash is recomputed and added to the database.
 This approach is preferable to using file modification times
 (like Make does, for example)
 to know when a target is up to date.

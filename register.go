@@ -7,7 +7,7 @@ import (
 	"github.com/bobg/go-generics/maps"
 )
 
-// Register places a target in the registry with a given name.
+// Register places a target in the registry with a given name and doc string.
 func Register(name, doc string, target Target) Target {
 	target.SetName(name)
 	registryMu.Lock()
@@ -35,7 +35,8 @@ func RegistryNames() []string {
 	return keys
 }
 
-// RegistryTarget returns the target in the registry with the given name.
+// RegistryTarget returns the target in the registry with the given name,
+// and its doc string.
 func RegistryTarget(name string) (Target, string) {
 	registryMu.Lock()
 	pair := registry[name]

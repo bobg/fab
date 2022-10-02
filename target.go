@@ -18,7 +18,7 @@ type Target interface {
 
 	// Name is a unique name for the target.
 	// Each instance of each Target must have a persistent, unique name.
-	// You can embed a Namer in your concrete type to achieve this.
+	// You can embed a *Namer in your concrete type to achieve this.
 	Name() string
 
 	// SetName sets the name of this target.

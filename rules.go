@@ -31,7 +31,7 @@ func (a *all) Run(ctx context.Context) error {
 // Seq produces a target that runs a collection of targets in sequence.
 // Its Run method exits early when a target in the sequence fails.
 func Seq(targets ...Target) Target {
-	return &seq{Namer: NewNamer("Seq"), targets: targets}
+	return &seq{Namer: NewNamer("seq"), targets: targets}
 }
 
 type seq struct {
@@ -61,7 +61,7 @@ func Deps(target Target, depTargets ...Target) Target {
 
 // F produces a target whose Run function invokes the given function.
 func F(f func(context.Context) error) Target {
-	return &ftarget{Namer: NewNamer("F"), f: f}
+	return &ftarget{Namer: NewNamer("f"), f: f}
 }
 
 type ftarget struct {
@@ -162,7 +162,7 @@ func hashFile(path string) ([]byte, error) {
 // Files that don't exist are silently ignored.
 func Clean(files ...string) Target {
 	return &clean{
-		Namer: NewNamer("Clean"),
+		Namer: NewNamer("clean"),
 		Files: files,
 	}
 }
