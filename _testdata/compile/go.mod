@@ -5,7 +5,7 @@ go 1.18
 require github.com/bobg/fab v0.8.0
 
 require (
-	github.com/bobg/go-generics v1.2.0 // indirect
+	github.com/bobg/go-generics v1.5.0 // indirect
 	github.com/gibson042/canonicaljson-go v1.0.3 // indirect
 	github.com/mattn/go-shellwords v1.0.12 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

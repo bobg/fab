@@ -3,78 +3,13 @@ package fab
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"io"
 	"io/fs"
 	"os"
 
+	json "github.com/gibson042/canonicaljson-go"
 	"github.com/pkg/errors"
 )
-
-// All produces a target that runs a collection of targets in parallel.
-func All(targets ...Target) Target {
-	return &all{Namer: NewNamer("all"), targets: targets}
-}
-
-type all struct {
-	*Namer
-	targets []Target
-}
-
-var _ Target = &all{}
-
-// Run implements Target.Run.
-func (a *all) Run(ctx context.Context) error {
-	return Run(ctx, a.targets...)
-}
-
-// Seq produces a target that runs a collection of targets in sequence.
-// Its Run method exits early when a target in the sequence fails.
-func Seq(targets ...Target) Target {
-	return &seq{Namer: NewNamer("seq"), targets: targets}
-}
-
-type seq struct {
-	*Namer
-	targets []Target
-}
-
-var _ Target = &seq{}
-
-// Run implements Target.Run.
-func (s *seq) Run(ctx context.Context) error {
-	for _, t := range s.targets {
-		if err := Run(ctx, t); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Deps wraps a target with a set of dependencies,
-// making sure those run first.
-//
-// It is equivalent to Seq(All(depTargets...), target).
-func Deps(target Target, depTargets ...Target) Target {
-	return Seq(All(depTargets...), target)
-}
-
-// F produces a target whose Run function invokes the given function.
-func F(f func(context.Context) error) Target {
-	return &ftarget{Namer: NewNamer("f"), f: f}
-}
-
-type ftarget struct {
-	*Namer
-	f func(context.Context) error
-}
-
-var _ Target = &ftarget{}
-
-// Run implements Target.Run.
-func (f *ftarget) Run(ctx context.Context) error {
-	return f.f(ctx)
-}
 
 // FilesTarget is a HashTarget.
 // It contains a list of input files,
@@ -156,32 +91,4 @@ func hashFile(path string) ([]byte, error) {
 		return nil, errors.Wrapf(err, "hashing %s", path)
 	}
 	return hasher.Sum(nil), nil
-}
-
-// Clean is a Target that deletes the files named in Files when it runs.
-// Files that don't exist are silently ignored.
-func Clean(files ...string) Target {
-	return &clean{
-		Namer: NewNamer("clean"),
-		Files: files,
-	}
-}
-
-type clean struct {
-	*Namer
-	Files []string
-}
-
-// Run implements Target.Run.
-func (c *clean) Run(_ context.Context) error {
-	for _, f := range c.Files {
-		err := os.Remove(f)
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return errors.Wrapf(err, "removing %s", f)
-		}
-	}
-	return nil
 }

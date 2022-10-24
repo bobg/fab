@@ -3,6 +3,7 @@ package deps
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 
 	"github.com/bobg/go-generics/set"
 	"github.com/pkg/errors"
@@ -11,9 +12,11 @@ import (
 	"github.com/bobg/fab"
 )
 
-// GoPkg produces the list of files involved in building the Go package in the given directory.
-// It traverses package dependencies transitively, but only within the original package's module.
-func GoPkg(dir string) ([]string, error) {
+// Go produces the list of files involved in building the Go package in the given directory.
+// It traverses package dependencies transitively,
+// but only within the original package's module.
+// The list is sorted for consistent, predictable results.
+func Go(dir string) ([]string, error) {
 	pkgpath, err := fab.ToRelPath(dir)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting relative path for %s", dir)
@@ -30,37 +33,35 @@ func GoPkg(dir string) ([]string, error) {
 		return nil, fmt.Errorf("found %d packages in %s, want 1", len(pkgs), pkgpath)
 	}
 
-	modpath := pkgs[0].Module.Path
+	files := set.New[string]()
+	err = gopkgAdd(pkgs[0], pkgs[0].Module.Path, files)
+	slice := files.Slice()
+	sort.Strings(slice)
+	return slice, err
+}
 
-	var (
-		files  = set.New[string]()
-		addPkg func(*packages.Package) error
-	)
-	addPkg = func(pkg *packages.Package) error {
-		if pkg.Module == nil {
-			return nil
-		}
-		if pkg.Module.Path != modpath {
-			return nil
-		}
-		files.Add(pkg.GoFiles...)
-		files.Add(pkg.CompiledGoFiles...)
-		files.Add(pkg.OtherFiles...)
-		files.Add(pkg.EmbedFiles...)
-		for _, pattern := range pkg.EmbedPatterns {
-			matches, err := filepath.Glob(pattern)
-			if err != nil {
-				return errors.Wrapf(err, "in pattern %s", pattern)
-			}
-			files.Add(matches...)
-		}
-		for _, imp := range pkg.Imports {
-			if err := addPkg(imp); err != nil {
-				return errors.Wrapf(err, "in import of %s", imp.PkgPath)
-			}
-		}
+func gopkgAdd(pkg *packages.Package, modpath string, files set.Of[string]) error {
+	if pkg.Module == nil {
 		return nil
 	}
-	err = addPkg(pkgs[0])
-	return files.Slice(), err
+	if pkg.Module.Path != modpath {
+		return nil
+	}
+	files.Add(pkg.GoFiles...)
+	files.Add(pkg.CompiledGoFiles...)
+	files.Add(pkg.OtherFiles...)
+	files.Add(pkg.EmbedFiles...)
+	for _, pattern := range pkg.EmbedPatterns {
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			return errors.Wrapf(err, "in pattern %s", pattern)
+		}
+		files.Add(matches...)
+	}
+	for _, imp := range pkg.Imports {
+		if err := gopkgAdd(imp, modpath, files); err != nil {
+			return errors.Wrapf(err, "in import of %s", imp.PkgPath)
+		}
+	}
+	return nil
 }

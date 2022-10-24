@@ -4,7 +4,8 @@ go 1.19
 
 require (
 	github.com/benbjohnson/clock v1.3.0
-	github.com/bobg/go-generics v1.2.0
+	github.com/bobg/go-generics v1.5.0
+	github.com/bobg/tsdecls v0.1.0
 	github.com/gibson042/canonicaljson-go v1.0.3
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/mattn/go-sqlite3 v1.14.15
@@ -17,6 +18,7 @@ require (
 )
 
 require (
+	github.com/fatih/camelcase v1.0.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde // indirect
 	golang.org/x/sys v0.0.0-20220823224334-20c2bfdbfe24 // indirect

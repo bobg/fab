@@ -1,0 +1,2 @@
+import "x/bar.proto";
+import "y/baz.proto"; // does not exist
