@@ -155,10 +155,10 @@ func (c *command) Run(ctx context.Context) error {
 	}
 
 	var buf bytes.Buffer
-	if c.Stdout == nil {
+	if cmd.Stdout == nil {
 		cmd.Stdout = &buf
 	}
-	if c.Stderr == nil {
+	if cmd.Stderr == nil {
 		cmd.Stderr = &buf
 	}
 
