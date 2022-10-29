@@ -11,15 +11,15 @@ import (
 	"github.com/pkg/errors"
 )
 
-// FilesTarget is a HashTarget.
+// Files is a HashTarget.
 // It contains a list of input files,
 // and a list of expected output files.
 // It also contains an embedded Target
 // whose Run method should produce the expected output files.
 //
-// The FilesTarget's hash is computed from the target and all the input and output files.
+// The Files target's hash is computed from the target and all the input and output files.
 // If none of those have changed since the last time the output files were built,
-// then the output files are up to date and running of this FilesTarget can be skipped.
+// then the output files are up to date and running of this Files target can be skipped.
 //
 // The Target must be of a type that can be JSON-marshaled.
 //
@@ -27,16 +27,16 @@ import (
 // Ideally this includes any files required by the Target's Run method,
 // plus any transitive dependencies.
 // See the deps package for helper functions that can compute dependency lists of various kinds.
-type FilesTarget struct {
+type Files struct {
 	Target
 	In  []string
 	Out []string
 }
 
-var _ HashTarget = FilesTarget{}
+var _ HashTarget = Files{}
 
 // Hash implements HashTarget.Hash.
-func (ft FilesTarget) Hash(ctx context.Context) ([]byte, error) {
+func (ft Files) Hash(ctx context.Context) ([]byte, error) {
 	var (
 		inHashes  = make(map[string][]byte)
 		outHashes = make(map[string][]byte)
