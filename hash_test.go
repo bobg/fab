@@ -31,7 +31,7 @@ func TestHashTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fc := &FilesTarget{
+	fc := &Files{
 		Target: Command(fmt.Sprintf("sh -c 'cat %s >> %s'", inpath, outpath)),
 		In:     []string{inpath},
 		Out:    []string{outpath},

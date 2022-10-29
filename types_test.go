@@ -30,13 +30,13 @@ func TestImplementsTarget(t *testing.T) {
 		t.Errorf("checkImplementsTarget(fab.Runner) wrongly reports true")
 	}
 
-	filesTargetObj := scope.Lookup("FilesTarget")
+	filesTargetObj := scope.Lookup("Files")
 	filesTargetTypeName, ok := filesTargetObj.(*types.TypeName)
 	if !ok {
 		t.Fatalf("filesTargetObj is a %T, want types.TypeName", filesTargetObj)
 	}
 	filesTargetType := filesTargetTypeName.Type()
 	if err = checkImplementsTarget(filesTargetType); err != nil {
-		t.Errorf("checkImplementsTarget(fab.FilesTarget) wrongly reports false: %s", err)
+		t.Errorf("checkImplementsTarget(fab.Files) wrongly reports false: %s", err)
 	}
 }

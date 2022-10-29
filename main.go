@@ -14,7 +14,7 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-// Main is the structure whose Run methods implements the main logic of the fab command.
+// Main is the structure whose Run method implements the main logic of the fab command.
 type Main struct {
 	// Pkgdir is where to find the user's build-rules Go package, e.g. "fab.d".
 	Pkgdir string

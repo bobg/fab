@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Clean is a Target that deletes the files named in Files when it runs.
+// Clean is a Target that deletes the files named in `files` when it runs.
 // Files that don't exist are silently ignored.
 func Clean(files ...string) Target {
 	return &clean{
