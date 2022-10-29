@@ -9,6 +9,7 @@ import (
 	"os/exec"
 
 	"github.com/mattn/go-shellwords"
+	"github.com/pkg/errors"
 )
 
 // Command is a target whose Run function executes a command in a subprocess.
@@ -67,6 +68,11 @@ type command struct {
 	Stdout io.Writer `json:"-"`
 	Stderr io.Writer `json:"-"`
 
+	// StdoutFile is the name of a file to which the command's standard output should go.
+	// It is mutually exclusive with Stdout.
+	// When the command runs, the file is created or overwritten.
+	StdoutFile string `json:"stdout_file,omitempty"`
+
 	// Dir is the directory in which to run the command.
 	// The default is the value of GetDir(ctx) when the Run method is called.
 	Dir string `json:"dir,omitempty"`
@@ -94,6 +100,14 @@ func CmdArgs(args ...string) CommandOpt {
 func CmdStdout(w io.Writer) CommandOpt {
 	return func(c *command) {
 		c.Stdout = w
+	}
+}
+
+// CmdStdoutFile sets a filename for the command's standard output.
+// The file is created or overwritten when the command runs.
+func CmdStdoutFile(name string) CommandOpt {
+	return func(c *command) {
+		c.StdoutFile = name
 	}
 }
 
@@ -130,8 +144,17 @@ func (c *command) Run(ctx context.Context) error {
 	cmd.Dir = c.Dir
 	cmd.Env = append(os.Environ(), c.Env...)
 
-	var buf bytes.Buffer
 	cmd.Stdout, cmd.Stderr = c.Stdout, c.Stderr
+	if c.StdoutFile != "" {
+		f, err := os.Create(c.StdoutFile)
+		if err != nil {
+			return errors.Wrapf(err, "opening %s for writing", c.StdoutFile)
+		}
+		defer f.Close()
+		cmd.Stdout = f
+	}
+
+	var buf bytes.Buffer
 	if c.Stdout == nil {
 		cmd.Stdout = &buf
 	}
