@@ -52,6 +52,11 @@ func protodeps(r io.Reader, includes []string, result set.Of[string]) error {
 func protodepsImport(imp string, includes []string, result set.Of[string]) error {
 	for _, inc := range includes {
 		full := filepath.Join(inc, imp)
+
+		if result.Has(full) {
+			continue
+		}
+
 		f, err := os.Open(full)
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
