@@ -8,8 +8,6 @@ import (
 	"github.com/bobg/go-generics/set"
 	"github.com/pkg/errors"
 	"golang.org/x/tools/go/packages"
-
-	"github.com/bobg/fab"
 )
 
 // Go produces the list of files involved in building the Go package in the given directory.
@@ -17,20 +15,17 @@ import (
 // but only within the original package's module.
 // The list is sorted for consistent, predictable results.
 func Go(dir string) ([]string, error) {
-	pkgpath, err := fab.ToRelPath(dir)
-	if err != nil {
-		return nil, errors.Wrapf(err, "getting relative path for %s", dir)
-	}
 	config := &packages.Config{
 		Mode: packages.NeedName | packages.NeedFiles | packages.NeedEmbedFiles | packages.NeedEmbedPatterns | packages.NeedTypes | packages.NeedDeps | packages.NeedImports | packages.NeedModule,
+		Dir:  dir,
 	}
 
-	pkgs, err := packages.Load(config, pkgpath)
+	pkgs, err := packages.Load(config, ".")
 	if err != nil {
-		return nil, errors.Wrapf(err, "loading package from %s", pkgpath)
+		return nil, errors.Wrapf(err, "loading package from %s", dir)
 	}
 	if len(pkgs) != 1 {
-		return nil, fmt.Errorf("found %d packages in %s, want 1", len(pkgs), pkgpath)
+		return nil, fmt.Errorf("found %d packages in %s, want 1", len(pkgs), dir)
 	}
 
 	files := set.New[string]()

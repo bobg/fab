@@ -76,17 +76,14 @@ func (m Main) getDriver(ctx context.Context) (string, error) {
 	config := &packages.Config{
 		Mode:    packages.NeedName | packages.NeedFiles,
 		Context: ctx,
+		Dir:     m.Pkgdir,
 	}
-	pkgpath, err := ToRelPath(m.Pkgdir)
+	pkgs, err := packages.Load(config, "./...")
 	if err != nil {
-		return "", errors.Wrapf(err, "getting relative path for %s", m.Pkgdir)
-	}
-	pkgs, err := packages.Load(config, pkgpath)
-	if err != nil {
-		return "", errors.Wrapf(err, "loading %s", pkgpath)
+		return "", errors.Wrapf(err, "loading %s", m.Pkgdir)
 	}
 	if len(pkgs) != 1 {
-		return "", fmt.Errorf("found %d packages in %s, want 1", len(pkgs), pkgpath)
+		return "", fmt.Errorf("found %d packages in %s, want 1", len(pkgs), m.Pkgdir)
 	}
 	pkg := pkgs[0]
 	if len(pkg.Errors) > 0 {
@@ -182,25 +179,4 @@ func addFileToHash(dh *dirHasher, filename string) error {
 	defer f.Close()
 
 	return dh.file(filename, f)
-}
-
-// ToRelPath converts a Go package directory to a relative path beginning with ./
-// (suitable for use in a call to [packages.Load], for example).
-// It is an error for pkgdir to be outside the current working directory's tree.
-func ToRelPath(pkgdir string) (string, error) {
-	if filepath.IsAbs(pkgdir) {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return "", errors.Wrap(err, "getting current directory")
-		}
-		rel, err := filepath.Rel(cwd, pkgdir)
-		if err != nil {
-			return "", errors.Wrapf(err, "getting relative path to %s", pkgdir)
-		}
-		if strings.HasPrefix(rel, "../") {
-			return "", fmt.Errorf("package dir %s is not in or under current directory", pkgdir)
-		}
-		pkgdir = rel
-	}
-	return "./" + filepath.Clean(pkgdir), nil
 }

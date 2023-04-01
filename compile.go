@@ -53,21 +53,17 @@ import (
 // The user's code is able to make its own calls to Register during program initialization
 // in order to augment the set of available targets.
 func Compile(ctx context.Context, pkgdir, binfile string) error {
-	pkgpath, err := ToRelPath(pkgdir)
-	if err != nil {
-		return errors.Wrapf(err, "getting relative path for %s", pkgdir)
-	}
-
 	config := &packages.Config{
 		Mode:    packages.NeedName | packages.NeedFiles | packages.NeedTypes | packages.NeedDeps,
 		Context: ctx,
+		Dir:     pkgdir,
 	}
-	ppkgs, err := packages.Load(config, pkgpath)
+	ppkgs, err := packages.Load(config, ".")
 	if err != nil {
-		return errors.Wrapf(err, "loading %s", pkgpath)
+		return errors.Wrapf(err, "loading %s", pkgdir)
 	}
 	if len(ppkgs) != 1 {
-		return fmt.Errorf("found %d packages in %s, want 1", len(ppkgs), pkgpath)
+		return fmt.Errorf("found %d packages in %s, want 1", len(ppkgs), pkgdir)
 	}
 	ppkg := ppkgs[0]
 	if len(ppkg.Errors) > 0 {
@@ -114,7 +110,7 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 	}
 
 	var (
-		dpkg   = doc.New(astpkg, pkgpath, 0)
+		dpkg   = doc.New(astpkg, pkgdir, 0)
 		parser = dpkg.Parser()
 		pr     = dpkg.Printer()
 	)
