@@ -16,7 +16,7 @@ func TestGo(t *testing.T) {
 		"proto.go",
 	}
 
-	got, err := Go(".")
+	got, err := Go(".", false)
 	if err != nil {
 		t.Fatal(err)
 	}

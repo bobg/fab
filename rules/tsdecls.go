@@ -13,7 +13,7 @@ import (
 
 // Tsdecls
 func Tsdecls(dir, typename, prefix, outfile string) (fab.Target, error) {
-	gopkg, err := deps.Go(dir)
+	gopkg, err := deps.Go(dir, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting deps for %s", dir)
 	}
