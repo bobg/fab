@@ -4,7 +4,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/bobg/go-generics/maps"
+	"github.com/bobg/go-generics/v2/maps"
 )
 
 // Register places a target in the registry with a given name and doc string.

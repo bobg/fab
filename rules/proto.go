@@ -3,8 +3,8 @@ package rules
 import (
 	"sort"
 
-	"github.com/bobg/go-generics/set"
-	"github.com/bobg/go-generics/slices"
+	"github.com/bobg/go-generics/v2/set"
+	"github.com/bobg/go-generics/v2/slices"
 	"github.com/pkg/errors"
 
 	"github.com/bobg/fab"
@@ -31,9 +31,7 @@ func Proto(inputs, outputs, includes, otherOpts []string) (fab.Target, error) {
 	alldepsSlice := alldeps.Slice()
 	sort.Strings(alldepsSlice)
 
-	args, _ := slices.Map(includes, func(_ int, inc string) (string, error) {
-		return "-I" + inc, nil
-	})
+	args := slices.Map(includes, func(inc string) string { return "-I" + inc })
 	args = append(args, otherOpts...)
 	args = append(args, inputs...)
 	return &fab.Files{
