@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"sort"
 
-	"github.com/bobg/go-generics/set"
+	"github.com/bobg/go-generics/v2/set"
 	"github.com/pkg/errors"
 )
 

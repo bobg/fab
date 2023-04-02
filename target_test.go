@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bobg/go-generics/parallel"
-	"github.com/bobg/go-generics/set"
+	"github.com/bobg/go-generics/v2/parallel"
+	"github.com/bobg/go-generics/v2/set"
 )
 
 func TestUnique(t *testing.T) {

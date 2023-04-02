@@ -7,7 +7,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/bobg/go-generics/slices"
+	"github.com/bobg/go-generics/v2/slices"
 )
 
 func TestGo(t *testing.T) {
@@ -26,7 +26,7 @@ func TestGo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err = slices.Map(got, func(_ int, full string) (string, error) {
+	got, err = slices.Mapx(got, func(_ int, full string) (string, error) {
 		return filepath.Rel(cwd, full)
 	})
 	if err != nil {

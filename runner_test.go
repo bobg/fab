@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/bobg/go-generics/set"
+	"github.com/bobg/go-generics/v2/set"
 )
 
 func TestRunTarget(t *testing.T) {

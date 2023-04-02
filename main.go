@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bobg/go-generics/v2/slices"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"golang.org/x/tools/go/packages"
@@ -83,7 +84,12 @@ func (m Main) getDriver(ctx context.Context) (string, error) {
 		return "", errors.Wrapf(err, "loading %s", m.Pkgdir)
 	}
 	if len(pkgs) != 1 {
-		return "", fmt.Errorf("found %d packages in %s, want 1", len(pkgs), m.Pkgdir)
+		return "", fmt.Errorf(
+			"found %d packages in %s, want 1 %v",
+			len(pkgs),
+			m.Pkgdir,
+			slices.Map(pkgs, func(p *packages.Package) string { return p.PkgPath }),
+		)
 	}
 	pkg := pkgs[0]
 	if len(pkg.Errors) > 0 {

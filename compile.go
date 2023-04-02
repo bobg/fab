@@ -15,7 +15,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/bobg/go-generics/maps"
+	"github.com/bobg/go-generics/v2/maps"
+	"github.com/bobg/go-generics/v2/slices"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"golang.org/x/mod/modfile"
@@ -63,7 +64,12 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		return errors.Wrapf(err, "loading %s", pkgdir)
 	}
 	if len(ppkgs) != 1 {
-		return fmt.Errorf("found %d packages in %s, want 1", len(ppkgs), pkgdir)
+		return fmt.Errorf(
+			"found %d packages in %s, want 1 %v",
+			len(ppkgs),
+			pkgdir,
+			slices.Map(ppkgs, func(p *packages.Package) string { return p.PkgPath }),
+		)
 	}
 
 	return CompilePackage(ctx, ppkgs[0], binfile)
@@ -94,7 +100,12 @@ func CompilePackage(ctx context.Context, pkg *packages.Package, binfile string) 
 		return errors.Wrapf(err, "parsing %s", pkgdir)
 	}
 	if len(astpkgs) != 1 {
-		return fmt.Errorf("found %d packages in %s, want 1", len(astpkgs), pkgdir)
+		return fmt.Errorf(
+			"found %d packages in %s, want 1 %v",
+			len(astpkgs),
+			pkgdir,
+			maps.Keys(astpkgs),
+		)
 	}
 	astpkg, ok := astpkgs[pkg.Name]
 	if !ok {
