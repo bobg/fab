@@ -14,13 +14,18 @@ import (
 // It traverses package dependencies transitively,
 // but only within the original package's module.
 // The list is sorted for consistent, predictable results.
-func Go(dir string) ([]string, error) {
+func Go(dir string, recursive bool) ([]string, error) {
 	config := &packages.Config{
 		Mode: packages.NeedName | packages.NeedFiles | packages.NeedEmbedFiles | packages.NeedEmbedPatterns | packages.NeedTypes | packages.NeedDeps | packages.NeedImports | packages.NeedModule,
 		Dir:  dir,
 	}
 
-	pkgs, err := packages.Load(config, ".")
+	arg := "."
+	if recursive {
+		arg = "./..."
+	}
+
+	pkgs, err := packages.Load(config, arg)
 	if err != nil {
 		return nil, errors.Wrapf(err, "loading package from %s", dir)
 	}

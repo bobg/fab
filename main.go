@@ -74,11 +74,11 @@ func (m Main) Run(ctx context.Context) error {
 
 func (m Main) getDriver(ctx context.Context) (string, error) {
 	config := &packages.Config{
-		Mode:    packages.NeedName | packages.NeedFiles,
+		Mode:    LoadMode,
 		Context: ctx,
 		Dir:     m.Pkgdir,
 	}
-	pkgs, err := packages.Load(config, "./...")
+	pkgs, err := packages.Load(config, ".")
 	if err != nil {
 		return "", errors.Wrapf(err, "loading %s", m.Pkgdir)
 	}
@@ -136,7 +136,7 @@ func (m Main) getDriver(ctx context.Context) (string, error) {
 	}
 
 	dh := newDirHasher()
-	for _, filename := range pkg.GoFiles {
+	for _, filename := range pkg.GoFiles { // xxx other files too?
 		if err = addFileToHash(dh, filename); err != nil {
 			return "", errors.Wrapf(err, "hashing file %s", filename)
 		}
@@ -160,7 +160,7 @@ func (m Main) getDriver(ctx context.Context) (string, error) {
 	}
 
 	if compile {
-		if err = Compile(ctx, m.Pkgdir, driver); err != nil {
+		if err = CompilePackage(ctx, pkg, driver); err != nil {
 			return "", errors.Wrapf(err, "compiling driver %s", driver)
 		}
 		if err = os.WriteFile(hashfile, []byte(newhash), 0644); err != nil {

@@ -65,16 +65,30 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 	if len(ppkgs) != 1 {
 		return fmt.Errorf("found %d packages in %s, want 1", len(ppkgs), pkgdir)
 	}
-	ppkg := ppkgs[0]
-	if len(ppkg.Errors) > 0 {
-		err = nil
-		for _, e := range ppkg.Errors {
+
+	return CompilePackage(ctx, ppkgs[0], binfile)
+}
+
+// CompilePackage compiles a driver from a package object already loaded with packages.Load.
+// The call to packages.Load must use a value for Config.Mode that contains at least the bits in LoadMode.
+// See Compile for further details.
+func CompilePackage(ctx context.Context, pkg *packages.Package, binfile string) error {
+	if len(pkg.Errors) > 0 {
+		var err error
+		for _, e := range pkg.Errors {
 			err = multierr.Append(err, e)
 		}
-		return errors.Wrapf(err, "loading package %s", ppkg.Name)
+		return errors.Wrapf(err, "loading package %s", pkg.Name)
 	}
 
-	fset := token.NewFileSet()
+	if len(pkg.GoFiles) == 0 {
+		return fmt.Errorf("no Go files in package")
+	}
+
+	var (
+		fset   = token.NewFileSet()
+		pkgdir = filepath.Dir(pkg.GoFiles[0])
+	)
 	astpkgs, err := parser.ParseDir(fset, pkgdir, nil, parser.ParseComments)
 	if err != nil {
 		return errors.Wrapf(err, "parsing %s", pkgdir)
@@ -82,16 +96,16 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 	if len(astpkgs) != 1 {
 		return fmt.Errorf("found %d packages in %s, want 1", len(astpkgs), pkgdir)
 	}
-	astpkg, ok := astpkgs[ppkg.Name]
+	astpkg, ok := astpkgs[pkg.Name]
 	if !ok {
-		return fmt.Errorf("package %s not found in %s", ppkg.Name, pkgdir)
+		return fmt.Errorf("package %s not found in %s", pkg.Name, pkgdir)
 	}
 
 	type targetPair struct {
 		Name, Doc string
 	}
 	var (
-		scope   = ppkg.Types.Scope()
+		scope   = pkg.Types.Scope()
 		idents  = scope.Names()
 		targets = make(map[string]*targetPair)
 	)
@@ -134,7 +148,7 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		return errors.Wrap(err, "copying fab code")
 	}
 
-	subpkgdir := filepath.Join(tmpdir, "pkg", ppkg.Name)
+	subpkgdir := filepath.Join(tmpdir, "pkg", pkg.Name)
 	if err = os.MkdirAll(subpkgdir, 0755); err != nil {
 		return errors.Wrapf(err, "creating %s", subpkgdir)
 	}
@@ -163,7 +177,7 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 		Subpkg  string
 		Targets []*targetPair
 	}{
-		Subpkg:  ppkg.Name,
+		Subpkg:  pkg.Name,
 		Targets: maps.Values(targets),
 	}
 
@@ -228,6 +242,10 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 
 	return os.Rename(filepath.Join(tmpdir, "x"), binfile)
 }
+
+// LoadMode is the minimal set of flags to enable for Config.Mode in a call to Packages.Load
+// in order to produce a suitable package object for CompilePackage.
+const LoadMode = packages.NeedName | packages.NeedFiles | packages.NeedTypes | packages.NeedDeps
 
 func populateFabDir(tmpdir string) error {
 	return populateFabSubdir(filepath.Join(tmpdir, "fab"), ".")
