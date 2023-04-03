@@ -65,7 +65,7 @@ func Compile(ctx context.Context, pkgdir, binfile string) error {
 	}
 	if len(ppkgs) != 1 {
 		return fmt.Errorf(
-			"found %d packages in %s, want 1 %v",
+			"loaded %d packages in %s, want 1 %v",
 			len(ppkgs),
 			pkgdir,
 			slices.Map(ppkgs, func(p *packages.Package) string { return p.PkgPath }),
@@ -101,7 +101,7 @@ func CompilePackage(ctx context.Context, pkg *packages.Package, binfile string) 
 	}
 	if len(astpkgs) != 1 {
 		return fmt.Errorf(
-			"found %d packages in %s, want 1 %v",
+			"parsed %d packages in %s, want 1 %v",
 			len(astpkgs),
 			pkgdir,
 			maps.Keys(astpkgs),

@@ -1,12 +1,12 @@
 package deps
 
 import (
-	"fmt"
 	"path/filepath"
 	"sort"
 
 	"github.com/bobg/go-generics/v2/set"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -27,17 +27,28 @@ func Go(dir string, recursive bool) ([]string, error) {
 
 	pkgs, err := packages.Load(config, arg)
 	if err != nil {
-		return nil, errors.Wrapf(err, "loading package from %s", dir)
+		return nil, errors.Wrapf(err, "loading from %s", dir)
 	}
-	if len(pkgs) != 1 {
-		return nil, fmt.Errorf("found %d packages in %s, want 1", len(pkgs), dir)
+
+	for _, pkg := range pkgs {
+		for _, e := range pkg.Errors {
+			err = multierr.Append(err, e)
+		}
+	}
+	if err != nil {
+		return nil, errors.Wrapf(err, "after loading from %s", dir)
 	}
 
 	files := set.New[string]()
-	err = gopkgAdd(pkgs[0], pkgs[0].Module.Path, files)
+	for _, pkg := range pkgs {
+		if err = gopkgAdd(pkg, pkg.Module.Path, files); err != nil {
+			return nil, errors.Wrapf(err, "adding files from %s", pkg.PkgPath)
+		}
+	}
+
 	slice := files.Slice()
 	sort.Strings(slice)
-	return slice, err
+	return slice, nil
 }
 
 func gopkgAdd(pkg *packages.Package, modpath string, files set.Of[string]) error {

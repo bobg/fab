@@ -85,7 +85,7 @@ func (m Main) getDriver(ctx context.Context) (string, error) {
 	}
 	if len(pkgs) != 1 {
 		return "", fmt.Errorf(
-			"found %d packages in %s, want 1 %v",
+			"loaded %d packages in %s, want 1 %v",
 			len(pkgs),
 			m.Pkgdir,
 			slices.Map(pkgs, func(p *packages.Package) string { return p.PkgPath }),
