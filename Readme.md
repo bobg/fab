@@ -47,7 +47,7 @@ var Vet = fab.Command("go vet ./...", fab.CmdStdout(os.Stdout))
 var Test = fab.Command("go test -race -cover ./...", fab.CmdStdout(os.Stdout))
 
 // Check runs the Vet and Test checks.
-Check = fab.All(Vet, Test)
+var Check = fab.All(Vet, Test)
 ```
 
 then you can run `fab Build`, `fab Check`, etc. in the shell.
