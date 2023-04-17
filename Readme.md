@@ -95,6 +95,13 @@ Fab ensures that no target runs more than once during a build,
 no matter how many times that target shows up in other targets’ dependencies
 or calls to `Run`, etc.
 
+The fab command line can list multiple targets, e.g. `fab Vet Test Build`,
+or a single target plus arguments, e.g. `fab Build -verbose`,
+depending on whether the first string after the first target starts with `-`.
+In argument-passing mode,
+the named target is wrapped with ArgTarget
+and the arguments are available at runtime using `GetArgs`.
+
 ## Details
 
 By default, your build rules are found in the `_fab` subdir.

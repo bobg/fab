@@ -16,10 +16,10 @@ import (
 
 // Main is the structure whose Run methods implements the main logic of the fab command.
 type Main struct {
-	// Pkgdir is where to find the user's build-rules Go package, e.g. "fab.d".
+	// Pkgdir is where to find the user's build-rules Go package, e.g. "_fab".
 	Pkgdir string
 
-	// Fabdir is where to find the user's hash DB and compiled binaries, default $HOME/.fab.
+	// Fabdir is where to find the user's hash DB and compiled binaries, default $HOME/.cache/fab.
 	Fabdir string
 
 	// Verbose tells whether to run the driver in verbose mode
