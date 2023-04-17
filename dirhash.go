@@ -11,9 +11,9 @@ import (
 )
 
 // newDirHasher produces a new dirHasher.
-// Add files to it with the File method,
+// Add files to it with the file method,
 // and when finished,
-// obtain the hash value with the Hash method.
+// obtain the hash value with the hash method.
 func newDirHasher() *dirHasher {
 	return &dirHasher{
 		hashes: make(map[string][]byte),

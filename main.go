@@ -9,9 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/slices"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -95,7 +94,7 @@ func (m Main) getDriver(ctx context.Context) (string, error) {
 	if len(pkg.Errors) > 0 {
 		err = nil
 		for _, e := range pkg.Errors {
-			err = multierr.Append(err, e)
+			err = errors.Join(err, e)
 		}
 		return "", errors.Wrapf(err, "loading package %s", pkg.Name)
 	}

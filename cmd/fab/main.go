@@ -11,10 +11,14 @@ import (
 )
 
 func main() {
-	home, err := os.UserHomeDir()
+	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		fmt.Printf("Error getting home dir: %s\n", err)
-		os.Exit(1)
+		home, err := os.UserHomeDir()
+		if err != nil {
+			fmt.Printf("Error getting home dir: %s\n", err)
+			os.Exit(1)
+		}
+		cacheDir = filepath.Join(home, ".cache")
 	}
 
 	var (
@@ -24,8 +28,8 @@ func main() {
 		list    bool
 		force   bool
 	)
-	flag.StringVar(&pkgdir, "pkg", "fab.d", "directory containing Go package of build rules")
-	flag.StringVar(&fabdir, "fab", filepath.Join(home, ".fab"), "directory containing fab DB and compiled drivers")
+	flag.StringVar(&pkgdir, "pkg", "_fab", "directory containing Go package of build rules")
+	flag.StringVar(&fabdir, "fab", filepath.Join(cacheDir, "fab"), "directory containing fab DB and compiled drivers")
 	flag.BoolVar(&verbose, "v", false, "run verbosely")
 	flag.BoolVar(&list, "list", false, "list available targets")
 	flag.BoolVar(&force, "f", false, "force compilation of -bin executable")

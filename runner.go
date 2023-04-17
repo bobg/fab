@@ -7,8 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	"github.com/bobg/errors"
 )
 
 // Runner is an object that knows how to run Targets
@@ -61,8 +60,8 @@ type outcome struct {
 // and added to the HashDB.
 //
 // This function waits for all goroutines to complete.
-// The return value may be an accumulation of multiple errors.
-// These can be retrieved with [multierr.Errors].
+// The return value may be an accumulation of multiple errors
+// produced with [errors.Join].
 //
 // The runner is added to the context with WithRunner
 // and can be retrieved with GetRunner.
@@ -115,7 +114,7 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 
 	wg.Wait()
 
-	return multierr.Combine(errs...)
+	return errors.Join(errs...)
 }
 
 func (r *Runner) runTarget(ctx context.Context, db HashDB, target Target) error {
