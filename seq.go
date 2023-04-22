@@ -50,5 +50,5 @@ func seqDecoder(node *yaml.Node) (Target, error) {
 }
 
 func init() {
-	RegisterYAML("Seq", seqDecoder)
+	RegisterYAMLTarget("Seq", seqDecoder)
 }

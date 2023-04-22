@@ -40,5 +40,5 @@ func depsDecoder(node *yaml.Node) (Target, error) {
 }
 
 func init() {
-	RegisterYAML("Deps", depsDecoder)
+	RegisterYAMLTarget("Deps", depsDecoder)
 }

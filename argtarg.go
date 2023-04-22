@@ -61,5 +61,5 @@ func argTargetDecoder(node *yaml.Node) (Target, error) {
 }
 
 func init() {
-	RegisterYAML("ArgTarget", argTargetDecoder)
+	RegisterYAMLTarget("ArgTarget", argTargetDecoder)
 }

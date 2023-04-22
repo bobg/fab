@@ -255,5 +255,5 @@ func commandOptDecoder(node *yaml.Node) (CommandOpt, error) {
 }
 
 func init() {
-	RegisterYAML("Command", commandDecoder)
+	RegisterYAMLTarget("Command", commandDecoder)
 }

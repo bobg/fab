@@ -56,5 +56,5 @@ func cleanDecoder(node *yaml.Node) (Target, error) {
 }
 
 func init() {
-	RegisterYAML("Clean", cleanDecoder)
+	RegisterYAMLTarget("Clean", cleanDecoder)
 }

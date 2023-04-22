@@ -96,10 +96,14 @@ func hashFile(path string) ([]byte, error) {
 }
 
 func filesDecoder(node *yaml.Node) (Target, error) {
+	if node.Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.MappingNode)
+	}
+
 	var yfiles struct {
-		In     []yaml.Node
-		Out    []string
-		Target yaml.Node
+		In     []yaml.Node `yaml:"In"`
+		Out    []string    `yaml:"Out"`
+		Target yaml.Node   `yaml:"Target"`
 	}
 	if err := node.Decode(&yfiles); err != nil {
 		return nil, errors.Wrap(err, "YAML error in Files node")
@@ -116,6 +120,7 @@ func filesDecoder(node *yaml.Node) (Target, error) {
 			in = append(in, child.Value)
 			continue
 		}
+
 		// xxx interpret GoDeps etc
 		return nil, fmt.Errorf("xxx unimplemented child node kind %v", child.Kind)
 	}
@@ -124,5 +129,5 @@ func filesDecoder(node *yaml.Node) (Target, error) {
 }
 
 func init() {
-	RegisterYAML("Files", filesDecoder)
+	RegisterYAMLTarget("Files", filesDecoder)
 }

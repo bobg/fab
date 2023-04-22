@@ -41,5 +41,5 @@ func allDecoder(node *yaml.Node) (Target, error) {
 }
 
 func init() {
-	RegisterYAML("All", allDecoder)
+	RegisterYAMLTarget("All", allDecoder)
 }

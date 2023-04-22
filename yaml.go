@@ -11,24 +11,30 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type YAMLFunc = func(*yaml.Node) (Target, error)
-
-var (
-	yamlRegistryMu sync.Mutex
-	yamlRegistry   = make(map[string]YAMLFunc)
+type (
+	YAMLTargetFunc     = func(*yaml.Node) (Target, error)
+	YAMLStringListFunc = func(*yaml.Node) ([]string, error)
 )
 
-func RegisterYAML(name string, fn YAMLFunc) {
-	yamlRegistryMu.Lock()
-	yamlRegistry[name] = fn
-	yamlRegistryMu.Unlock()
+var (
+	yamlTargetRegistryMu sync.Mutex
+	yamlTargetRegistry   = make(map[string]YAMLTargetFunc)
+
+	yamlStringListRegistryMu sync.Mutex
+	yamlStringListRegistry   = make(map[string]YAMLStringListFunc)
+)
+
+func RegisterYAMLTarget(name string, fn YAMLTargetFunc) {
+	yamlTargetRegistryMu.Lock()
+	yamlTargetRegistry[name] = fn
+	yamlTargetRegistryMu.Unlock()
 }
 
 func YAMLTarget(node *yaml.Node) (Target, error) {
-	if node.Kind == yaml.ScalarNode {
+	tag := node.Tag
+	if node.Kind == yaml.ScalarNode && tag == "" {
 		return &deferredResolutionTarget{name: node.Value}, nil
 	}
-	tag := node.Tag
 	if tag == "" {
 		return nil, fmt.Errorf("untyped YAML target node")
 	}
@@ -37,9 +43,9 @@ func YAMLTarget(node *yaml.Node) (Target, error) {
 	}
 	typ := tag[1:]
 
-	yamlRegistryMu.Lock()
-	fn, ok := yamlRegistry[typ]
-	yamlRegistryMu.Unlock()
+	yamlTargetRegistryMu.Lock()
+	fn, ok := yamlTargetRegistry[typ]
+	yamlTargetRegistryMu.Unlock()
 
 	if !ok {
 		return nil, fmt.Errorf("unknown YAML target type %s", typ)
@@ -118,4 +124,48 @@ func ReadYAML(r io.Reader) error {
 	}
 
 	return nil
+}
+
+func RegisterYAMLStringList(name string, fn YAMLStringListFunc) {
+	yamlStringListRegistryMu.Lock()
+	yamlStringListRegistry[name] = fn
+	yamlStringListRegistryMu.Unlock()
+}
+
+func YAMLStringList(node *yaml.Node) ([]string, error) {
+	tag := node.Tag
+	if strings.HasPrefix(tag, "!!") {
+		tag = ""
+	}
+	if strings.HasPrefix(tag, "!") {
+		tag = tag[1:]
+	}
+
+	if tag != "" {
+		yamlStringListRegistryMu.Lock()
+		fn, ok := yamlStringListRegistry[tag]
+		yamlStringListRegistryMu.Unlock()
+
+		if !ok {
+			return nil, fmt.Errorf("unknown YAML string-list type %s", tag)
+		}
+
+		return fn(node)
+	}
+
+	if node.Kind != yaml.SequenceNode {
+		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
+	}
+
+	var result []string
+
+	for _, child := range node.Content {
+		strs, err := YAMLStringList(child)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, strs...)
+	}
+
+	return result, nil
 }
