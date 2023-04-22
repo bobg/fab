@@ -3,6 +3,7 @@ package fab
 import (
 	"context"
 	"crypto/sha256"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -116,6 +117,7 @@ func filesDecoder(node *yaml.Node) (Target, error) {
 			continue
 		}
 		// xxx interpret GoDeps etc
+		return nil, fmt.Errorf("xxx unimplemented child node kind %v", child.Kind)
 	}
 
 	return Files{Target: target, In: in, Out: yfiles.Out}, nil
