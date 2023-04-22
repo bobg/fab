@@ -212,14 +212,14 @@ func (e CommandErr) Unwrap() error {
 
 func commandDecoder(node *yaml.Node) (Target, error) {
 	if node.Kind != yaml.SequenceNode {
-		// xxx error
+		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
 	}
 	if len(node.Content) == 0 {
-		// xxx error
+		return nil, fmt.Errorf("no child nodes")
 	}
 	cmdnode := node.Content[0]
 	if cmdnode.Kind != yaml.ScalarNode {
-		// xxx error
+		return nil, fmt.Errorf("got Command child node kind %v, want %v", cmdnode.Kind, yaml.ScalarNode)
 	}
 	cmd := cmdnode.Value
 
@@ -243,14 +243,15 @@ func commandOptDecoder(node *yaml.Node) (CommandOpt, error) {
 			return CmdStdout(os.Stdout), nil
 		case "stderr":
 			return CmdStderr(os.Stderr), nil
-
-			// xxx others
+		default:
+			// TODO: implement others
+			return nil, fmt.Errorf("unknown command option %s", node.Value)
 		}
 
-		// xxx others
+	default:
+		// TODO: implement others
+		return nil, fmt.Errorf("unknown command option node kind %v", node.Kind)
 	}
-
-	return nil, fmt.Errorf("unknown command option")
 }
 
 func init() {

@@ -1,6 +1,8 @@
 package fab
 
 import (
+	"fmt"
+
 	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/slices"
 	"gopkg.in/yaml.v3"
@@ -16,10 +18,10 @@ func Deps(target Target, depTargets ...Target) Target {
 
 func depsDecoder(node *yaml.Node) (Target, error) {
 	if node.Kind != yaml.SequenceNode {
-		// xxx error
+		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
 	}
 	if len(node.Content) == 0 {
-		// xxx error
+		return nil, fmt.Errorf("no child nodes")
 	}
 	target, err := YAMLTarget(node.Content[0])
 	if err != nil {

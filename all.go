@@ -2,6 +2,7 @@ package fab
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bobg/errors"
 	"gopkg.in/yaml.v3"
@@ -26,7 +27,7 @@ func (a *all) Run(ctx context.Context) error {
 
 func allDecoder(node *yaml.Node) (Target, error) {
 	if node.Kind != yaml.SequenceNode {
-		// xxx error
+		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
 	}
 	var targets []Target
 	for i, child := range node.Content {

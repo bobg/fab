@@ -2,6 +2,7 @@ package fab
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"os"
 
@@ -40,11 +41,11 @@ func (c *clean) Run(_ context.Context) error {
 
 func cleanDecoder(node *yaml.Node) (Target, error) {
 	if node.Kind != yaml.SequenceNode {
-		// xxx error
+		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
 	}
 	files, err := slices.Mapx(node.Content, func(idx int, n *yaml.Node) (string, error) {
 		if n.Kind != yaml.ScalarNode {
-			// xxx error
+			return "", fmt.Errorf("got child node kind %v, want %v", n.Kind, yaml.ScalarNode)
 		}
 		return n.Value, nil
 	})

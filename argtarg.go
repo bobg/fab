@@ -2,6 +2,7 @@ package fab
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/slices"
@@ -36,10 +37,10 @@ func (a *argTarget) Run(ctx context.Context) error {
 
 func argTargetDecoder(node *yaml.Node) (Target, error) {
 	if node.Kind != yaml.SequenceNode {
-		// xxx error
+		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
 	}
 	if len(node.Content) == 0 {
-		// xxx error
+		return nil, fmt.Errorf("no child nodes")
 	}
 	target, err := YAMLTarget(node.Content[0])
 	if err != nil {
@@ -48,7 +49,7 @@ func argTargetDecoder(node *yaml.Node) (Target, error) {
 
 	args, err := slices.Mapx(node.Content[1:], func(idx int, n *yaml.Node) (string, error) {
 		if n.Kind != yaml.ScalarNode {
-			// xxx error
+			return "", fmt.Errorf("got child node kind %v, want %v", n.Kind, yaml.ScalarNode)
 		}
 		return n.Value, nil
 	})
