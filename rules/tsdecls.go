@@ -4,8 +4,8 @@ import (
 	"context"
 	"os"
 
+	"github.com/bobg/errors"
 	"github.com/bobg/tsdecls"
-	"github.com/pkg/errors"
 
 	"github.com/bobg/fab"
 	"github.com/bobg/fab/deps"

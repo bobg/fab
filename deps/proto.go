@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"sort"
 
+	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/set"
-	"github.com/pkg/errors"
 )
 
 // Proto reads a protocol-buffer file and returns its list of dependencies.

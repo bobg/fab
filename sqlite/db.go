@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/bobg/errors"
 	_ "github.com/mattn/go-sqlite3" // to get the "sqlite3" driver for sql.Open
-	"github.com/pkg/errors"
 	"github.com/pressly/goose/v3"
 
 	"github.com/bobg/fab"

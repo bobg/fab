@@ -16,7 +16,7 @@ func TestArgTarget(t *testing.T) {
 		}
 		return nil
 	})
-	a := ArgTarget(f, args)
+	a := ArgTarget(f, args...)
 	if err := Run(context.Background(), a); err != nil {
 		t.Fatal(err)
 	}

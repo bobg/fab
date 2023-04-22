@@ -6,7 +6,7 @@ import (
 	"go/types"
 	"reflect"
 
-	"github.com/pkg/errors"
+	"github.com/bobg/errors"
 )
 
 var targetMethods = make(map[string]reflect.Method)

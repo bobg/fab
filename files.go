@@ -7,8 +7,9 @@ import (
 	"io/fs"
 	"os"
 
+	"github.com/bobg/errors"
 	json "github.com/gibson042/canonicaljson-go"
-	"github.com/pkg/errors"
+	"gopkg.in/yaml.v3"
 )
 
 // Files is a HashTarget.
@@ -91,4 +92,35 @@ func hashFile(path string) ([]byte, error) {
 		return nil, errors.Wrapf(err, "hashing %s", path)
 	}
 	return hasher.Sum(nil), nil
+}
+
+func filesDecoder(node *yaml.Node) (Target, error) {
+	var yfiles struct {
+		In     []yaml.Node
+		Out    []string
+		Target yaml.Node
+	}
+	if err := node.Decode(&yfiles); err != nil {
+		return nil, errors.Wrap(err, "YAML error in Files node")
+	}
+
+	target, err := YAMLTarget(&yfiles.Target)
+	if err != nil {
+		return nil, errors.Wrap(err, "YAML error in Target child of Files node")
+	}
+
+	var in []string
+	for _, child := range yfiles.In {
+		if child.Kind == yaml.ScalarNode {
+			in = append(in, child.Value)
+			continue
+		}
+		// xxx interpret GoDeps etc
+	}
+
+	return Files{Target: target, In: in, Out: yfiles.Out}, nil
+}
+
+func init() {
+	RegisterYAML("Files", filesDecoder)
 }

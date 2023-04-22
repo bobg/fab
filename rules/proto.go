@@ -3,9 +3,9 @@ package rules
 import (
 	"sort"
 
+	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/set"
 	"github.com/bobg/go-generics/v2/slices"
-	"github.com/pkg/errors"
 
 	"github.com/bobg/fab"
 	"github.com/bobg/fab/deps"

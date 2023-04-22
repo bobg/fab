@@ -8,8 +8,9 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/bobg/errors"
 	"github.com/mattn/go-shellwords"
-	"github.com/pkg/errors"
+	"gopkg.in/yaml.v3"
 )
 
 // Command is a target whose Run function executes a command in a subprocess.
@@ -207,4 +208,51 @@ func (e CommandErr) Error() string {
 // Unwrap produces the underlying error.
 func (e CommandErr) Unwrap() error {
 	return e.Err
+}
+
+func commandDecoder(node *yaml.Node) (Target, error) {
+	if node.Kind != yaml.SequenceNode {
+		// xxx error
+	}
+	if len(node.Content) == 0 {
+		// xxx error
+	}
+	cmdnode := node.Content[0]
+	if cmdnode.Kind != yaml.ScalarNode {
+		// xxx error
+	}
+	cmd := cmdnode.Value
+
+	var opts []CommandOpt
+	for i := 1; i < len(node.Content); i++ {
+		opt, err := commandOptDecoder(node.Content[i])
+		if err != nil {
+			return nil, errors.Wrapf(err, "YAML error in Command-node option (child %d)", i)
+		}
+		opts = append(opts, opt)
+	}
+
+	return Command(cmd, opts...), nil
+}
+
+func commandOptDecoder(node *yaml.Node) (CommandOpt, error) {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		switch node.Value {
+		case "stdout":
+			return CmdStdout(os.Stdout), nil
+		case "stderr":
+			return CmdStderr(os.Stderr), nil
+
+			// xxx others
+		}
+
+		// xxx others
+	}
+
+	return nil, fmt.Errorf("unknown command option")
+}
+
+func init() {
+	RegisterYAML("Command", commandDecoder)
 }

@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/set"
-	"github.com/pkg/errors"
 )
 
 func TestHashTarget(t *testing.T) {
