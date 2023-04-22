@@ -79,7 +79,7 @@ type myTargetType struct {
   dependencies []fab.Target
 }
 
-func (tt *myTargetType) Run(ctx, context.Context) error {
+func (tt *myTargetType) Run(ctx context.Context) error {
   if err := fab.Run(ctx, tt.dependencies...); err != nil {
     return err
   }
@@ -99,21 +99,21 @@ The fab command line can list multiple targets, e.g. `fab Vet Test Build`,
 or a single target plus arguments, e.g. `fab Build -verbose`,
 depending on whether the first string after the first target starts with `-`.
 In argument-passing mode,
-the named target is wrapped with ArgTarget
+the named target is wrapped with `ArgTarget`
 and the arguments are available at runtime using `GetArgs`.
 
 ## Details
 
 By default, your build rules are found in the `_fab` subdir.
 Running `fab` combines your rules with its own `main` function to produce a _driver_,
-which lives in `$HOME/.fab` by default.
+which lives in `$HOME/.cache/fab` by default.
 (These defaults can be overridden.)
 
 When you run `fab` and the driver is already present and up to date
 (as determined by a _hash_ of the code in the `_fab` dir),
 then `fab` simply executes the driver without rebuilding it.
 
-The directory `$HOME/.fab` also contains a _hash database_
+The directory `$HOME/.cache/fab` also contains a _hash database_
 to tell when certain targets -
 those satisfying the `HashTarget` interface -
 are up to date and do not need rebuilding.
@@ -134,7 +134,7 @@ the possibility of clock skew, etc.
 
 ## Installation
 
-Fab requires Go 1.19 or later.
+Fab requires Go 1.20 or later.
 Download Go [here](https://go.dev/dl/).
 
 Once a suitable version of Go is available
