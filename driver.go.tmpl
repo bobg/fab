@@ -3,8 +3,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -24,9 +26,19 @@ func main() {
 	fab.Register("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }})
 	{{- end }}
 
-	home, err := os.UserHomeDir()
+	if err := readYAML(); err != nil {
+		fmt.Printf("Error reading YAML file: %s\n", err)
+		os.Exit(1)
+	}
+
+	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		fatalf("Error getting home dir: %s", err)
+		home, err := os.UserHomeDir()
+		if err != nil {
+			fmt.Printf("Error getting home dir: %s\n", err)
+			os.Exit(1)
+		}
+		cacheDir = filepath.Join(home, ".cache")
 	}
 
 	var (
@@ -35,7 +47,7 @@ func main() {
 		list    bool
 		force   bool
 	)
-	flag.StringVar(&fabdir, "fab", filepath.Join(home, ".fab"), "directory containing driver binaries and hash DB")
+	flag.StringVar(&fabdir, "fab", filepath.Join(cacheDir, "fab"), "directory containing driver binaries and hash DB")
 	flag.BoolVar(&verbose, "v", false, "run verbosely")
 	flag.BoolVar(&list, "list", false, "list available targets")
 	flag.BoolVar(&force, "f", false, "force rebuilding of targets")
@@ -105,6 +117,22 @@ func main() {
 	if err := runner.Run(ctx, targets...); err != nil {
 		fatalf("Error: %s", err)
 	}
+}
+
+func readYAML() error {
+	f, err := os.Open("fab.yaml")
+	if errors.Is(err, fs.ErrNotExist) {
+		f, err = os.Open("fab.yml")
+		// Error checked below.
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return fab.ReadYAML(f)
 }
 
 func fatalf(format string, args ...any) {

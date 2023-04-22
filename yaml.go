@@ -3,9 +3,11 @@ package fab
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 
+	"github.com/bobg/errors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -89,4 +91,31 @@ func (dt *deferredResolutionTarget) SetName(name string) {
 	if dt.target != nil {
 		dt.target.SetName(name)
 	}
+}
+
+func ReadYAML(r io.Reader) error {
+	var (
+		dec = yaml.NewDecoder(r)
+		m   map[string]yaml.Node
+	)
+
+	if err := dec.Decode(&m); err != nil {
+		return errors.Wrap(err, "decoding YAML")
+	}
+
+	for name, node := range m {
+		target, err := YAMLTarget(&node)
+		if err != nil {
+			return errors.Wrapf(err, "in YAML node for %s", name)
+		}
+
+		doc := node.HeadComment
+		if doc == "" {
+			doc = node.LineComment
+		}
+
+		Register(name, doc, target)
+	}
+
+	return nil
 }
