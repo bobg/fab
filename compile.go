@@ -15,10 +15,9 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/maps"
 	"github.com/bobg/go-generics/v2/slices"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/packages"
 )
@@ -82,7 +81,7 @@ func CompilePackage(ctx context.Context, pkg *packages.Package, binfile string) 
 	if len(pkg.Errors) > 0 {
 		var err error
 		for _, e := range pkg.Errors {
-			err = multierr.Append(err, e)
+			err = errors.Join(err, e)
 		}
 		return errors.Wrapf(err, "loading package %s", pkg.Name)
 	}

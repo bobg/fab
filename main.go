@@ -9,18 +9,17 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/slices"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"golang.org/x/tools/go/packages"
 )
 
 // Main is the structure whose Run methods implements the main logic of the fab command.
 type Main struct {
-	// Pkgdir is where to find the user's build-rules Go package, e.g. "fab.d".
+	// Pkgdir is where to find the user's build-rules Go package, e.g. "_fab".
 	Pkgdir string
 
-	// Fabdir is where to find the user's hash DB and compiled binaries, default $HOME/.fab.
+	// Fabdir is where to find the user's hash DB and compiled binaries, default $HOME/.cache/fab.
 	Fabdir string
 
 	// Verbose tells whether to run the driver in verbose mode
@@ -95,7 +94,7 @@ func (m Main) getDriver(ctx context.Context) (string, error) {
 	if len(pkg.Errors) > 0 {
 		err = nil
 		for _, e := range pkg.Errors {
-			err = multierr.Append(err, e)
+			err = errors.Join(err, e)
 		}
 		return "", errors.Wrapf(err, "loading package %s", pkg.Name)
 	}

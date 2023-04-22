@@ -80,11 +80,20 @@ func main() {
 		unknown []string
 	)
 
-	for _, arg := range args {
-		if target, _ := fab.RegistryTarget(arg); target != nil {
-			targets = append(targets, target)
+	if len(args) > 1 && args[1][0] == '-' {
+		// Just one target, and remaining args are arguments for that target.
+		if target, _ := fab.RegistryTarget(args[0]); target != nil {
+			targets = append(targets, fab.ArgTarget(target, args[1:]))
 		} else {
-			unknown = append(unknown, arg)
+			unknown = append(unknown, args[0])
+		}
+	} else {
+		for _, arg := range args {
+			if target, _ := fab.RegistryTarget(arg); target != nil {
+				targets = append(targets, target)
+			} else {
+				unknown = append(unknown, arg)
+			}
 		}
 	}
 

@@ -4,9 +4,8 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/set"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -32,7 +31,7 @@ func Go(dir string, recursive bool) ([]string, error) {
 
 	for _, pkg := range pkgs {
 		for _, e := range pkg.Errors {
-			err = multierr.Append(err, e)
+			err = errors.Join(err, e)
 		}
 	}
 	if err != nil {
