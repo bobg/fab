@@ -1,0 +1,37 @@
+# Foo does Bar and Baz.
+Foo: !All
+  - Bar
+  - Baz
+
+# Bar doesn't do much.
+Bar: !Command
+  - echo How do you do
+  - stdout
+
+# Baz does X after Y and Z.
+Baz: !Deps
+  - X
+  - Y
+  - Z
+
+# X does A then B then C.
+X: !Seq
+  - A
+  - B
+  - C
+
+# Y cleans.
+Y: !Clean
+  - file1
+  - file2
+
+# Z builds output if p.go, q.go, or r.go change.
+Z: !Files
+  Target: !Command
+    - go build -o output ./...
+  In:
+    - p.go
+    - q.go
+    - r.go
+  Out:
+    - output

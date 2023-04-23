@@ -116,9 +116,9 @@ func filesDecoder(node *yaml.Node) (Target, error) {
 	}
 
 	var yfiles struct {
-		In     []yaml.Node `yaml:"In"`
-		Out    []string    `yaml:"Out"`
-		Target yaml.Node   `yaml:"Target"`
+		In     yaml.Node `yaml:"In"`
+		Out    []string  `yaml:"Out"`
+		Target yaml.Node `yaml:"Target"`
 	}
 	if err := node.Decode(&yfiles); err != nil {
 		return nil, errors.Wrap(err, "YAML error in Files node")
@@ -129,13 +129,9 @@ func filesDecoder(node *yaml.Node) (Target, error) {
 		return nil, errors.Wrap(err, "YAML error in Target child of Files node")
 	}
 
-	var in []string
-	for i, child := range yfiles.In {
-		strs, err := YAMLStringList(&child)
-		if err != nil {
-			return nil, errors.Wrapf(err, "YAML error in Files.In node (index %d)", i)
-		}
-		in = append(in, strs...)
+	in, err := YAMLStringList(&yfiles.In)
+	if err != nil {
+		return nil, errors.Wrap(err, "YAML error in Files.In node")
 	}
 
 	return Files{Target: target, In: in, Out: yfiles.Out}, nil

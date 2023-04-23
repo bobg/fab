@@ -19,6 +19,7 @@ require (
 
 require (
 	github.com/bobg/go-generics v1.5.0 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb // indirect
