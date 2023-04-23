@@ -219,11 +219,7 @@ func RegisterYAMLStringList(name string, fn YAMLStringListFunc) {
 // then the [YAMLStringListFunc] in the YAML string-list registry named `foo` is used to parse the node.
 // Otherwise,
 // the node is expected to be a sequence,
-// and its members plain strings
-// (which are added to the result slice literally)
-// or tagged nodes,
-// which are parsed with the corresponding YAML string-list registry function
-// and the output appended to the result slice.
+// and [YAMLStringListFromNodes] is called on its children.
 func YAMLStringList(node *yaml.Node) ([]string, error) {
 	tag := normalizeTag(node.Tag)
 
@@ -246,6 +242,12 @@ func YAMLStringList(node *yaml.Node) ([]string, error) {
 	return YAMLStringListFromNodes(node.Content)
 }
 
+// YAMLStringListFromNodes constructs a slice of strings from a slice of YAML nodes.
+// Each node may be a plain scalar,
+// in which case it is added to the result slice;
+// or a tagged node,
+// in which case it is parsed with the corresponding YAML string-list registry function
+// and the output appended to the result slice.
 func YAMLStringListFromNodes(nodes []*yaml.Node) ([]string, error) {
 	var result []string
 

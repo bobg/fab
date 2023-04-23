@@ -12,7 +12,10 @@ import (
 	"github.com/bobg/fab/deps"
 )
 
-// Decls
+// Decls uses [tsdecls.Write]
+// to write TypeScript type declarations to `outfile`
+// based on the Go `typename`
+// found in the package in `dir`.
 func Decls(dir, typename, prefix, outfile string) (fab.Target, error) {
 	gopkg, err := deps.Go(dir, false)
 	if err != nil {
