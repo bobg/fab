@@ -1,4 +1,4 @@
-package rules
+package ts
 
 import (
 	"context"
@@ -11,30 +11,30 @@ import (
 	"github.com/bobg/fab/deps"
 )
 
-// Tsdecls
-func Tsdecls(dir, typename, prefix, outfile string) (fab.Target, error) {
+// Decls
+func Decls(dir, typename, prefix, outfile string) (fab.Target, error) {
 	gopkg, err := deps.Go(dir, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting deps for %s", dir)
 	}
-	obj := tsdeclsType{
+	obj := declsType{
 		dir:      dir,
 		typename: typename,
 		prefix:   prefix,
 		outfile:  outfile,
 	}
-	return &fab.Files{
+	return fab.Files{
 		Target: fab.F(obj.run),
 		In:     gopkg,
 		Out:    []string{outfile},
 	}, nil
 }
 
-type tsdeclsType struct {
+type declsType struct {
 	dir, typename, prefix, outfile string
 }
 
-func (t tsdeclsType) run(context.Context) error {
+func (t declsType) run(context.Context) error {
 	f, err := os.Create(t.outfile)
 	if err != nil {
 		return errors.Wrapf(err, "opening %s for writing", t.outfile)
