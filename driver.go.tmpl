@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/bobg/fab"
@@ -15,8 +14,6 @@ import (
 
 	subpkg "x/pkg/{{ .Subpkg }}"
 )
-
-var bolRegex = regexp.MustCompile("^")
 
 func main() {
 	{{- range .Targets }}
@@ -68,14 +65,7 @@ func main() {
 	}
 
 	if list {
-		targetNames := fab.RegistryNames()
-		for _, name := range targetNames {
-			fmt.Println(name)
-			if _, d := fab.RegistryTarget(name); d != "" {
-				d = bolRegex.ReplaceAllString(d, "    ")
-				fmt.Println(d)
-			}
-		}
+		fab.ListTargets()
 		return
 	}
 

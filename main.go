@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -88,6 +89,12 @@ func (m Main) driverless(ctx context.Context) error {
 	if err := ReadYAMLFile(); err != nil {
 		return errors.Wrap(err, "reading YAML file")
 	}
+
+	if m.List {
+		ListTargets()
+		return nil
+	}
+
 	ctx = WithVerbose(ctx, m.Verbose)
 	ctx = WithForce(ctx, m.Force)
 
@@ -105,6 +112,19 @@ func (m Main) driverless(ctx context.Context) error {
 
 	runner := NewRunner()
 	return runner.Run(ctx, targets...)
+}
+
+var bolRegex = regexp.MustCompile("^")
+
+func ListTargets() {
+	names := RegistryNames()
+	for _, name := range names {
+		fmt.Println(name)
+		if _, d := RegistryTarget(name); d != "" {
+			d = bolRegex.ReplaceAllString(d, "    ")
+			fmt.Println(d)
+		}
+	}
 }
 
 func OpenHashDB(ctx context.Context, dir string) (*sqlite.DB, error) {
@@ -150,6 +170,10 @@ func ParseArgs(args []string) ([]Target, error) {
 }
 
 func (m Main) getDriver(ctx context.Context) (string, error) {
+	_, err := os.Stat(m.Pkgdir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", errNoDriver
+	}
 	config := &packages.Config{
 		Mode:    LoadMode,
 		Context: ctx,
