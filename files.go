@@ -30,12 +30,24 @@ import (
 // plus any transitive dependencies.
 // See the deps package for helper functions that can compute dependency lists of various kinds.
 type Files struct {
-	Target
-	In  []string
-	Out []string
+	Target Target
+	In     []string
+	Out    []string
 }
 
 var _ HashTarget = Files{}
+
+func (ft Files) Run(ctx context.Context) error {
+	return ft.Target.Run(ctx)
+}
+
+func (ft Files) Name() string {
+	return ft.Target.Name()
+}
+
+func (ft Files) SetName(name string) {
+	ft.Target.SetName(name)
+}
 
 // Hash implements HashTarget.Hash.
 func (ft Files) Hash(ctx context.Context) ([]byte, error) {
@@ -115,14 +127,12 @@ func filesDecoder(node *yaml.Node) (Target, error) {
 	}
 
 	var in []string
-	for _, child := range yfiles.In {
-		if child.Kind == yaml.ScalarNode {
-			in = append(in, child.Value)
-			continue
+	for i, child := range yfiles.In {
+		strs, err := YAMLStringList(&child)
+		if err != nil {
+			return nil, errors.Wrapf(err, "YAML error in Files.In node (index %d)", i)
 		}
-
-		// xxx interpret GoDeps etc
-		return nil, fmt.Errorf("xxx unimplemented child node kind %v", child.Kind)
+		in = append(in, strs...)
 	}
 
 	return Files{Target: target, In: in, Out: yfiles.Out}, nil

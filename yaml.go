@@ -32,23 +32,27 @@ func RegisterYAMLTarget(name string, fn YAMLTargetFunc) {
 
 func YAMLTarget(node *yaml.Node) (Target, error) {
 	tag := node.Tag
-	if node.Kind == yaml.ScalarNode && tag == "" {
+	if strings.HasPrefix(tag, "!!") {
+		tag = ""
+	}
+	if strings.HasPrefix(tag, "!") {
+		tag = tag[1:]
+	}
+
+	if tag == "" && node.Kind == yaml.ScalarNode {
 		return &deferredResolutionTarget{name: node.Value}, nil
 	}
+
 	if tag == "" {
 		return nil, fmt.Errorf("untyped YAML target node")
 	}
-	if strings.HasPrefix(tag, "!!") {
-		return nil, fmt.Errorf("invalid YAML target type %s", tag)
-	}
-	typ := tag[1:]
 
 	yamlTargetRegistryMu.Lock()
-	fn, ok := yamlTargetRegistry[typ]
+	fn, ok := yamlTargetRegistry[tag]
 	yamlTargetRegistryMu.Unlock()
 
 	if !ok {
-		return nil, fmt.Errorf("unknown YAML target type %s", typ)
+		return nil, fmt.Errorf("unknown YAML target type %s", tag)
 	}
 	return fn(node)
 }
@@ -93,7 +97,6 @@ func (dt *deferredResolutionTarget) Name() string {
 func (dt *deferredResolutionTarget) SetName(name string) {
 	dt.mu.Lock()
 	defer dt.mu.Unlock()
-	dt.name = name
 	if dt.target != nil {
 		dt.target.SetName(name)
 	}
@@ -102,25 +105,53 @@ func (dt *deferredResolutionTarget) SetName(name string) {
 func ReadYAML(r io.Reader) error {
 	var (
 		dec = yaml.NewDecoder(r)
-		m   map[string]yaml.Node
+		doc yaml.Node
 	)
 
-	if err := dec.Decode(&m); err != nil {
+	if err := dec.Decode(&doc); err != nil {
 		return errors.Wrap(err, "decoding YAML")
 	}
 
-	for name, node := range m {
-		target, err := YAMLTarget(&node)
+	if doc.Kind != yaml.DocumentNode {
+		return fmt.Errorf("got top-level node kind %v, want %v", doc.Kind, yaml.DocumentNode)
+	}
+	if len(doc.Content) != 1 {
+		return fmt.Errorf("got %d children of top-level node, want 1", len(doc.Content))
+	}
+
+	m := doc.Content[0]
+	if m.Kind != yaml.MappingNode {
+		return fmt.Errorf("got second-level node kind %v, want %v", m.Kind, yaml.MappingNode)
+	}
+
+	if len(m.Content)%2 != 0 {
+		return fmt.Errorf("got %d children for second-level node, want an even number", len(m.Content))
+	}
+
+	for i := 0; i < len(m.Content); i += 2 {
+		nameNode := m.Content[i]
+		if nameNode.Kind != yaml.ScalarNode {
+			return fmt.Errorf("got name-node kind %v for entry %d, want %v", nameNode.Kind, i, yaml.ScalarNode)
+		}
+
+		var (
+			name = nameNode.Value
+			doc  = nameNode.HeadComment
+		)
+		if doc == "" {
+			doc = nameNode.LineComment
+		}
+		doc = strings.TrimLeft(doc, "# ")
+
+		targetNode := m.Content[i+1]
+		target, err := YAMLTarget(targetNode)
 		if err != nil {
 			return errors.Wrapf(err, "in YAML node for %s", name)
 		}
 
-		doc := node.HeadComment
-		if doc == "" {
-			doc = node.LineComment
+		if _, ok := target.(*deferredResolutionTarget); !ok {
+			Register(name, doc, target)
 		}
-
-		Register(name, doc, target)
 	}
 
 	return nil
