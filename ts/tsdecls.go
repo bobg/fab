@@ -6,6 +6,7 @@ import (
 
 	"github.com/bobg/errors"
 	"github.com/bobg/tsdecls"
+	"gopkg.in/yaml.v3"
 
 	"github.com/bobg/fab"
 	"github.com/bobg/fab/deps"
@@ -45,4 +46,21 @@ func (t declsType) run(context.Context) error {
 		return errors.Wrapf(err, "generating %s", t.outfile)
 	}
 	return f.Close()
+}
+
+func declsDecoder(node *yaml.Node) (fab.Target, error) {
+	var d struct {
+		Dir    string `yaml:"Dir"`
+		Type   string `yaml:"Type"`
+		Prefix string `yaml:"Prefix"`
+		Out    string `yaml:"Out"`
+	}
+	if err := node.Decode(&d); err != nil {
+		return nil, errors.Wrap(err, "YAML error decoding ts.Decls node")
+	}
+	return Decls(d.Dir, d.Type, d.Prefix, d.Out)
+}
+
+func init() {
+	fab.RegisterYAMLTarget("ts.Decls", declsDecoder)
 }

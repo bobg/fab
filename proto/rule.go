@@ -6,6 +6,7 @@ import (
 	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/set"
 	"github.com/bobg/go-generics/v2/slices"
+	"gopkg.in/yaml.v3"
 
 	"github.com/bobg/fab"
 )
@@ -38,4 +39,21 @@ func Proto(inputs, outputs, includes, otherOpts []string) (fab.Target, error) {
 		In:     alldepsSlice,
 		Out:    outputs,
 	}, nil
+}
+
+func protoDecoder(node *yaml.Node) (fab.Target, error) {
+	var p struct {
+		Inputs   []string `yaml:"Inputs"`
+		Outputs  []string `yaml:"Outputs"`
+		Includes []string `yaml:"Includes"`
+		Opts     []string `yaml:"Opts"`
+	}
+	if err := node.Decode(&p); err != nil {
+		return nil, errors.Wrap(err, "YAML error decoding proto.Proto node")
+	}
+	return Proto(p.Inputs, p.Outputs, p.Includes, p.Opts)
+}
+
+func init() {
+	fab.RegisterYAMLTarget("proto.Proto", protoDecoder)
 }
