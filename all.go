@@ -9,6 +9,11 @@ import (
 )
 
 // All produces a target that runs a collection of targets in parallel.
+//
+// An All target may be specified in YAML using the tag !All,
+// which introduces a sequence.
+// The elements in the sequence are targets themselves,
+// or target names.
 func All(targets ...Target) Target {
 	return &all{Namer: NewNamer("all"), targets: targets}
 }

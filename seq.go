@@ -11,6 +11,11 @@ import (
 
 // Seq produces a target that runs a collection of targets in sequence.
 // Its Run method exits early when a target in the sequence fails.
+//
+// A Seq target may be specified in YAML using the tag !Seq,
+// which introduces a sequence.
+// The elements in the sequence are targets themselves,
+// or target names.
 func Seq(targets ...Target) Target {
 	return &seq{Namer: NewNamer("seq"), targets: targets}
 }

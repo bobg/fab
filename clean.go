@@ -7,12 +7,16 @@ import (
 	"os"
 
 	"github.com/bobg/errors"
-	"github.com/bobg/go-generics/v2/slices"
 	"gopkg.in/yaml.v3"
 )
 
 // Clean is a Target that deletes the files named in Files when it runs.
 // Files that don't exist are silently ignored.
+//
+// A Clean target may be specified in YAML using the tag !Clean,
+// which introduces a sequence.
+// The elements of the sequence are interpreted by [YAMLStringListFromNodes]
+// to produce the list of files for the target.
 func Clean(files ...string) Target {
 	return &clean{
 		Namer: NewNamer("clean"),
@@ -43,12 +47,7 @@ func cleanDecoder(node *yaml.Node) (Target, error) {
 	if node.Kind != yaml.SequenceNode {
 		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
 	}
-	files, err := slices.Mapx(node.Content, func(idx int, n *yaml.Node) (string, error) {
-		if n.Kind != yaml.ScalarNode {
-			return "", fmt.Errorf("got child node kind %v, want %v", n.Kind, yaml.ScalarNode)
-		}
-		return n.Value, nil
-	})
+	files, err := YAMLStringListFromNodes(node.Content)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error in Clean node")
 	}

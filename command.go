@@ -24,6 +24,12 @@ import (
 // (but not tilde escapes or backtick substitution etc.)
 // in order to produce the command name
 // and argument list.
+//
+// A Command target may be specified in YAML using the !Command tag,
+// which introduces a sequence.
+// The first element of the sequence is the command to run.
+// Remaining arguments are interpreted as CommandOpts.
+// See [CommandOpt] for a description of how to specify these.
 func Command(cmd string, opts ...CommandOpt) Target {
 	c := &command{
 		Namer: NewNamer("Command"),
@@ -85,6 +91,8 @@ type command struct {
 var _ Target = &command{}
 
 // CommandOpt is the type of an option to [Command].
+// A CommandOpt may be specified in YAML as the second or subsequent child of a !Command node.
+// TODO: xxx elaborate.
 type CommandOpt func(*command)
 
 // CmdArgs sets the arguments for the command to run.

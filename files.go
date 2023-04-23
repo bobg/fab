@@ -29,6 +29,28 @@ import (
 // Ideally this includes any files required by the Target's Run method,
 // plus any transitive dependencies.
 // See the deps package for helper functions that can compute dependency lists of various kinds.
+//
+// A Files target may be specified in YAML using the !Files tag,
+// which introduces a mapping whose fields are:
+//
+//   - Target: the wrapped target, or target name
+//   - In: the list of input files, interpreted with [YAMLStringList]
+//   - Out: the list of output files, interpreted with [YAMLStringList]
+//
+// Example:
+//
+//	Foo: !Files
+//	  Target: !Command
+//	    - go build -o thingify ./cmd/thingify
+//	  In: !deps.Go
+//	    Dir: cmd
+//	  Out:
+//	    - thingify
+//
+// This creates target Foo,
+// which runs the given `go build` command
+// to update the output file `thingify`
+// when any files depended on by the Go package in `cmd` change.
 type Files struct {
 	Target Target
 	In     []string
@@ -117,7 +139,7 @@ func filesDecoder(node *yaml.Node) (Target, error) {
 
 	var yfiles struct {
 		In     yaml.Node `yaml:"In"`
-		Out    []string  `yaml:"Out"`
+		Out    yaml.Node `yaml:"Out"`
 		Target yaml.Node `yaml:"Target"`
 	}
 	if err := node.Decode(&yfiles); err != nil {
@@ -134,7 +156,12 @@ func filesDecoder(node *yaml.Node) (Target, error) {
 		return nil, errors.Wrap(err, "YAML error in Files.In node")
 	}
 
-	return Files{Target: target, In: in, Out: yfiles.Out}, nil
+	out, err := YAMLStringList(&yfiles.Out)
+	if err != nil {
+		return nil, errors.Wrap(err, "YAML error in Files.Out node")
+	}
+
+	return Files{Target: target, In: in, Out: out}, nil
 }
 
 func init() {

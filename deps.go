@@ -12,6 +12,22 @@ import (
 // making sure those run first.
 //
 // It is equivalent to Seq(All(depTargets...), target).
+//
+// A Deps target may be specified in YAML using the !Deps tag,
+// which introduces a sequence.
+// The first element of the sequence is the main subtarget,
+// or target name.
+// Remaining elements are dependency targets or names.
+// Example:
+//
+//	Foo: !Deps
+//	  - Post
+//	  - Pre1
+//	  - Pre2
+//
+// This creates target Foo,
+// which runs target Post after running Pre1 and Pre2.
+// xxx reconsider
 func Deps(target Target, depTargets ...Target) Target {
 	return Seq(All(depTargets...), target)
 }

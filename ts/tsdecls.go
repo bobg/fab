@@ -16,6 +16,14 @@ import (
 // to write TypeScript type declarations to `outfile`
 // based on the Go `typename`
 // found in the package in `dir`.
+//
+// A Decls target may be specified in YAML using the tag !ts.Decls,
+// which introduces a mapping whose fields are:
+//
+//   - Dir: the directory containing a Go package
+//   - Type: the Go type to examine for producing TypeScript declarations
+//   - Prefix: the path prefix for the generated POST URL
+//   - Out: the output file
 func Decls(dir, typename, prefix, outfile string) (fab.Target, error) {
 	gopkg, err := deps.Go(dir, false)
 	if err != nil {
