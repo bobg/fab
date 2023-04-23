@@ -3,19 +3,15 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/bobg/fab"
 	_ "github.com/bobg/fab/deps"
-	"github.com/bobg/fab/sqlite"
 
 	subpkg "x/pkg/{{ .Subpkg }}"
 )
@@ -27,7 +23,7 @@ func main() {
 	fab.Register("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }})
 	{{- end }}
 
-	if err := readYAML(); err != nil {
+	if err := fab.ReadYAMLFile(); err != nil {
 		fmt.Printf("Error reading YAML file: %s\n", err)
 		os.Exit(1)
 	}
@@ -58,14 +54,9 @@ func main() {
 	ctx = fab.WithVerbose(ctx, verbose)
 	ctx = fab.WithForce(ctx, force)
 
-	if err = os.MkdirAll(fabdir, 0755); err != nil {
-		fatalf("Error creating %s: %s", fabdir, err)
-	}
-
-	dbfile := filepath.Join(fabdir, "hash.db")
-	db, err := sqlite.Open(ctx, dbfile, sqlite.Keep(30*24*time.Hour)) // keep db entries for 30 days
+	db, err := fab.OpenHashDB(ctx, fabdir)
 	if err != nil {
-		fatalf("Error opening %s: %s", dbfile, err)
+		fatalf("Error opening hash DB: %s", err)
 	}
 	defer db.Close()
 	ctx = fab.WithHashDB(ctx, db)
@@ -88,52 +79,15 @@ func main() {
 		return
 	}
 
-	var (
-		targets []fab.Target
-		unknown []string
-	)
-
-	if len(args) > 1 && args[1][0] == '-' {
-		// Just one target, and remaining args are arguments for that target.
-		if target, _ := fab.RegistryTarget(args[0]); target != nil {
-			targets = append(targets, fab.ArgTarget(target, args[1:]...))
-		} else {
-			unknown = append(unknown, args[0])
-		}
-	} else {
-		for _, arg := range args {
-			if target, _ := fab.RegistryTarget(arg); target != nil {
-				targets = append(targets, target)
-			} else {
-				unknown = append(unknown, arg)
-			}
-		}
-	}
-
-	if len(unknown) > 0 {
-		fatalf("Unknown target(s): %s", strings.Join(unknown, " "))
+	targets, err := fab.ParseArgs(args)
+	if err != nil {
+		fatalf("Parsing args: %s", err)
 	}
 
 	runner := fab.NewRunner()
 	if err := runner.Run(ctx, targets...); err != nil {
 		fatalf("Error: %s", err)
 	}
-}
-
-func readYAML() error {
-	f, err := os.Open("fab.yaml")
-	if errors.Is(err, fs.ErrNotExist) {
-		f, err = os.Open("fab.yml")
-		// Error checked below.
-	}
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return fab.ReadYAML(f)
 }
 
 func fatalf(format string, args ...any) {

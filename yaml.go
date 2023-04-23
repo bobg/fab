@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
+	"os"
 	"strings"
 	"sync"
 
@@ -155,6 +157,23 @@ func ReadYAML(r io.Reader) error {
 	}
 
 	return nil
+}
+
+func ReadYAMLFile() error {
+	f, err := os.Open("fab.yaml")
+	if errors.Is(err, fs.ErrNotExist) {
+		f, err = os.Open("fab.yml")
+		// Error checked below.
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return ReadYAML(f)
 }
 
 func RegisterYAMLStringList(name string, fn YAMLStringListFunc) {
