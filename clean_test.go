@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pkg/errors"
+	"github.com/bobg/errors"
 )
 
 func TestClean(t *testing.T) {

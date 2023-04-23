@@ -3,12 +3,14 @@ package fab
 import (
 	"context"
 	"crypto/sha256"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
 
+	"github.com/bobg/errors"
 	json "github.com/gibson042/canonicaljson-go"
-	"github.com/pkg/errors"
+	"gopkg.in/yaml.v3"
 )
 
 // Files is a HashTarget.
@@ -27,13 +29,50 @@ import (
 // Ideally this includes any files required by the Target's Run method,
 // plus any transitive dependencies.
 // See the deps package for helper functions that can compute dependency lists of various kinds.
+//
+// A Files target may be specified in YAML using the !Files tag,
+// which introduces a mapping whose fields are:
+//
+//   - Target: the wrapped target, or target name
+//   - In: the list of input files, interpreted with [YAMLStringList]
+//   - Out: the list of output files, interpreted with [YAMLStringList]
+//
+// Example:
+//
+//	Foo: !Files
+//	  Target: !Command
+//	    - go build -o thingify ./cmd/thingify
+//	  In: !deps.Go
+//	    Dir: cmd
+//	  Out:
+//	    - thingify
+//
+// This creates target Foo,
+// which runs the given `go build` command
+// to update the output file `thingify`
+// when any files depended on by the Go package in `cmd` change.
 type Files struct {
-	Target
-	In  []string
-	Out []string
+	Target Target
+	In     []string
+	Out    []string
 }
 
 var _ HashTarget = Files{}
+
+// Run implements Target.Run.
+func (ft Files) Run(ctx context.Context) error {
+	return ft.Target.Run(ctx)
+}
+
+// Name implements Target.Name.
+func (ft Files) Name() string {
+	return ft.Target.Name()
+}
+
+// SetName implements Target.SetName.
+func (ft Files) SetName(name string) {
+	ft.Target.SetName(name)
+}
 
 // Hash implements HashTarget.Hash.
 func (ft Files) Hash(ctx context.Context) ([]byte, error) {
@@ -91,4 +130,40 @@ func hashFile(path string) ([]byte, error) {
 		return nil, errors.Wrapf(err, "hashing %s", path)
 	}
 	return hasher.Sum(nil), nil
+}
+
+func filesDecoder(node *yaml.Node) (Target, error) {
+	if node.Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.MappingNode)
+	}
+
+	var yfiles struct {
+		In     yaml.Node `yaml:"In"`
+		Out    yaml.Node `yaml:"Out"`
+		Target yaml.Node `yaml:"Target"`
+	}
+	if err := node.Decode(&yfiles); err != nil {
+		return nil, errors.Wrap(err, "YAML error in Files node")
+	}
+
+	target, err := YAMLTarget(&yfiles.Target)
+	if err != nil {
+		return nil, errors.Wrap(err, "YAML error in Target child of Files node")
+	}
+
+	in, err := YAMLStringList(&yfiles.In)
+	if err != nil {
+		return nil, errors.Wrap(err, "YAML error in Files.In node")
+	}
+
+	out, err := YAMLStringList(&yfiles.Out)
+	if err != nil {
+		return nil, errors.Wrap(err, "YAML error in Files.Out node")
+	}
+
+	return Files{Target: target, In: in, Out: out}, nil
+}
+
+func init() {
+	RegisterYAMLTarget("Files", filesDecoder)
 }

@@ -64,7 +64,7 @@ func GetVerbose(ctx context.Context) bool {
 
 // WithArgs decorates a context with a list of arguments as a slice of strings.
 // Retrieve it with [GetArgs].
-func WithArgs(ctx context.Context, args []string) context.Context {
+func WithArgs(ctx context.Context, args ...string) context.Context {
 	return context.WithValue(ctx, argsKeyType{}, args)
 }
 

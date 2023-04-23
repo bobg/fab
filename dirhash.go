@@ -6,8 +6,8 @@ import (
 	"io"
 	"path/filepath"
 
+	"github.com/bobg/errors"
 	json "github.com/gibson042/canonicaljson-go"
-	"github.com/pkg/errors"
 )
 
 // newDirHasher produces a new dirHasher.
@@ -20,7 +20,7 @@ func newDirHasher() *dirHasher {
 	}
 }
 
-// File adds the given contents with the given filename to the dirHasher.
+// file adds the given contents with the given filename to the dirHasher.
 func (d *dirHasher) file(name string, r io.Reader) error {
 	hasher := sha256.New224()
 	_, err := io.Copy(hasher, r)
@@ -32,8 +32,8 @@ func (d *dirHasher) file(name string, r io.Reader) error {
 	return nil
 }
 
-// Hash computes the hash of the files added to the dirHasher.
-// The result is insensitive to the order of calls to File.
+// hash computes the hash of the files added to the dirHasher.
+// The result is insensitive to the order of calls to file.
 func (d *dirHasher) hash() (string, error) {
 	j, err := json.Marshal(d.hashes)
 	if err != nil {
@@ -45,8 +45,8 @@ func (d *dirHasher) hash() (string, error) {
 
 // dirHasher computes a hash for a set of files.
 // Instantiate a dirHasher,
-// add files to it by repeated calls to File,
-// then get the result by calling Hash.
+// add files to it by repeated calls to file,
+// then get the result by calling hash.
 //
 // The zero value of dirHasher is not usable.
 // Obtain one with newDirHasher.

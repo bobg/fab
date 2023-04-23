@@ -1,8 +1,6 @@
 package fab
 
-import (
-	"context"
-)
+import "context"
 
 // Target is the interface that Fab targets must implement.
 type Target interface {
@@ -23,5 +21,6 @@ type Target interface {
 
 	// SetName sets the name of this target.
 	// The name must be unique across all targets.
+	// You can embed a *Namer in your concrete type to help with this.
 	SetName(string)
 }

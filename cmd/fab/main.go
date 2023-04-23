@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/bobg/fab"
+	_ "github.com/bobg/fab/deps"
 )
 
 func main() {

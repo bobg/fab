@@ -3,30 +3,38 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
-	"time"
 
 	"github.com/bobg/fab"
-	"github.com/bobg/fab/sqlite"
+	_ "github.com/bobg/fab/deps"
 
 	subpkg "x/pkg/{{ .Subpkg }}"
 )
-
-var bolRegex = regexp.MustCompile("^")
 
 func main() {
 	{{- range .Targets }}
 	fab.Register("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }})
 	{{- end }}
 
-	home, err := os.UserHomeDir()
+	if err := fab.ReadYAMLFile(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		fmt.Printf("Error reading YAML file: %s\n", err)
+		os.Exit(1)
+	}
+
+	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		fatalf("Error getting home dir: %s", err)
+		home, err := os.UserHomeDir()
+		if err != nil {
+			fmt.Printf("Error getting home dir: %s\n", err)
+			os.Exit(1)
+		}
+		cacheDir = filepath.Join(home, ".cache")
 	}
 
 	var (
@@ -35,7 +43,7 @@ func main() {
 		list    bool
 		force   bool
 	)
-	flag.StringVar(&fabdir, "fab", filepath.Join(home, ".fab"), "directory containing driver binaries and hash DB")
+	flag.StringVar(&fabdir, "fab", filepath.Join(cacheDir, "fab"), "directory containing driver binaries and hash DB")
 	flag.BoolVar(&verbose, "v", false, "run verbosely")
 	flag.BoolVar(&list, "list", false, "list available targets")
 	flag.BoolVar(&force, "f", false, "force rebuilding of targets")
@@ -45,14 +53,9 @@ func main() {
 	ctx = fab.WithVerbose(ctx, verbose)
 	ctx = fab.WithForce(ctx, force)
 
-	if err = os.MkdirAll(fabdir, 0755); err != nil {
-		fatalf("Error creating %s: %s", fabdir, err)
-	}
-
-	dbfile := filepath.Join(fabdir, "hash.db")
-	db, err := sqlite.Open(ctx, dbfile, sqlite.Keep(30*24*time.Hour)) // keep db entries for 30 days
+	db, err := fab.OpenHashDB(ctx, fabdir)
 	if err != nil {
-		fatalf("Error opening %s: %s", dbfile, err)
+		fatalf("Error opening hash DB: %s", err)
 	}
 	defer db.Close()
 	ctx = fab.WithHashDB(ctx, db)
@@ -64,41 +67,13 @@ func main() {
 	}
 
 	if list {
-		targetNames := fab.RegistryNames()
-		for _, name := range targetNames {
-			fmt.Println(name)
-			if _, d := fab.RegistryTarget(name); d != "" {
-				d = bolRegex.ReplaceAllString(d, "    ")
-				fmt.Println(d)
-			}
-		}
+		fab.ListTargets()
 		return
 	}
 
-	var (
-		targets []fab.Target
-		unknown []string
-	)
-
-	if len(args) > 1 && args[1][0] == '-' {
-		// Just one target, and remaining args are arguments for that target.
-		if target, _ := fab.RegistryTarget(args[0]); target != nil {
-			targets = append(targets, fab.ArgTarget(target, args[1:]))
-		} else {
-			unknown = append(unknown, args[0])
-		}
-	} else {
-		for _, arg := range args {
-			if target, _ := fab.RegistryTarget(arg); target != nil {
-				targets = append(targets, target)
-			} else {
-				unknown = append(unknown, arg)
-			}
-		}
-	}
-
-	if len(unknown) > 0 {
-		fatalf("Unknown target(s): %s", strings.Join(unknown, " "))
+	targets, err := fab.ParseArgs(args)
+	if err != nil {
+		fatalf("Parsing args: %s", err)
 	}
 
 	runner := fab.NewRunner()

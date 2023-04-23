@@ -7,11 +7,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/slices"
 	"golang.org/x/tools/go/packages"
+
+	"github.com/bobg/fab/sqlite"
 )
 
 // Main is the structure whose Run methods implements the main logic of the fab command.
@@ -19,7 +23,7 @@ type Main struct {
 	// Pkgdir is where to find the user's build-rules Go package, e.g. "_fab".
 	Pkgdir string
 
-	// Fabdir is where to find the user's hash DB and compiled binaries, default $HOME/.cache/fab.
+	// Fabdir is where to find the user's hash DB and compiled binaries, e.g. $HOME/.cache/fab.
 	Fabdir string
 
 	// Verbose tells whether to run the driver in verbose mode
@@ -49,6 +53,14 @@ type Main struct {
 // in which case the driver will execute the associated rules
 // as defined by the code in m.Pkgdir.
 func (m Main) Run(ctx context.Context) error {
+	driver, err := m.getDriver(ctx)
+	if errors.Is(err, errNoDriver) {
+		return m.driverless(ctx)
+	}
+	if err != nil {
+		return errors.Wrap(err, "ensuring driver is up to date")
+	}
+
 	args := []string{"-fab", m.Fabdir}
 	if m.Verbose {
 		args = append(args, "-v")
@@ -61,26 +73,133 @@ func (m Main) Run(ctx context.Context) error {
 	}
 	args = append(args, m.Args...)
 
-	driver, err := m.getDriver(ctx)
-	if err != nil {
-		return errors.Wrap(err, "ensuring driver is up to date")
-	}
-
 	cmd := exec.CommandContext(ctx, driver, args...)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	err = cmd.Run()
 	return errors.Wrapf(err, "running %s %s", driver, strings.Join(args, " "))
 }
 
+var errNoDriver = errors.New("no driver")
+
+func (m Main) driverless(ctx context.Context) error {
+	if m.Verbose {
+		fmt.Println("Running in driverless mode")
+	}
+
+	if err := ReadYAMLFile(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return errors.Wrap(err, "reading YAML file")
+	}
+
+	if m.List {
+		ListTargets()
+		return nil
+	}
+
+	ctx = WithVerbose(ctx, m.Verbose)
+	ctx = WithForce(ctx, m.Force)
+
+	db, err := OpenHashDB(ctx, m.Fabdir)
+	if err != nil {
+		return errors.Wrap(err, "opening hash db")
+	}
+	defer db.Close()
+	ctx = WithHashDB(ctx, db)
+
+	targets, err := ParseArgs(m.Args)
+	if err != nil {
+		return errors.Wrap(err, "parsing args")
+	}
+
+	runner := NewRunner()
+	return runner.Run(ctx, targets...)
+}
+
+var bolRegex = regexp.MustCompile("^")
+
+// ListTargets outputs a formatted list of the targets in the registry and their docstrings.
+func ListTargets() {
+	names := RegistryNames()
+	for _, name := range names {
+		fmt.Println(name)
+		if _, d := RegistryTarget(name); d != "" {
+			d = bolRegex.ReplaceAllString(d, "    ")
+			fmt.Println(d)
+		}
+	}
+}
+
+// OpenHashDB ensures the given directory exists and opens (or creates) the hash DB there.
+// Callers must make sure to call Close on the returned DB when finished with it.
+func OpenHashDB(ctx context.Context, dir string) (*sqlite.DB, error) {
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, errors.Wrapf(err, "creating directory %s", dir)
+	}
+	dbfile := filepath.Join(dir, "hash.db")
+	db, err := sqlite.Open(ctx, dbfile, sqlite.Keep(30*24*time.Hour)) // keep db entries for 30 days
+	return db, errors.Wrapf(err, "opening file %s", dbfile)
+}
+
+// ParseArgs parses the remaining arguments on a fab command line,
+// after option flags.
+// They are either a list of target names in the registry,
+// in which case those targets are returned;
+// or a single registry target followed by option flags for that,
+// in which case the target is wrapped up in an [ArgTarget] with its options.
+// The two cases are distinguished by whether there is a second argument
+// and whether it begins with a hyphen.
+// (That's the ArgTarget case.)
+func ParseArgs(args []string) ([]Target, error) {
+	var (
+		targets []Target
+		unknown []string
+	)
+
+	if len(args) > 1 && args[1][0] == '-' {
+		// Just one target, and remaining args are arguments for that target.
+		if target, _ := RegistryTarget(args[0]); target != nil {
+			targets = append(targets, ArgTarget(target, args[1:]...))
+		} else {
+			unknown = append(unknown, args[0])
+		}
+	} else {
+		for _, arg := range args {
+			if target, _ := RegistryTarget(arg); target != nil {
+				targets = append(targets, target)
+			} else {
+				unknown = append(unknown, arg)
+			}
+		}
+	}
+
+	switch len(unknown) {
+	case 0:
+		return targets, nil
+	case 1:
+		return nil, fmt.Errorf("unknown target %s", unknown[0])
+	default:
+		return nil, fmt.Errorf("unknown targets: %s", strings.Join(unknown, " "))
+	}
+}
+
 func (m Main) getDriver(ctx context.Context) (string, error) {
+	_, err := os.Stat(m.Pkgdir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", errNoDriver
+	}
 	config := &packages.Config{
 		Mode:    LoadMode,
 		Context: ctx,
 		Dir:     m.Pkgdir,
 	}
 	pkgs, err := packages.Load(config, ".")
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", errNoDriver
+	}
 	if err != nil {
 		return "", errors.Wrapf(err, "loading %s", m.Pkgdir)
+	}
+	if len(pkgs) == 0 {
+		return "", errNoDriver
 	}
 	if len(pkgs) != 1 {
 		return "", fmt.Errorf(

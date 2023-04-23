@@ -1,18 +1,18 @@
-package deps
+package proto
 
 import (
 	"reflect"
 	"testing"
 )
 
-func TestProto(t *testing.T) {
+func TestDeps(t *testing.T) {
 	want := []string{
 		"testdata/foo.proto",
 		"testdata/x/bar.proto",
 		"testdata/x/plugh.proto",
 	}
 
-	got, err := Proto("testdata/foo.proto", []string{"testdata"})
+	got, err := Deps("testdata/foo.proto", []string{"testdata"})
 	if err != nil {
 		t.Fatal(err)
 	}

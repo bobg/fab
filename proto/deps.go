@@ -1,4 +1,4 @@
-package deps
+package proto
 
 import (
 	"bufio"
@@ -9,17 +9,20 @@ import (
 	"regexp"
 	"sort"
 
+	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/set"
-	"github.com/pkg/errors"
+	"gopkg.in/yaml.v3"
+
+	"github.com/bobg/fab"
 )
 
-// Proto reads a protocol-buffer file and returns its list of dependencies.
+// Deps reads a protocol-buffer file and returns its list of dependencies.
 // Included in the dependencies is the file itself,
 // plus any files it imports
 // (directly or indirectly)
 // that can be found among the given include directories.
 // The list is sorted for consistent, predictable results.
-func Proto(filename string, includes []string) ([]string, error) {
+func Deps(filename string, includes []string) ([]string, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, errors.Wrapf(err, "opening %s", filename)
@@ -70,4 +73,19 @@ func protodepsImport(imp string, includes []string, result set.Of[string]) error
 		return protodeps(f, includes, result)
 	}
 	return nil
+}
+
+func protodepsDecoder(node *yaml.Node) ([]string, error) {
+	var pd struct {
+		File     string   `yaml:"File"`
+		Includes []string `yaml:"Includes"`
+	}
+	if err := node.Decode(&pd); err != nil {
+		return nil, errors.Wrap(err, "YAML error in proto.Deps node")
+	}
+	return Deps(pd.File, pd.Includes)
+}
+
+func init() {
+	fab.RegisterYAMLStringList("proto.Deps", protodepsDecoder)
 }

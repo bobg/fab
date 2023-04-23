@@ -8,8 +8,9 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/bobg/errors"
 	"github.com/mattn/go-shellwords"
-	"github.com/pkg/errors"
+	"gopkg.in/yaml.v3"
 )
 
 // Command is a target whose Run function executes a command in a subprocess.
@@ -23,6 +24,12 @@ import (
 // (but not tilde escapes or backtick substitution etc.)
 // in order to produce the command name
 // and argument list.
+//
+// A Command target may be specified in YAML using the !Command tag,
+// which introduces a sequence.
+// The first element of the sequence is the command to run.
+// Remaining arguments are interpreted as CommandOpts.
+// See [CommandOpt] for a description of how to specify these.
 func Command(cmd string, opts ...CommandOpt) Target {
 	c := &command{
 		Namer: NewNamer("Command"),
@@ -83,6 +90,9 @@ type command struct {
 
 var _ Target = &command{}
 
+// CommandOpt is the type of an option to [Command].
+// A CommandOpt may be specified in YAML as the second or subsequent child of a !Command node.
+// TODO: xxx elaborate.
 type CommandOpt func(*command)
 
 // CmdArgs sets the arguments for the command to run.
@@ -207,4 +217,52 @@ func (e CommandErr) Error() string {
 // Unwrap produces the underlying error.
 func (e CommandErr) Unwrap() error {
 	return e.Err
+}
+
+func commandDecoder(node *yaml.Node) (Target, error) {
+	if node.Kind != yaml.SequenceNode {
+		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
+	}
+	if len(node.Content) == 0 {
+		return nil, fmt.Errorf("no child nodes")
+	}
+	cmdnode := node.Content[0]
+	if cmdnode.Kind != yaml.ScalarNode {
+		return nil, fmt.Errorf("got Command child node kind %v, want %v", cmdnode.Kind, yaml.ScalarNode)
+	}
+	cmd := cmdnode.Value
+
+	var opts []CommandOpt
+	for i := 1; i < len(node.Content); i++ {
+		opt, err := commandOptDecoder(node.Content[i])
+		if err != nil {
+			return nil, errors.Wrapf(err, "YAML error in Command-node option (child %d)", i)
+		}
+		opts = append(opts, opt)
+	}
+
+	return Command(cmd, opts...), nil
+}
+
+func commandOptDecoder(node *yaml.Node) (CommandOpt, error) {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		switch node.Value {
+		case "stdout":
+			return CmdStdout(os.Stdout), nil
+		case "stderr":
+			return CmdStderr(os.Stderr), nil
+		default:
+			// TODO: implement others
+			return nil, fmt.Errorf("unknown command option %s", node.Value)
+		}
+
+	default:
+		// TODO: implement others
+		return nil, fmt.Errorf("unknown command option node kind %v", node.Kind)
+	}
+}
+
+func init() {
+	RegisterYAMLTarget("Command", commandDecoder)
 }

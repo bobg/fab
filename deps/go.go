@@ -7,6 +7,9 @@ import (
 	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/set"
 	"golang.org/x/tools/go/packages"
+	"gopkg.in/yaml.v3"
+
+	"github.com/bobg/fab"
 )
 
 // Go produces the list of files involved in building the Go package in the given directory.
@@ -74,4 +77,21 @@ func gopkgAdd(pkg *packages.Package, modpath string, files set.Of[string]) error
 		}
 	}
 	return nil
+}
+
+func godepsDecoder(node *yaml.Node) ([]string, error) {
+	var gd struct {
+		Dir       string `yaml:"Dir"`
+		Recursive bool   `yaml:"Recursive"`
+	}
+
+	if err := node.Decode(&gd); err != nil {
+		return nil, errors.Wrap(err, "YAML error in deps.Go node")
+	}
+
+	return Go(gd.Dir, gd.Recursive)
+}
+
+func init() {
+	fab.RegisterYAMLStringList("deps.Go", godepsDecoder)
 }

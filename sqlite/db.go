@@ -9,11 +9,9 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/bobg/errors"
 	_ "github.com/mattn/go-sqlite3" // to get the "sqlite3" driver for sql.Open
-	"github.com/pkg/errors"
 	"github.com/pressly/goose/v3"
-
-	"github.com/bobg/fab"
 )
 
 // DB is an implementation of fab.HashDB that uses a Sqlite3 file for persistent storage.
@@ -23,8 +21,6 @@ type DB struct {
 	clk            clock.Clock
 	updateOnAccess bool
 }
-
-var _ fab.HashDB = &DB{}
 
 //go:embed migrations/*.sql
 var migrations embed.FS
