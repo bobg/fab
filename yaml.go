@@ -44,11 +44,7 @@ func RegisterYAMLTarget(name string, fn YAMLTargetFunc) {
 // if the node is a bare string `foo`,
 // then it is presumed to refer to a target in the (non-YAML) target registry named `foo`.
 func YAMLTarget(node *yaml.Node) (Target, error) {
-	tag := node.Tag
-	if strings.HasPrefix(tag, "!!") {
-		tag = ""
-	}
-	tag = strings.TrimPrefix(tag, "!")
+	tag := normalizeTag(node.Tag)
 
 	if tag == "" && node.Kind == yaml.ScalarNode {
 		return &deferredResolutionTarget{name: node.Value}, nil
@@ -229,11 +225,7 @@ func RegisterYAMLStringList(name string, fn YAMLStringListFunc) {
 // which are parsed with the corresponding YAML string-list registry function
 // and the output appended to the result slice.
 func YAMLStringList(node *yaml.Node) ([]string, error) {
-	tag := node.Tag
-	if strings.HasPrefix(tag, "!!") {
-		tag = ""
-	}
-	tag = strings.TrimPrefix(tag, "!")
+	tag := normalizeTag(node.Tag)
 
 	if tag != "" {
 		yamlStringListRegistryMu.Lock()
@@ -254,11 +246,7 @@ func YAMLStringList(node *yaml.Node) ([]string, error) {
 	var result []string
 
 	for _, child := range node.Content {
-		tag = child.Tag
-		if strings.HasPrefix(tag, "!!") {
-			tag = ""
-		}
-		tag = strings.TrimPrefix(tag, "!")
+		tag = normalizeTag(child.Tag)
 
 		if tag == "" && child.Kind == yaml.ScalarNode {
 			result = append(result, child.Value)
@@ -285,4 +273,11 @@ func YAMLStringList(node *yaml.Node) ([]string, error) {
 	}
 
 	return result, nil
+}
+
+func normalizeTag(tag string) string {
+	if strings.HasPrefix(tag, "!!") {
+		return ""
+	}
+	return strings.TrimPrefix(tag, "!")
 }
