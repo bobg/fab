@@ -26,6 +26,12 @@ var (
 	registry   = make(map[string]targetDocPair)
 )
 
+func resetRegistry() {
+	registryMu.Lock()
+	registry = make(map[string]targetDocPair)
+	registryMu.Unlock()
+}
+
 // RegistryNames returns the names in the registry.
 func RegistryNames() []string {
 	registryMu.Lock()

@@ -9,6 +9,8 @@ import (
 )
 
 func TestYAML(t *testing.T) {
+	resetRegistry()
+
 	spew.Config.DisableMethods = true
 
 	f, err := os.Open("_testdata/yaml/fab.yaml")

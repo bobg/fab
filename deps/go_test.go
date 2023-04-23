@@ -55,6 +55,7 @@ func TestGo(t *testing.T) {
 		"../types.go",
 		"../types_test.go",
 		"../yaml.go",
+		"../yaml_test.go",
 		"go.go",
 		"go_test.go",
 		"proto.go",

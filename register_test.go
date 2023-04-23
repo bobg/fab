@@ -6,6 +6,8 @@ import (
 )
 
 func TestRegister(t *testing.T) {
+	resetRegistry()
+
 	target := Register("target", "target doc", &countTarget{Namer: NewNamer("count")})
 
 	if n := target.Name(); n != "target" {
