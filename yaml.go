@@ -243,18 +243,22 @@ func YAMLStringList(node *yaml.Node) ([]string, error) {
 		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
 	}
 
+	return YAMLStringListFromNodes(node.Content)
+}
+
+func YAMLStringListFromNodes(nodes []*yaml.Node) ([]string, error) {
 	var result []string
 
-	for _, child := range node.Content {
-		tag = normalizeTag(child.Tag)
+	for _, node := range nodes {
+		tag := normalizeTag(node.Tag)
 
-		if tag == "" && child.Kind == yaml.ScalarNode {
-			result = append(result, child.Value)
+		if tag == "" && node.Kind == yaml.ScalarNode {
+			result = append(result, node.Value)
 			continue
 		}
 
 		if tag == "" {
-			return nil, fmt.Errorf("got child node kind %v, want %v", child.Kind, yaml.ScalarNode)
+			return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.ScalarNode)
 		}
 
 		yamlStringListRegistryMu.Lock()

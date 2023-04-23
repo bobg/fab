@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/bobg/errors"
-	"github.com/bobg/go-generics/v2/slices"
 	"gopkg.in/yaml.v3"
 )
 
@@ -47,14 +46,9 @@ func argTargetDecoder(node *yaml.Node) (Target, error) {
 		return nil, errors.Wrap(err, "YAML error in target child of AllTarget node")
 	}
 
-	args, err := slices.Mapx(node.Content[1:], func(idx int, n *yaml.Node) (string, error) {
-		if n.Kind != yaml.ScalarNode {
-			return "", fmt.Errorf("got child node kind %v, want %v", n.Kind, yaml.ScalarNode)
-		}
-		return n.Value, nil
-	})
+	args, err := YAMLStringListFromNodes(node.Content[1:])
 	if err != nil {
-		return nil, errors.Wrap(err, "YAML error in AllTarget node")
+		return nil, errors.Wrap(err, "YAML error in ArgTarget args")
 	}
 
 	return ArgTarget(target, args...), nil

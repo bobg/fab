@@ -11,6 +11,9 @@ import (
 
 	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/set"
+	"gopkg.in/yaml.v3"
+
+	"github.com/bobg/fab"
 )
 
 // Proto reads a protocol-buffer file and returns its list of dependencies.
@@ -70,4 +73,19 @@ func protodepsImport(imp string, includes []string, result set.Of[string]) error
 		return protodeps(f, includes, result)
 	}
 	return nil
+}
+
+func protodepsDecoder(node *yaml.Node) ([]string, error) {
+	var pd struct {
+		File     string   `yaml:"File"`
+		Includes []string `yaml:"Includes"`
+	}
+	if err := node.Decode(&pd); err != nil {
+		return nil, errors.Wrap(err, "YAML error in deps.Proto node")
+	}
+	return Proto(pd.File, pd.Includes)
+}
+
+func init() {
+	fab.RegisterYAMLStringList("deps.Proto", protodepsDecoder)
 }
