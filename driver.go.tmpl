@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,7 +21,7 @@ func main() {
 	fab.Register("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }})
 	{{- end }}
 
-	if err := fab.ReadYAMLFile(); err != nil {
+	if err := fab.ReadYAMLFile(); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		fmt.Printf("Error reading YAML file: %s\n", err)
 		os.Exit(1)
 	}

@@ -37,14 +37,17 @@ type Files struct {
 
 var _ HashTarget = Files{}
 
+// Run implements Target.Run.
 func (ft Files) Run(ctx context.Context) error {
 	return ft.Target.Run(ctx)
 }
 
+// Name implements Target.Name.
 func (ft Files) Name() string {
 	return ft.Target.Name()
 }
 
+// SetName implements Target.SetName.
 func (ft Files) SetName(name string) {
 	ft.Target.SetName(name)
 }

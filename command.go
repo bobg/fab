@@ -84,6 +84,7 @@ type command struct {
 
 var _ Target = &command{}
 
+// CommandOpt is the type of an option to [Command].
 type CommandOpt func(*command)
 
 // CmdArgs sets the arguments for the command to run.

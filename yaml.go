@@ -14,7 +14,10 @@ import (
 )
 
 type (
-	YAMLTargetFunc     = func(*yaml.Node) (Target, error)
+	// YAMLTargetFunc is the type of a function in the YAML target registry.
+	YAMLTargetFunc = func(*yaml.Node) (Target, error)
+
+	// YAMLStringListFunc is the type of a function in the YAML string-list registry.
 	YAMLStringListFunc = func(*yaml.Node) ([]string, error)
 )
 
@@ -26,20 +29,26 @@ var (
 	yamlStringListRegistry   = make(map[string]YAMLStringListFunc)
 )
 
+// RegisterYAMLTarget places a function in the YAML target registry with the given name.
+// Use a YAML `!name` tag to introduce a node that should be parsed using this function.
 func RegisterYAMLTarget(name string, fn YAMLTargetFunc) {
 	yamlTargetRegistryMu.Lock()
 	yamlTargetRegistry[name] = fn
 	yamlTargetRegistryMu.Unlock()
 }
 
+// YAMLTarget parses a [Target] from a YAML node.
+// If the node has a tag `!foo`,
+// then the [YAMLTargetFunc] in the YAML target registry named `foo` is used to parse the node.
+// Otherwise,
+// if the node is a bare string `foo`,
+// then it is presumed to refer to a target in the (non-YAML) target registry named `foo`.
 func YAMLTarget(node *yaml.Node) (Target, error) {
 	tag := node.Tag
 	if strings.HasPrefix(tag, "!!") {
 		tag = ""
 	}
-	if strings.HasPrefix(tag, "!") {
-		tag = tag[1:]
-	}
+	tag = strings.TrimPrefix(tag, "!")
 
 	if tag == "" && node.Kind == yaml.ScalarNode {
 		return &deferredResolutionTarget{name: node.Value}, nil
@@ -104,6 +113,30 @@ func (dt *deferredResolutionTarget) SetName(name string) {
 	}
 }
 
+// ReadYAML reads a YAML document from the given source,
+// registering Targets that it finds.
+//
+// The top level of the YAML document should be a mapping from names to targets.
+// Each target is either a target-typed node,
+// selected by a !tag,
+// or the name of some other target.
+//
+// For example,
+// the following creates a target named `Check`,
+// which is an `All`-typed target
+// referring to two other targets: `Vet` and `Test`.
+// Each of those is a `Command`-typed target
+// executing specific shell commands.
+//
+//	Check: !All
+//	  - Vet
+//	  - Test
+//
+//	Vet: !Command
+//	  - go vet ./...
+//
+//	Test: !Command
+//	  - go test ./...
 func ReadYAML(r io.Reader) error {
 	var (
 		dec = yaml.NewDecoder(r)
@@ -159,14 +192,15 @@ func ReadYAML(r io.Reader) error {
 	return nil
 }
 
+// ReadYAMLFile calls ReadYAML
+// on the file `fab.yaml` in the current directory
+// or, if that doesn't exist,
+// `fab.yml`.
 func ReadYAMLFile() error {
 	f, err := os.Open("fab.yaml")
 	if errors.Is(err, fs.ErrNotExist) {
 		f, err = os.Open("fab.yml")
 		// Error checked below.
-	}
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
 	}
 	if err != nil {
 		return err
@@ -176,20 +210,30 @@ func ReadYAMLFile() error {
 	return ReadYAML(f)
 }
 
+// RegisterYAMLStringList places a function in the YAML string-list registry with the given name.
+// Use a YAML `!name` tag to introduce a node that should be parsed using this function.
 func RegisterYAMLStringList(name string, fn YAMLStringListFunc) {
 	yamlStringListRegistryMu.Lock()
 	yamlStringListRegistry[name] = fn
 	yamlStringListRegistryMu.Unlock()
 }
 
+// YAMLStringList parses a []string from a YAML node.
+// If the node has a tag `!foo`,
+// then the [YAMLStringListFunc] in the YAML string-list registry named `foo` is used to parse the node.
+// Otherwise,
+// the node is expected to be a sequence,
+// and its members plain strings
+// (which are added to the result slice literally)
+// or tagged nodes,
+// which are parsed with the corresponding YAML string-list registry function
+// and the output appended to the result slice.
 func YAMLStringList(node *yaml.Node) ([]string, error) {
 	tag := node.Tag
 	if strings.HasPrefix(tag, "!!") {
 		tag = ""
 	}
-	if strings.HasPrefix(tag, "!") {
-		tag = tag[1:]
-	}
+	tag = strings.TrimPrefix(tag, "!")
 
 	if tag != "" {
 		yamlStringListRegistryMu.Lock()
@@ -210,7 +254,30 @@ func YAMLStringList(node *yaml.Node) ([]string, error) {
 	var result []string
 
 	for _, child := range node.Content {
-		strs, err := YAMLStringList(child)
+		tag = child.Tag
+		if strings.HasPrefix(tag, "!!") {
+			tag = ""
+		}
+		tag = strings.TrimPrefix(tag, "!")
+
+		if tag == "" && child.Kind == yaml.ScalarNode {
+			result = append(result, child.Value)
+			continue
+		}
+
+		if tag == "" {
+			return nil, fmt.Errorf("got child node kind %v, want %v", child.Kind, yaml.ScalarNode)
+		}
+
+		yamlStringListRegistryMu.Lock()
+		fn, ok := yamlStringListRegistry[tag]
+		yamlStringListRegistryMu.Unlock()
+
+		if !ok {
+			return nil, fmt.Errorf("unknown YAML string-list type %s", tag)
+		}
+
+		strs, err := fn(node)
 		if err != nil {
 			return nil, err
 		}

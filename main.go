@@ -86,7 +86,7 @@ func (m Main) driverless(ctx context.Context) error {
 		fmt.Println("Running in driverless mode")
 	}
 
-	if err := ReadYAMLFile(); err != nil {
+	if err := ReadYAMLFile(); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return errors.Wrap(err, "reading YAML file")
 	}
 
@@ -116,6 +116,7 @@ func (m Main) driverless(ctx context.Context) error {
 
 var bolRegex = regexp.MustCompile("^")
 
+// ListTargets outputs a formatted list of the targets in the registry and their docstrings.
 func ListTargets() {
 	names := RegistryNames()
 	for _, name := range names {
@@ -127,6 +128,8 @@ func ListTargets() {
 	}
 }
 
+// OpenHashDB ensures the given directory exists and opens (or creates) the hash DB there.
+// Callers must make sure to call Close on the returned DB when finished with it.
 func OpenHashDB(ctx context.Context, dir string) (*sqlite.DB, error) {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, errors.Wrapf(err, "creating directory %s", dir)
@@ -136,6 +139,15 @@ func OpenHashDB(ctx context.Context, dir string) (*sqlite.DB, error) {
 	return db, errors.Wrapf(err, "opening file %s", dbfile)
 }
 
+// ParseArgs parses the remaining arguments on a fab command line,
+// after option flags.
+// They are either a list of target names in the registry,
+// in which case those targets are returned;
+// or a single registry target followed by option flags for that,
+// in which case the target is wrapped up in an [ArgTarget] with its options.
+// The two cases are distinguished by whether there is a second argument
+// and whether it begins with a hyphen.
+// (That's the ArgTarget case.)
 func ParseArgs(args []string) ([]Target, error) {
 	var (
 		targets []Target
