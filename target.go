@@ -14,13 +14,5 @@ type Target interface {
 	// when it doesn't need to be.
 	Run(context.Context) error
 
-	// Name is a unique name for the target.
-	// Each instance of each Target must have a persistent, unique name.
-	// You can embed a *Namer in your concrete type to achieve this.
-	Name() string
-
-	// SetName sets the name of this target.
-	// The name must be unique across all targets.
-	// You can embed a *Namer in your concrete type to help with this.
-	SetName(string)
+	Desc() string
 }

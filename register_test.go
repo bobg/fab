@@ -8,9 +8,12 @@ import (
 func TestRegister(t *testing.T) {
 	resetRegistry()
 
-	target := Register("target", "target doc", &countTarget{Namer: NewNamer("count")})
+	target, err := RegisterTarget("target", "target doc", &countTarget{})
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	if n := target.Name(); n != "target" {
+	if n := Describe(target); n != "target" {
 		t.Errorf("got name %s, want target", n)
 	}
 

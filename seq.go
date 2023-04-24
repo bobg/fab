@@ -17,11 +17,10 @@ import (
 // The elements in the sequence are targets themselves,
 // or target names.
 func Seq(targets ...Target) Target {
-	return &seq{Namer: NewNamer("seq"), targets: targets}
+	return &seq{targets: targets}
 }
 
 type seq struct {
-	*Namer
 	targets []Target
 }
 
@@ -35,6 +34,10 @@ func (s *seq) Run(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (*seq) Desc() string {
+	return "Seq"
 }
 
 func seqDecoder(node *yaml.Node) (Target, error) {
