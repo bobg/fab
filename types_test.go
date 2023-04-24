@@ -36,7 +36,8 @@ func TestImplementsTarget(t *testing.T) {
 		t.Fatalf("filesTargetObj is a %T, want types.TypeName", filesTargetObj)
 	}
 	filesTargetType := filesTargetTypeName.Type()
-	if err = checkImplementsTarget(filesTargetType); err != nil {
+	filesPtrType := types.NewPointer(filesTargetType)
+	if err = checkImplementsTarget(filesPtrType); err != nil {
 		t.Errorf("checkImplementsTarget(fab.Files) wrongly reports false: %s", err)
 	}
 }

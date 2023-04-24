@@ -21,14 +21,12 @@ import (
 // to produce the arguments for the target.
 func ArgTarget(target Target, args ...string) Target {
 	return &argTarget{
-		Namer:  NewNamer("args-" + target.Name()),
 		target: target,
 		args:   args,
 	}
 }
 
 type argTarget struct {
-	*Namer
 	target Target
 	args   []string
 }
@@ -38,6 +36,10 @@ var _ Target = &argTarget{}
 func (a *argTarget) Run(ctx context.Context) error {
 	ctx = WithArgs(ctx, a.args...)
 	return a.target.Run(ctx)
+}
+
+func (*argTarget) Desc() string {
+	return "ArgTarget"
 }
 
 func argTargetDecoder(node *yaml.Node) (Target, error) {

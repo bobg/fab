@@ -12,11 +12,12 @@ import (
 var targetMethods = make(map[string]reflect.Method)
 
 // nullTarget is here so we can get reflection info about Target
-type nullTarget struct{ *Namer }
+type nullTarget struct{}
 
 var _ Target = nullTarget{}
 
 func (nullTarget) Run(context.Context) error { return nil }
+func (nullTarget) Desc() string              { return "(null)" }
 
 func init() {
 	var nt Target = nullTarget{}

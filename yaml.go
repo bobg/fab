@@ -95,18 +95,10 @@ func (dt *deferredResolutionTarget) Run(ctx context.Context) error {
 	return target.Run(ctx)
 }
 
-func (dt *deferredResolutionTarget) Name() string {
+func (dt *deferredResolutionTarget) Desc() string {
 	dt.mu.Lock()
 	defer dt.mu.Unlock()
 	return dt.name
-}
-
-func (dt *deferredResolutionTarget) SetName(name string) {
-	dt.mu.Lock()
-	defer dt.mu.Unlock()
-	if dt.target != nil {
-		dt.target.SetName(name)
-	}
 }
 
 // ReadYAML reads a YAML document from the given source,
@@ -181,7 +173,10 @@ func ReadYAML(r io.Reader) error {
 		}
 
 		if _, ok := target.(*deferredResolutionTarget); !ok {
-			Register(name, doc, target)
+			_, err = RegisterTarget(name, doc, target)
+			if err != nil {
+				return errors.Wrapf(err, "registering target %s", name)
+			}
 		}
 	}
 

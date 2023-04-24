@@ -19,13 +19,11 @@ import (
 // to produce the list of files for the target.
 func Clean(files ...string) Target {
 	return &clean{
-		Namer: NewNamer("clean"),
 		Files: files,
 	}
 }
 
 type clean struct {
-	*Namer
 	Files []string
 }
 
@@ -41,6 +39,10 @@ func (c *clean) Run(_ context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (*clean) Desc() string {
+	return "Clean"
 }
 
 func cleanDecoder(node *yaml.Node) (Target, error) {

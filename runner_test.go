@@ -13,7 +13,7 @@ func TestRunTarget(t *testing.T) {
 	var (
 		ctx     = context.Background()
 		r       = NewRunner()
-		ct      = countTarget{Namer: NewNamer("count")}
+		ct      countTarget
 		targets []Target
 	)
 
@@ -51,13 +51,16 @@ func TestRunTarget(t *testing.T) {
 }
 
 type countTarget struct {
-	*Namer
 	count uint32
 }
 
 func (ct *countTarget) Run(_ context.Context) error {
 	atomic.AddUint32(&ct.count, 1)
 	return nil
+}
+
+func (*countTarget) Desc() string {
+	return "count"
 }
 
 func (ct *countTarget) Hash(_ context.Context) ([]byte, error) {

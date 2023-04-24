@@ -21,6 +21,7 @@ var Vet = fab.Command("go vet ./...", fab.CmdStdout(os.Stdout))
 // Check runs all of Vet, Lint, and Test.
 var Check = fab.All(Vet, Lint, Test)
 
+// Cover produces a test-coverage profile and opens it in a browser.
 var Cover = fab.Seq(
 	fab.Command("go test -coverprofile cover.out ./...", fab.CmdStdout(os.Stdout)),
 	fab.Command("go tool cover -html cover.out"),
