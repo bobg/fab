@@ -15,11 +15,10 @@ import (
 // The elements in the sequence are targets themselves,
 // or target names.
 func All(targets ...Target) Target {
-	return &all{Namer: NewNamer("all"), targets: targets}
+	return &all{targets: targets}
 }
 
 type all struct {
-	*Namer
 	targets []Target
 }
 
@@ -28,6 +27,10 @@ var _ Target = &all{}
 // Run implements Target.Run.
 func (a *all) Run(ctx context.Context) error {
 	return Run(ctx, a.targets...)
+}
+
+func (*all) Desc() string {
+	return "All"
 }
 
 func allDecoder(node *yaml.Node) (Target, error) {

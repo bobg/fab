@@ -32,7 +32,6 @@ import (
 // See [CommandOpt] for a description of how to specify these.
 func Command(cmd string, opts ...CommandOpt) Target {
 	c := &command{
-		Namer: NewNamer("Command"),
 		Shell: cmd,
 	}
 	for _, opt := range opts {
@@ -42,8 +41,6 @@ func Command(cmd string, opts ...CommandOpt) Target {
 }
 
 type command struct {
-	*Namer
-
 	// Shell is the command to run,
 	// as a single string with command name and arguments together.
 	// It is parsed as if by a Unix shell,
@@ -184,6 +181,10 @@ func (c *command) Run(ctx context.Context) error {
 		}
 	}
 	return err
+}
+
+func (*command) Desc() string {
+	return "Command"
 }
 
 func (c *command) getCmdAndArgs() (string, []string, error) {

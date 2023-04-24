@@ -38,7 +38,6 @@ func TestYAML(t *testing.T) {
 
 	gotFoo, gotFooDoc := RegistryTarget("Foo")
 	wantFoo := All(&deferredResolutionTarget{name: "Bar"}, &deferredResolutionTarget{name: "Baz"})
-	wantFoo.SetName("Foo")
 	const wantFooDoc = "Foo does Bar and Baz."
 	if !reflect.DeepEqual(gotFoo, wantFoo) {
 		t.Errorf("mismatch for Foo; got:\n%s\nwant:\n%s", spew.Sdump(gotFoo), spew.Sdump(wantFoo))
@@ -49,7 +48,6 @@ func TestYAML(t *testing.T) {
 
 	gotBar, gotBarDoc := RegistryTarget("Bar")
 	wantBar := Command("echo How do you do", CmdStdout(os.Stdout))
-	wantBar.SetName("Bar")
 	const wantBarDoc = "Bar doesn't do much."
 	if !reflect.DeepEqual(gotBar, wantBar) {
 		t.Errorf("mismatch for Bar; got:\n%s\nwant:\n%s", spew.Sdump(gotBar), spew.Sdump(wantBar))
@@ -64,7 +62,6 @@ func TestYAML(t *testing.T) {
 		&deferredResolutionTarget{name: "Y"},
 		&deferredResolutionTarget{name: "Z"},
 	)
-	wantBaz.SetName("Baz")
 	const wantBazDoc = "Baz does X after Y and Z."
 	if !reflect.DeepEqual(gotBaz, wantBaz) {
 		t.Errorf("mismatch for Baz; got:\n%s\nwant:\n%s", spew.Sdump(gotBaz), spew.Sdump(wantBaz))
@@ -79,7 +76,6 @@ func TestYAML(t *testing.T) {
 		&deferredResolutionTarget{name: "B"},
 		&deferredResolutionTarget{name: "C"},
 	)
-	wantX.SetName("X")
 	const wantXDoc = "X does A then B then C."
 	if !reflect.DeepEqual(gotX, wantX) {
 		t.Errorf("mismatch for X; got:\n%s\nwant:\n%s", spew.Sdump(gotX), spew.Sdump(wantX))
@@ -90,7 +86,6 @@ func TestYAML(t *testing.T) {
 
 	gotY, gotYDoc := RegistryTarget("Y")
 	wantY := Clean("file1", "file2")
-	wantY.SetName("Y")
 	const wantYDoc = "Y cleans."
 	if !reflect.DeepEqual(gotY, wantY) {
 		t.Errorf("mismatch for Y; got:\n%s\nwant:\n%s", spew.Sdump(gotY), spew.Sdump(wantY))
@@ -100,12 +95,11 @@ func TestYAML(t *testing.T) {
 	}
 
 	gotZ, gotZDoc := RegistryTarget("Z")
-	wantZ := Files{
+	wantZ := &Files{
 		Target: Command("go build -o output ./..."),
 		In:     []string{"p.go", "q.go", "r.go"},
 		Out:    []string{"output"},
 	}
-	wantZ.SetName("Z")
 	const wantZDoc = "Z builds output if p.go, q.go, or r.go change."
 	if !reflect.DeepEqual(gotZ, wantZ) {
 		t.Errorf("mismatch for Z; got:\n%s\nwant:\n%s", spew.Sdump(gotZ), spew.Sdump(wantZ))

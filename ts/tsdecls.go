@@ -35,7 +35,7 @@ func Decls(dir, typename, prefix, outfile string) (fab.Target, error) {
 		prefix:   prefix,
 		outfile:  outfile,
 	}
-	return fab.Files{
+	return &fab.Files{
 		Target: fab.F(obj.run),
 		In:     gopkg,
 		Out:    []string{outfile},

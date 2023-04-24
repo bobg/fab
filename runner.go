@@ -18,12 +18,12 @@ type Runner struct {
 	depth int32
 
 	mu  sync.Mutex // protects ran and Indentf
-	ran map[string]*outcome
+	ran map[uintptr]*outcome
 }
 
 // NewRunner produces a new Runner.
 func NewRunner() *Runner {
-	return &Runner{ran: make(map[string]*outcome)}
+	return &Runner{ran: make(map[uintptr]*outcome)}
 }
 
 type outcome struct {
@@ -34,8 +34,7 @@ type outcome struct {
 // Run runs the given targets, skipping any that have already run.
 //
 // A Runner remembers which targets it has already run
-// (whether in this call or any previous call to Run),
-// distinguishing them by their Name() values.
+// (whether in this call or any previous call to Run).
 //
 // The targets are executed concurrently.
 // A separate goroutine is created for each one passed to Run.
@@ -85,25 +84,34 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 		wg   sync.WaitGroup
 	)
 	for i, target := range targets {
+		addr, err := targetAddr(target)
+		if err != nil {
+			errs[i] = err
+			continue
+		}
+
 		i, target := i, target // Go loop-var pitfall
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 
-			name := target.Name()
-
 			r.mu.Lock()
-			o, ok := r.ran[name]
+			o, ok := r.ran[addr]
 			if !ok {
 				o = &outcome{g: newGate(false)}
-				r.ran[name] = o
+				r.ran[addr] = o
 			}
 			r.mu.Unlock()
 
 			if ok {
+				// This target was launched in a different goroutine.
+				// Wait for it to produce a result.
 				o.g.wait()
 				errs[i] = o.err
 			} else {
+				// This target was not previously launched,
+				// so run it and then open its "outcome gate."
 				err := r.runTarget(ctx, db, target)
 				errs[i] = err
 				o.err = err
@@ -129,15 +137,15 @@ func (r *Runner) runTarget(ctx context.Context, db HashDB, target Target) error 
 		if ht != nil && !force {
 			h, err := ht.Hash(ctx)
 			if err != nil {
-				return errors.Wrapf(err, "computing hash for %s", target.Name())
+				return errors.Wrapf(err, "computing hash for %s", Describe(target))
 			}
 			has, err := db.Has(ctx, h)
 			if err != nil {
-				return errors.Wrapf(err, "checking hash db for hash of %s", target.Name())
+				return errors.Wrapf(err, "checking hash db for hash of %s", Describe(target))
 			}
 			if has {
 				if verbose {
-					r.Indentf("%s is up to date", target.Name())
+					r.Indentf("%s is up to date", Describe(target))
 				}
 				return nil
 			}
@@ -145,18 +153,18 @@ func (r *Runner) runTarget(ctx context.Context, db HashDB, target Target) error 
 	}
 
 	if verbose {
-		r.Indentf("Running %s", target.Name())
+		r.Indentf("Running %s", Describe(target))
 	}
 
 	err := target.Run(ctx)
 	if err != nil {
-		return errors.Wrapf(err, "running %s", target.Name())
+		return errors.Wrapf(err, "running %s", Describe(target))
 	}
 
 	if ht != nil {
 		h, err := ht.Hash(ctx)
 		if err != nil {
-			return errors.Wrapf(err, "computing new updatedhash for %s", target.Name())
+			return errors.Wrapf(err, "computing new updatedhash for %s", Describe(target))
 		}
 		err = db.Add(ctx, h)
 		if err != nil {

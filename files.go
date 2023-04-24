@@ -57,36 +57,26 @@ type Files struct {
 	Out    []string
 }
 
-var _ HashTarget = Files{}
+var _ HashTarget = &Files{}
 
 // Run implements Target.Run.
-func (ft Files) Run(ctx context.Context) error {
+func (ft *Files) Run(ctx context.Context) error {
 	return ft.Target.Run(ctx)
 }
 
-// Name implements Target.Name.
-func (ft Files) Name() string {
-	return ft.Target.Name()
-}
-
-// SetName implements Target.SetName.
-func (ft Files) SetName(name string) {
-	ft.Target.SetName(name)
+func (*Files) Desc() string {
+	return "Files"
 }
 
 // Hash implements HashTarget.Hash.
-func (ft Files) Hash(ctx context.Context) ([]byte, error) {
-	var (
-		inHashes  = make(map[string][]byte)
-		outHashes = make(map[string][]byte)
-	)
-	err := fillWithFileHashes(ft.In, inHashes)
+func (ft *Files) Hash(ctx context.Context) ([]byte, error) {
+	inHashes, err := fileHashes(ft.In)
 	if err != nil {
-		return nil, errors.Wrapf(err, "computing input hash(es) for %s", ft.Name())
+		return nil, errors.Wrapf(err, "computing input hash(es) for %s", Describe(ft))
 	}
-	err = fillWithFileHashes(ft.Out, outHashes)
+	outHashes, err := fileHashes(ft.Out)
 	if err != nil {
-		return nil, errors.Wrapf(err, "computing output hash(es) for %s", ft.Name())
+		return nil, errors.Wrapf(err, "computing output hash(es) for %s", Describe(ft))
 	}
 	s := struct {
 		Target
@@ -105,17 +95,18 @@ func (ft Files) Hash(ctx context.Context) ([]byte, error) {
 	return sum[:], nil
 }
 
-func fillWithFileHashes(files []string, hashes map[string][]byte) error {
+func fileHashes(files []string) (map[string][]byte, error) {
+	hashes := make(map[string][]byte)
 	for _, file := range files {
 		h, err := hashFile(file)
 		if errors.Is(err, fs.ErrNotExist) {
 			h = nil
 		} else if err != nil {
-			return errors.Wrapf(err, "computing hash of %s", file)
+			return nil, errors.Wrapf(err, "computing hash of %s", file)
 		}
 		hashes[file] = h
 	}
-	return nil
+	return hashes, nil
 }
 
 func hashFile(path string) ([]byte, error) {
@@ -161,7 +152,7 @@ func filesDecoder(node *yaml.Node) (Target, error) {
 		return nil, errors.Wrap(err, "YAML error in Files.Out node")
 	}
 
-	return Files{Target: target, In: in, Out: out}, nil
+	return &Files{Target: target, In: in, Out: out}, nil
 }
 
 func init() {
