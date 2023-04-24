@@ -18,15 +18,17 @@ import (
 )
 
 func main() {
+	var err error
+
 	{{- range .Targets }}
-	_, err := fab.RegisterTarget("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }})
+	_, err = fab.RegisterTarget("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }})
 	if err != nil {
 		fmt.Printf("Error registering target {{ .Name }}: %s\n", err)
 		os.Exit(1)
 	}
 	{{- end }}
 
-	if err := fab.ReadYAMLFile(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err = fab.ReadYAMLFile(); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		fmt.Printf("Error reading YAML file: %s\n", err)
 		os.Exit(1)
 	}
