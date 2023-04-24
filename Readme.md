@@ -20,6 +20,236 @@ while avoiding unnecessarily rebuilding any target that is already up to date.
 
 ## Usage
 
+You will need an installation of Go version 1.20 or later.
+Download Go here: [go.dev](https://go.dev/dl/).
+
+Once Go is installed you can install Fab like this:
+
+```sh
+go install github.com/bobg/fab/cmd/fab@latest
+```
+
+To build targets in your software project,
+run
+
+```sh
+fab TARGET1 TARGET2 ...
+```
+
+To see the progress of your build you can add the `-v` flag (for “verbose”):
+
+```sh
+fab -v TARGET1 TARGET2 ...
+```
+
+If you have a target that takes command-line parameters,
+you can invoke it like this:
+
+```sh
+fab TARGET ARG1 ARG2 ...
+```
+
+In this form,
+`ARG1` must start with a `-`,
+and no other targets may be specified.
+
+To see the available build targets in your project,
+run
+
+```sh
+fab -list
+```
+
+## Targets
+
+Each fab target has a _name_ and a _type_.
+The name is how the target is referred to on the command line,
+and by other targets.
+The type dictates the parameters required by the target (if any),
+and the actions that the target should take when it runs.
+
+Fab predefines several target types.
+Here is a partial list:
+
+- `Command` invokes a shell command when it runs.
+- `F` invokes an arbitrary Go function.
+- `Files` specifies a set of input files and a set of output files,
+  and a nested subtarget that runs
+  only when the outputs are out-of-date with respect to the inputs.
+- `All` invokes a set of subtargets in parallel.
+- `Seq` invokes subtargets in sequence.
+- `Deps` invokes a subtarget only after its dependencies
+  (other subtargets)
+  have run.
+- `Clean` deletes a set of files.
+
+You define targets by instantiating one of these types,
+supplying it with any necessary arguments,
+and giving it a name.
+There are three ways to do this:
+statically in Go code;
+dynamically in Go code;
+and declaratively in a YAML file.
+These options are discussed below.
+
+You can also define new target _types_
+by implementing the [fab.Target](https://pkg.go.dev/github.com/bobg/fab#Target) interface.
+
+## Static target definition in Go
+
+You can write Go code to define targets that Fab can run.
+To do this,
+create a subdirectory named `_fab` at the root of your project,
+and create `.go` files in that directory.
+You can use any package name;
+the official suggestion is `_fab`
+(to match the directory name).
+
+Any exported identifiers at the top level of this package
+whose type implements the [fab.Target](https://pkg.go.dev/github.com/bobg/fab#Target) interface
+are usable Fab targets.
+For example:
+
+```go
+package _fab
+
+import (
+    "os"
+
+    "github.com/bobg/fab"
+)
+
+// Test runs tests.
+var Test = fab.Command("go test -cover ./...", fab.CmdStdout(os.Stdout))
+```
+
+This creates a `Command`-typed target named `Test`,
+which you can invoke with `fab Test`.
+When it runs,
+it executes the given shell command
+and copies its output to fab’s standard output.
+
+The comment above the variable declaration gets attached to the created target.
+Running `fab -list` will show that comment as a docstring:
+
+```sh
+$ fab -list
+Test
+    Test runs tests.
+```
+
+## Dynamic target definition in Go
+
+Not all targets are suitable for creation via top-level variable declarations.
+Those that require more complex processing can be defined dynamically
+using the [fab.Register](https://pkg.go.dev/github.com/bobg/fab#Register) function.
+
+```go
+for m := time.January; m <= time.December; m++ {
+  fab.Register(
+    m.String(),
+    "Say that it’s "+m.String(),
+    fab.Command("echo It is "+m.String(), fab.CmdStdout(os.Stdout)),
+  )
+}
+```
+
+This creates targets named `January`, `February`, `March`, etc.
+
+Internally, static target definition works by calling `fab.Register`.
+
+## Declarative target definition in YAML
+
+In addition to Go code in the `_fab` subdirectory,
+or instead of it,
+you can define targets in a `fab.yaml` file
+at the top level of your project.
+
+The top-level structure of the YAML file is a mapping from names to targets.
+Targets are specified using YAML type tags.
+Most Fab target types define a tag and a syntax for extracting necessary arguments from YAML.
+
+Targets may also be referred to by name.
+
+Here is an example `fab.yaml` file:
+
+```yaml
+# Prog rebuilds prog if any of the files it depends on changes.
+Prog: !Files
+  In: !deps.Go
+    Dir: cmd/prog
+  Out:
+    - prog
+  Target: !Command
+    - go build -o prog ./cmd/prog
+
+# Test runs all tests.
+Test: !Command
+  - go test -race -cover ./...
+  - stdout
+```
+
+This defines `Prog` as a Fab target of type `Files`.
+The `In` argument is the list of input files that may change
+and the `Out` argument is the list of expected output files that result from running the nested subtarget.
+That subtarget is a `Command` that runs `go build`.
+`In` is defined as the result of the [deps.Go](https://pkg.go.dev/github.com/bobg/fab/deps#Go) rule,
+which produces the list of files on which the Go package in a given directory depends.
+
+This also defines a `Test` target as a `Command` that runs `go test`.
+
+## Defining new target types
+
+You can define new target types in Go code in the `_fab` subdirectory
+(or anywhere else, that is then imported into the `_fab` package).
+
+Your type must implement [fab.Target](https://pkg.go.dev/github.com/bobg/fab#Target),
+which requires three methods: `Run`, `Name`, and `SetName`.
+
+To implement `Name` and `SetName`,
+your type _should_ embed a [*fab.Namer](https://pkg.go.dev/github.com/bobg/fab#Namer).
+More about this appears below.
+
+This just leaves `Run`,
+which should unconditionally execute your target type’s logic.
+The Fab runtime will take care of making sure your target runs only when it needs to.
+More about this appears below, too.
+
+If part of your `Run` method involves running other targets,
+do not invoke their `Run` methods directly.
+Instead, invoke the [fab.Run](https://pkg.go.dev/github.com/bobg/fab#Run) _function_,
+which will skip that target if it has already run.
+This means that a “diamond dependency” —
+A depends on B and C,
+and B and C each separately depend on X —
+won’t cause X to run twice when the user runs `fab A`.
+
+## Namer
+
+Every target defined during a run of Fab must have a unique name.
+Fab uses that name to record whether the target has or hasn’t yet run.
+
+
+
+
+
+
+
+
+
+
+
+There are multiple ways to specify build targets:
+statically in Go code;
+dynamically in Go code;
+and declaratively in a YAML file.
+
+
+
+
+
+
+
 You create a package of Go code in your project.
 By default `fab` looks for it in the `_fab` subdir of your top-level directory
 (so named because the leading underscore prevents it being considered part of your module’s public API).

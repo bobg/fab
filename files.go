@@ -64,6 +64,10 @@ func (ft Files) Run(ctx context.Context) error {
 	return ft.Target.Run(ctx)
 }
 
+// xxx the following is not right!
+// a Files can and should have a distinct name
+// from the target that it wraps
+
 // Name implements Target.Name.
 func (ft Files) Name() string {
 	return ft.Target.Name()
