@@ -236,6 +236,14 @@ A depends on B and C,
 and B and C each separately depend on X —
 won’t cause X to run twice when the user runs `fab A`.
 
+If you would like your new target type to be usable in `fab.yaml`,
+you must define a YAML parser for it.
+This is done with [RegisterYAMLTarget](https://pkg.go.dev/github.com/bobg/fab#RegisterYAMLTarget),
+which associates a `name` with a [YAMLTargetFunc](https://pkg.go.dev/github.com/bobg/fab#YAMLTargetFunc).
+When the YAML tag `!name` is encountered in `fab.yaml`
+(in a context where a target may be specified),
+your function will be invoked to parse the YAML node.
+
 ## HashTarget
 
 If your target type implements the interface [HashTarget](https://pkg.go.dev/github.com/bobg/fab#HashTarget),

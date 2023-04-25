@@ -92,7 +92,7 @@ func (dt *deferredResolutionTarget) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return Run(ctx, target) // xxx ?
+	return Run(ctx, target)
 }
 
 func (dt *deferredResolutionTarget) Desc() string {

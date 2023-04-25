@@ -260,7 +260,7 @@ func (m Main) getDriver(ctx context.Context) (string, error) {
 	}
 
 	dh := newDirHasher()
-	for _, filename := range pkg.GoFiles { // xxx other files too?
+	for _, filename := range pkg.GoFiles { // TODO: is this the right set of files?
 		if err = addFileToHash(dh, filename); err != nil {
 			return "", errors.Wrapf(err, "hashing file %s", filename)
 		}

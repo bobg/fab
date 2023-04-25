@@ -27,6 +27,7 @@ func TestYAML(t *testing.T) {
 	wantNames := []string{
 		"Bar",
 		"Baz",
+		"Baz2",
 		"Foo",
 		"X",
 		"Y",
@@ -68,6 +69,11 @@ func TestYAML(t *testing.T) {
 	}
 	if gotBazDoc != wantBazDoc {
 		t.Errorf("got %s for Baz doc, want %s", gotBazDoc, wantBazDoc)
+	}
+
+	gotBaz2, _ := RegistryTarget("Baz2")
+	if !reflect.DeepEqual(gotBaz2, wantBaz) { // sic
+		t.Errorf("mismatch for Baz2; got:\n%s\nwant:\n%s", spew.Sdump(gotBaz2), spew.Sdump(wantBaz))
 	}
 
 	gotX, gotXDoc := RegistryTarget("X")

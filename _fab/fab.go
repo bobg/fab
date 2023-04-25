@@ -13,7 +13,7 @@ var Build = fab.Command("go build ./...", fab.CmdStdout(os.Stdout))
 var Test = fab.Command("go test -race -cover ./...", fab.CmdStdout(os.Stdout))
 
 // Lint runs staticcheck.
-var Lint = fab.Command("staticcheck ./...", fab.CmdStdout(os.Stdout))
+var Lint = fab.Command("golangci-lint run ./...", fab.CmdStdout(os.Stdout))
 
 // Vet runs "go vet".
 var Vet = fab.Command("go vet ./...", fab.CmdStdout(os.Stdout))

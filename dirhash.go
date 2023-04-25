@@ -14,6 +14,7 @@ import (
 // Add files to it with the file method,
 // and when finished,
 // obtain the hash value with the hash method.
+// The result is insensitive to the order in which files are added.
 func newDirHasher() *dirHasher {
 	return &dirHasher{
 		hashes: make(map[string][]byte),
