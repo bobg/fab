@@ -64,6 +64,7 @@ func (ft *Files) Run(ctx context.Context) error {
 	return ft.Target.Run(ctx)
 }
 
+// Desc implements Target.Desc.
 func (*Files) Desc() string {
 	return "Files"
 }

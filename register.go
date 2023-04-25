@@ -70,6 +70,12 @@ func RegistryTarget(name string) (Target, string) {
 	return tuple.target, tuple.doc
 }
 
+// Describe describes a target.
+// The description is the target's name in the registry,
+// if it has one
+// (i.e., if the target was registered with [RegisterTarget]),
+// otherwise it's "unnamed X"
+// where X is the result of calling the target's Desc method.
 func Describe(target Target) string {
 	addr, err := targetAddr(target)
 	if err == nil { // sic
