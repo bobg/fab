@@ -62,10 +62,8 @@ fab -list
 
 ## Targets
 
-Each fab target has a _name_ and a _type_.
-The name is how the target is referred to on the command line,
-and by other targets.
-The type dictates the parameters required by the target (if any),
+Each fab target has a _type_
+that dictates the parameters required by the target (if any),
 and the actions that the target should take when it runs.
 
 Fab predefines several target types.
@@ -92,7 +90,7 @@ dynamically in Go code;
 and declaratively in a YAML file.
 These options are discussed below.
 
-You can also define new target _types_
+You can also define new target types
 by implementing the [fab.Target](https://pkg.go.dev/github.com/bobg/fab#Target) interface.
 
 ## Static target definition in Go
