@@ -140,11 +140,11 @@ Test
 
 Not all targets are suitable for creation via top-level variable declarations.
 Those that require more complex processing can be defined dynamically
-using the [fab.Register](https://pkg.go.dev/github.com/bobg/fab#Register) function.
+using the [fab.RegisterTarget](https://pkg.go.dev/github.com/bobg/fab#RegisterTarget) function.
 
 ```go
 for m := time.January; m <= time.December; m++ {
-  fab.Register(
+  fab.RegisterTarget(
     m.String(),
     "Say that it’s "+m.String(),
     fab.Command("echo It is "+m.String(), fab.CmdStdout(os.Stdout)),
@@ -154,7 +154,7 @@ for m := time.January; m <= time.December; m++ {
 
 This creates targets named `January`, `February`, `March`, etc.
 
-Internally, static target definition works by calling `fab.Register`.
+Internally, static target definition works by calling `fab.RegisterTarget`.
 
 ## Declarative target definition in YAML
 
@@ -178,8 +178,11 @@ Prog: !Files
     Dir: cmd/prog
   Out:
     - prog
-  Target: !Command
-    - go build -o prog ./cmd/prog
+  Target: Build
+
+# Unconditionally rebuild prog.
+Build: !Command
+  - go build -o prog ./cmd/prog
 
 # Test runs all tests.
 Test: !Command
@@ -190,7 +193,8 @@ Test: !Command
 This defines `Prog` as a Fab target of type `Files`.
 The `In` argument is the list of input files that may change
 and the `Out` argument is the list of expected output files that result from running the nested subtarget.
-That subtarget is a `Command` that runs `go build`.
+That subtarget is a reference to the `Build` rule,
+which is a `Command` that runs `go build`.
 `In` is defined as the result of the [deps.Go](https://pkg.go.dev/github.com/bobg/fab/deps#Go) rule,
 which produces the list of files on which the Go package in a given directory depends.
 
@@ -202,16 +206,17 @@ You can define new target types in Go code in the `_fab` subdirectory
 (or anywhere else, that is then imported into the `_fab` package).
 
 Your type must implement [fab.Target](https://pkg.go.dev/github.com/bobg/fab#Target),
-which requires three methods: `Run`, `Name`, and `SetName`.
+which requires two methods: `Desc` and `Run`.
 
-To implement `Name` and `SetName`,
-your type _should_ embed a [*fab.Namer](https://pkg.go.dev/github.com/bobg/fab#Namer).
-More about this appears below.
+`Desc` produces a short string describing the target.
+It is used by [Describe](https://pkg.go.dev/github.com/bobg/fab#Describe)
+to describe targets that don’t have a name
+(i.e., ones that were never registered with `RegisterTarget`,
+possibly because they are nested inside some other target).
 
-This just leaves `Run`,
-which should unconditionally execute your target type’s logic.
+`Run` should unconditionally execute your target type’s logic.
 The Fab runtime will take care of making sure your target runs only when it needs to.
-More about this appears below, too.
+More about this appears below.
 
 If part of your `Run` method involves running other targets,
 do not invoke their `Run` methods directly.
@@ -222,156 +227,100 @@ A depends on B and C,
 and B and C each separately depend on X —
 won’t cause X to run twice when the user runs `fab A`.
 
-## Namer
+## HashTarget
 
-Every target defined during a run of Fab must have a unique name.
-Fab uses that name to record whether the target has or hasn’t yet run.
+If your target type implements the interface [HashTarget](https://pkg.go.dev/github.com/bobg/fab#HashTarget),
+it is handled specially.
+`HashTarget` is the same as `Target` but adds a new method,
+`Hash`.
+When the Fab runtime wants to run a `HashTarget` it first invokes its `Hash` method,
+then checks the result to see if it appears in a _hash database_.
 
+- If it does,
+  the target is considered up-to-date
+  and succeeds trivially.
+  Its `Run` method is skipped.
+- If it doesn’t,
+  the `Run` method executes
+  and then Fab re-invokes the `Hash` method,
+  placing the result into the hash database.
 
+To understand `HashTarget`,
+consider the [Files](https://pkg.go.dev/github.com/bobg/fab#Files) target type.
+It specifies a set of input files,
+a set of expected output files,
+and a nested subtarget for producing one from the other.
+`Files` implements `HashTarget`,
+and its `Hash` method produces a hash from the content of all the input files,
+all the output files,
+_and_ the rules for the nested subtarget.
+The first time this rule runs,
+its hash won’t be present in the database,
+so its `Run` method executes,
+and then the hash is recomputed from the now up-to-date files
+and placed in the database.
 
+As long as none of the input files,
+the output files,
+or the build rules change,
+`Hash` will produce the same value that was added to the database.
+Subsequent runs of the `Files` target
+will find that hash in the database and skip calling `Run`.
 
+(This is a key difference between Fab and Make.
+Make uses file modification times
+to decide when a set of output files needs to be recomputed from their inputs.
+Considering the limited resolution of filesystem timestamps,
+the possibility of clock skew, etc.,
+the content-based test that Fab uses is preferable.
+But it would be easy to define a file-modtime-based target type in Fab
+if that’s what you wanted.)
 
+The hash database is stored in `$HOME/.cache/fab` by default,
+and hash values normally expire after thirty days.
 
+## The Fab runtime
 
+A Fab [Runner](https://pkg.go.dev/github.com/bobg/fab#Runner)
+is responsible for invoking targets’ `Run` methods,
+keeping track of which ones have already run
+so that they don’t get invoked a second time.
+A normal Fab session uses a single global default runner.
 
+The runner uses the address of each target as a unique key.
+This means that pointer types should be used to implement `Target`.
+After a target runs,
+the runner records its outcome
+(error or no error).
+The second and subsequent attempts to run a given target
+will use the previously computed outcome.
 
+## Program startup
 
+If you have Go code in a `_fab` subdirectory,
+Fab combines it with its own `main` function to produce a _driver,_
+which is an executable Go binary that is stored in `$HOME/.cache/fab` by default.
 
-There are multiple ways to specify build targets:
-statically in Go code;
-dynamically in Go code;
-and declaratively in a YAML file.
+The driver calls [fab.RegisterTarget](https://pkg.go.dev/github.com/bobg/fab#RegisterTarget)
+on each of the eligible top-level identifiers in your package;
+then it looks for a `fab.yaml` file and registers the target definitions it finds there.
+After that,
+the driver runs the targets you specified on the `fab` command line
+(or lists targets if you specified `-list`, etc).
 
-
-
-
-
-
-
-You create a package of Go code in your project.
-By default `fab` looks for it in the `_fab` subdir of your top-level directory
-(so named because the leading underscore prevents it being considered part of your module’s public API).
-Every exported symbol in that package
-whose type satisfies the `fab.Target` interface
-is a target that fab can run.
-
-For example, if you write this in `_fab/build.go`:
-
-```go
-package any_name_you_like
-
-import (
-  "os"
-
-  "github.com/bobg/fab"
-)
-
-// Build builds all available Go targets.
-var Build = fab.Command("go build ./...")
-
-// Vet runs “go vet” on all available Go targets.
-var Vet = fab.Command("go vet ./...", fab.CmdStdout(os.Stdout))
-
-// Test runs “go test” on all available Go targets.
-var Test = fab.Command("go test -race -cover ./...", fab.CmdStdout(os.Stdout))
-
-// Check runs the Vet and Test checks.
-var Check = fab.All(Vet, Test)
-```
-
-then you can run `fab Build`, `fab Check`, etc. in the shell.
-
-This is “static target registration.”
-The name of the variable is used as the name of the target,
-and the variable’s doc comment is used as the target’s documentation string.
-You can make additional targets available by registering them “dynamically”
-using calls to `fab.Register` during program initialization
-(e.g. in `init()` functions).
-Internally, calling `fab.Register` is how static registration works too.
-
-To express a dependency between targets, use the `Deps` construct:
-
-```go
-// MyTarget ensures that pre1, pre2, etc. are built before post
-// (each of which is some form of Target).
-var MyTarget = fab.Deps(post, pre1, pre2, ...)
-```
-
-Alternatively,
-you can define your own type satisfying the `Target` interface,
-and express dependencies by calling the `Run` function in your type’s `Run` method:
-
-```go
-type myTargetType struct {
-  *fab.Namer
-  dependencies []fab.Target
-}
-
-func (tt *myTargetType) Run(ctx context.Context) error {
-  if err := fab.Run(ctx, tt.dependencies...); err != nil {
-    return err
-  }
-  // ...other myTargetType build logic...
-}
-```
-
-(Here, `*fab.Namer` is an embedded field
-that supplies the needed behavior
-for the Target interface’s `Name` and `SetName` methods.)
-
-Fab ensures that no target runs more than once during a build,
-no matter how many times that target shows up in other targets’ dependencies
-or calls to `Run`, etc.
-
-The fab command line can list multiple targets, e.g. `fab Vet Test Build`,
-or a single target plus arguments, e.g. `fab Build -verbose`,
-depending on whether the first string after the first target starts with `-`.
-In argument-passing mode,
-the named target is wrapped with `ArgTarget`
-and the arguments are available at runtime using `GetArgs`.
-
-## Details
-
-By default, your build rules are found in the `_fab` subdir.
-Running `fab` combines your rules with its own `main` function to produce a _driver_,
-which lives in `$HOME/.cache/fab` by default.
-(These defaults can be overridden.)
-
-When you run `fab` and the driver is already present and up to date
+When you run `fab` and the driver is already built and up to date
 (as determined by a _hash_ of the code in the `_fab` dir),
 then `fab` simply executes the driver without rebuilding it.
+You can force a rebuild of the driver by specifying `-f` to `fab`.
 
-The directory `$HOME/.cache/fab` also contains a _hash database_
-to tell when certain targets -
-those satisfying the `HashTarget` interface -
-are up to date and do not need rebuilding.
-When a `HashTarget` runs,
-it first computes a hash representing the complete state of the target -
-all inputs, outputs, and build rules.
-If that hash is in the database,
-the target is considered up to date and `fab` skips the build rule.
-Otherwise, the build rule runs,
-and the hash is recomputed and added to the database.
-This approach is preferable to using file modification times
-(like Make does, for example)
-to know when a target is up to date.
-Those aren’t always sufficient for this purpose,
-nor are they entirely reliable,
-considering the limited resolution of filesystem timestamps,
-the possibility of clock skew, etc.
+If you do not have a `_fab` subdirectory,
+then Fab operates in “driverless” mode,
+in which the `fab.yaml` file is loaded
+and the targets on the command line executed.
 
-## Installation
-
-Fab requires Go 1.20 or later.
-Download Go [here](https://go.dev/dl/).
-
-Once a suitable version of Go is available
-(you can check by running `go version`),
-install Fab with:
-
-```sh
-go install github.com/bobg/fab/cmd/fab@latest
-```
+Note that when you have both a `_fab` subdirectory and a `fab.yaml` file,
+you may use target types in the YAML file that are defined in your `_fab` package.
+When you have only a `fab.yaml` file you are limited to the target types that are predefined in Fab.
 
 ## Why not Mage?
 
