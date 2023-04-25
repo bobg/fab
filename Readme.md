@@ -29,6 +29,11 @@ Once Go is installed you can install Fab like this:
 go install github.com/bobg/fab/cmd/fab@latest
 ```
 
+To define build targets in your software project,
+write Go code in a `_fab` subdirectory
+and/or write a `fab.yaml` file.
+(See [Targets](#Targets) below.)
+
 To build targets in your software project,
 run
 
@@ -99,9 +104,13 @@ You can write Go code to define targets that Fab can run.
 To do this,
 create a subdirectory named `_fab` at the root of your project,
 and create `.go` files in that directory.
-You can use any package name;
-the official suggestion is `_fab`
-(to match the directory name).
+This name prevents the code in that directory
+from being considered as part of the public API for your project.
+([Citation](https://pkg.go.dev/go/build#Context.Import).)
+
+You can use any package name for the code in directory `_fab`;
+the official suggestion is `_fab`,
+to match the directory name.
 
 Any exported identifiers at the top level of this package
 whose type implements the [fab.Target](https://pkg.go.dev/github.com/bobg/fab#Target) interface
