@@ -1,4 +1,4 @@
-package build
+package _fab
 
 import (
 	"os"
