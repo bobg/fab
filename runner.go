@@ -38,16 +38,16 @@ type outcome struct {
 //
 // The targets are executed concurrently.
 // A separate goroutine is created for each one passed to Run.
-// If the Runner has never yet run the Target,
+// If the Runner has never yet run the target,
 // it does so, and caches the result (error or no error).
-// If the Target did already run, the cached error value is used.
-// If another goroutine concurrently requests the same Target,
+// If the target did already run, the cached error value is used.
+// If another goroutine concurrently requests the same target,
 // it blocks until the first one completes,
 // then uses the first one's result.
 //
 // As a special case,
-// if the Target is a HashTarget
-// and there is a HashDB attached to the context,
+// if the target is a [HashTarget]
+// and there is a [HashDB] attached to the context,
 // then the HashTarget's hash is computed
 // and looked up in the HashDB.
 // If it's found,
@@ -62,11 +62,11 @@ type outcome struct {
 // The return value may be an accumulation of multiple errors
 // produced with [errors.Join].
 //
-// The runner is added to the context with WithRunner
-// and can be retrieved with GetRunner.
-// Calls to Run
+// The runner is added to the context with [WithRunner]
+// and can be retrieved with [GetRunner].
+// Calls to [Run]
 // (the global function, not the Runner.Run method)
-// will use it instead of DefaultRunner
+// will use it instead of [DefaultRunner]
 // by finding it in the context.
 func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 	if len(targets) == 0 {
@@ -199,10 +199,13 @@ var DefaultRunner = NewRunner()
 
 // Run runs the given targets with a Runner.
 // If `ctx` contains a Runner
-// (e.g., because this call is nested inside a pending call to Runner.Run
-// and the context has been decorated using WithRunner)
+// (e.g., because this call is nested inside a pending call to [Runner.Run]
+// and the context has been decorated using [WithRunner])
 // then it uses that Runner,
-// otherwise it uses DefaultRunner.
+// otherwise it uses [DefaultRunner].
+//
+// A given Runner will not run the same target more than once.
+// See [Runner.Run].
 func Run(ctx context.Context, targets ...Target) error {
 	runner := GetRunner(ctx)
 	if runner == nil {

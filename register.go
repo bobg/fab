@@ -52,7 +52,7 @@ func resetRegistry() {
 	targetRegistryMu.Unlock()
 }
 
-// RegistryNames returns the names in the registry.
+// RegistryNames returns the names in the target registry.
 func RegistryNames() []string {
 	targetRegistryMu.Lock()
 	keys := maps.Keys(targetRegistryByName)
