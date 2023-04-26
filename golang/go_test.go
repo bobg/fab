@@ -1,4 +1,4 @@
-package deps
+package golang
 
 import (
 	"os"
@@ -60,7 +60,7 @@ func TestGo(t *testing.T) {
 		"go_test.go",
 	}
 
-	got, err := Go(".", false)
+	got, err := Deps(".", false)
 	if err != nil {
 		t.Fatal(err)
 	}

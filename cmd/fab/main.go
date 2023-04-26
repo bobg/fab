@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/bobg/fab"
-	_ "github.com/bobg/fab/deps"
+	_ "github.com/bobg/fab/golang"
 )
 
 func main() {

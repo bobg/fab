@@ -183,7 +183,7 @@ Here is an example `fab.yaml` file:
 ```yaml
 # Prog rebuilds prog if any of the files it depends on changes.
 Prog: !Files
-  In: !deps.Go
+  In: !go.Deps
     Dir: cmd/prog
   Out:
     - prog
@@ -204,7 +204,7 @@ The `In` argument is the list of input files that may change
 and the `Out` argument is the list of expected output files that result from running the nested subtarget.
 That subtarget is a reference to the `Build` rule,
 which is a `Command` that runs `go build`.
-`In` is defined as the result of the [deps.Go](https://pkg.go.dev/github.com/bobg/fab/deps#Go) rule,
+`In` is defined as the result of the [go.Deps](https://pkg.go.dev/github.com/bobg/fab/golang#Deps) rule,
 which produces the list of files on which the Go package in a given directory depends.
 
 This also defines a `Test` target as a `Command` that runs `go test`.
@@ -243,6 +243,21 @@ which associates a `name` with a [YAMLTargetFunc](https://pkg.go.dev/github.com/
 When the YAML tag `!name` is encountered in `fab.yaml`
 (in a context where a target may be specified),
 your function will be invoked to parse the YAML node.
+The function [YAMLTarget](https://pkg.go.dev/github.com/bobg/fab#YAMLTarget) parses a YAML node into a Target
+using the functions in this registry.
+
+There is also a registry for functions that parse a YAML node into a list of strings.
+For example, this YAML snippet:
+
+```yaml
+!go.Deps
+  Dir: foo/bar
+  Recursive: true
+```
+
+produces the list of files on which the Go code in `foo/bar` depends.
+You can add functions to _this_ registry with [RegisterYAMLStringList](https://pkg.go.dev/github.com/bobg/fab#RegisterYAMLStringList),
+and parse a YAML node into a string list using functions from this registry with [YAMLStringList](https://pkg.go.dev/github.com/bobg/fab#YAMLStringList).
 
 ## HashTarget
 

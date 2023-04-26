@@ -16,7 +16,29 @@ import (
 // Command is a Target whose Run function executes a command in a subprocess.
 //
 // A Command target may be specified in YAML using the !Command tag,
-// xxx
+// which introduces a mapping with the following fields:
+//
+//   - Shell, the command string to execute with $SHELL,
+//     mutually exclusive with Cmd.
+//   - Cmd, an executable command invoked with Args as its arguments,
+//     mutually exclusive with Shell.
+//   - Args, list of arguments for Cmd.
+//   - Stdin, the name of a file from which the command's standard input should be read,
+//     or the special string $stdin to mean read Fab's standard input.
+//   - Stdout, the name of a file to which the command's standard output should be written.
+//     The file is overwritten unless this is prefixed with >> which means append.
+//     This may also be one of these special strings:
+//   - $stdout meaning use Fab's standard output;
+//   - $stderr meaning use Fab's standard error;
+//   - $discard meaning discard the command's standard output.
+//   - Stderr, the name of a file to which the command's standard error should be written.
+//     The file is overwritten unless this is prefixed with >> which means append.
+//     This may also be one of these special strings:
+//   - $stdout meaning use Fab's standard output;
+//   - $stderr meaning use Fab's standard error;
+//   - $discard meaning discard the command's standard error.
+//   - Dir, the directory in which the command should run.
+//   - Env, a list of VAR=VALUE strings to add to the command's environment.
 type Command struct {
 	// Shell is the command to run,
 	// as a single string with command name and arguments together.
@@ -70,8 +92,12 @@ type Command struct {
 	// output from both streams is combined there.
 	StderrFile string `json:"stderr_file,omitempty"`
 
+	// Stdin tells where to read the command's standard input.
 	Stdin io.Reader `json:"-"`
 
+	// StdinFile is the name of a file from which the command should read its standard input.
+	// It is mutually exclusive with Stdin.
+	// It is an error for the file not to exist when the command runs.
 	StdinFile string `json:"stdin_file,omitempty"`
 
 	// Dir is the directory in which to run the command.
@@ -207,6 +233,7 @@ func (c *Command) Run(ctx context.Context) error {
 	return err
 }
 
+// Desc implements Target.Desc.
 func (*Command) Desc() string {
 	return "Command"
 }

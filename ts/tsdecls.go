@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/bobg/fab"
-	"github.com/bobg/fab/deps"
+	"github.com/bobg/fab/golang"
 )
 
 // Decls uses [tsdecls.Write]
@@ -25,38 +25,43 @@ import (
 //   - Prefix: the path prefix for the generated POST URL
 //   - Out: the output file
 func Decls(dir, typename, prefix, outfile string) (fab.Target, error) {
-	gopkg, err := deps.Go(dir, false)
+	gopkg, err := golang.Deps(dir, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting deps for %s", dir)
 	}
-	obj := declsType{
-		dir:      dir,
-		typename: typename,
-		prefix:   prefix,
-		outfile:  outfile,
-	}
 	return &fab.Files{
-		Target: fab.F(obj.run),
-		In:     gopkg,
-		Out:    []string{outfile},
+		Target: &declsType{
+			Dir:      dir,
+			Typename: typename,
+			Prefix:   prefix,
+			Outfile:  outfile,
+		},
+		In:  gopkg,
+		Out: []string{outfile},
 	}, nil
 }
 
 type declsType struct {
-	dir, typename, prefix, outfile string
+	Dir, Typename, Prefix, Outfile string
 }
 
-func (t declsType) run(context.Context) error {
-	f, err := os.Create(t.outfile)
+var _ fab.Target = &declsType{}
+
+func (t *declsType) Run(context.Context) error {
+	f, err := os.Create(t.Outfile)
 	if err != nil {
-		return errors.Wrapf(err, "opening %s for writing", t.outfile)
+		return errors.Wrapf(err, "opening %s for writing", t.Outfile)
 	}
 	defer f.Close()
 
-	if err = tsdecls.Write(f, t.dir, t.typename, t.prefix); err != nil {
-		return errors.Wrapf(err, "generating %s", t.outfile)
+	if err = tsdecls.Write(f, t.Dir, t.Typename, t.Prefix); err != nil {
+		return errors.Wrapf(err, "generating %s", t.Outfile)
 	}
 	return f.Close()
+}
+
+func (*declsType) Desc() string {
+	return "ts.Decls"
 }
 
 func declsDecoder(node *yaml.Node) (fab.Target, error) {

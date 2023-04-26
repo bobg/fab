@@ -1,4 +1,4 @@
-package deps
+package golang
 
 import (
 	"path/filepath"
@@ -12,11 +12,58 @@ import (
 	"github.com/bobg/fab"
 )
 
-// Go produces the list of files involved in building the Go package in the given directory.
+// Binary is a target describing how to compile a Go binary whose main package is in `dir`.
+// The resulting binary gets written to `outfile`.
+// Additional command-line arguments for `go build` can be specified with `flags`.
+//
+// A Binary target may be specified in YAML using the tag !go.Binary,
+// which introduces a mapping whose fields are:
+//
+//   - Dir: the directory containing the main Go package
+//   - Out: the output file that will contain the compiled binary
+//   - Flags: a sequence of additional command-line flags for `go build`
+func Binary(dir, outfile string, flags ...string) (fab.Target, error) {
+	deps, err := Deps(dir, false)
+	if err != nil {
+		return nil, errors.Wrapf(err, "computing dependencies")
+	}
+	args := append([]string{"build", "-o", outfile, "-C", dir}, flags...)
+	args = append(args, ".")
+	c := &fab.Command{
+		Cmd:  "go",
+		Args: args,
+	}
+	return &fab.Files{
+		Target: c,
+		In:     deps,
+		Out:    []string{outfile},
+	}, nil
+}
+
+func binaryDecoder(node *yaml.Node) (fab.Target, error) {
+	var b struct {
+		Dir   string    `yaml:"Dir"`
+		Out   string    `yaml:"Out"`
+		Flags yaml.Node `yaml:"Flags"`
+	}
+
+	if err := node.Decode(&b); err != nil {
+		return nil, errors.Wrap(err, "YAML error decoding go.Binary")
+	}
+
+	flags, err := fab.YAMLStringList(&b.Flags)
+	if err != nil {
+		return nil, errors.Wrap(err, "YAML error decoding go.Binary.Flags")
+	}
+
+	return Binary(b.Dir, b.Out, flags...)
+}
+
+// Deps produces the list of files involved in building the Go package in the given directory.
 // It traverses package dependencies transitively,
 // but only within the original package's module.
 // The list is sorted for consistent, predictable results.
-func Go(dir string, recursive bool) ([]string, error) {
+func Deps(dir string, recursive bool) ([]string, error) {
 	config := &packages.Config{
 		Mode: packages.NeedName | packages.NeedFiles | packages.NeedEmbedFiles | packages.NeedEmbedPatterns | packages.NeedTypes | packages.NeedDeps | packages.NeedImports | packages.NeedModule,
 		Dir:  dir,
@@ -79,19 +126,20 @@ func gopkgAdd(pkg *packages.Package, modpath string, files set.Of[string]) error
 	return nil
 }
 
-func godepsDecoder(node *yaml.Node) ([]string, error) {
+func depsDecoder(node *yaml.Node) ([]string, error) {
 	var gd struct {
 		Dir       string `yaml:"Dir"`
 		Recursive bool   `yaml:"Recursive"`
 	}
 
 	if err := node.Decode(&gd); err != nil {
-		return nil, errors.Wrap(err, "YAML error in deps.Go node")
+		return nil, errors.Wrap(err, "YAML error decoding go.Deps")
 	}
 
-	return Go(gd.Dir, gd.Recursive)
+	return Deps(gd.Dir, gd.Recursive)
 }
 
 func init() {
-	fab.RegisterYAMLStringList("deps.Go", godepsDecoder)
+	fab.RegisterYAMLTarget("go.Binary", binaryDecoder)
+	fab.RegisterYAMLStringList("go.Deps", depsDecoder)
 }

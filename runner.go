@@ -231,7 +231,13 @@ func Indentf(ctx context.Context, format string, args ...any) {
 	}
 }
 
-func IndentingCopier(ctx context.Context, w io.Writer, extra string) io.Writer {
+// IndentingCopier creates an [io.Writer] that copies its data to an underlying writer,
+// indenting each line according to the indentation depth of the [Runner] in the given context.
+// After indentation,
+// each line additionally gets any prefix specified in `prefix`.
+//
+// The wrapper converts \r\n to \n, and bare \r to \n.
+func IndentingCopier(ctx context.Context, w io.Writer, prefix string) io.Writer {
 	runner := GetRunner(ctx)
 	if runner == nil {
 		runner = DefaultRunner
@@ -240,7 +246,7 @@ func IndentingCopier(ctx context.Context, w io.Writer, extra string) io.Writer {
 
 	return &indentingCopier{
 		w:      bufio.NewWriter(w),
-		indent: strings.Repeat("  ", int(depth)) + extra,
+		indent: strings.Repeat("  ", int(depth)) + prefix,
 		bol:    true,
 	}
 }
