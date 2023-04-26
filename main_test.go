@@ -47,17 +47,6 @@ func TestMain(t *testing.T) {
 		Force:   true,
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// TODO: Avoid Chdir, which affects the whole process and is not concurrent-safe.
-	if err = os.Chdir(compiledir); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Chdir(cwd)
-
 	if err = m.Run(ctx); err != nil {
 		t.Fatal(err)
 	}

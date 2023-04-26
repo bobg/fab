@@ -134,17 +134,6 @@ func tbCompile(tb testing.TB, f func(tmpdir, pkgdir string)) {
 		tb.Fatal(err)
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		tb.Fatal(err)
-	}
-
-	// TODO: Avoid Chdir, which affects the whole process and is not concurrent-safe.
-	if err = os.Chdir(compiledir); err != nil {
-		tb.Fatal(err)
-	}
-	defer os.Chdir(cwd)
-
 	pkgdir := filepath.Join(compiledir, "pkg")
 
 	f(tmpdir, pkgdir)
