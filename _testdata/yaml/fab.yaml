@@ -5,8 +5,8 @@ Foo: !All
 
 # Bar doesn't do much.
 Bar: !Command
-  - echo How do you do
-  - stdout
+  Shell: echo How do you do
+  Stdout: $stdout
 
 # Baz does X after Y and Z.
 Baz: !Deps
@@ -34,7 +34,7 @@ Y: !Clean
 # Z builds output if p.go, q.go, or r.go change.
 Z: !Files
   Target: !Command
-    - go build -o output ./...
+    Shell: go build -o output ./...
   In:
     - p.go
     - q.go

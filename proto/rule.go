@@ -43,7 +43,7 @@ func Proto(inputs, outputs, includes, otherOpts []string) (fab.Target, error) {
 	args = append(args, otherOpts...)
 	args = append(args, inputs...)
 	return &fab.Files{
-		Target: fab.Command("protoc", fab.CmdArgs(args...)),
+		Target: &fab.Command{Cmd: "protoc", Args: args},
 		In:     alldepsSlice,
 		Out:    outputs,
 	}, nil

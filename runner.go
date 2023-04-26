@@ -231,16 +231,16 @@ func Indentf(ctx context.Context, format string, args ...any) {
 	}
 }
 
-func IndentingCopier(ctx context.Context, w io.Writer) io.WriteCloser {
+func IndentingCopier(ctx context.Context, w io.Writer, extra string) io.Writer {
 	runner := GetRunner(ctx)
 	if runner == nil {
 		runner = DefaultRunner
 	}
-	depth := atomic.LoadInt32(&runner.depth) + 1
+	depth := atomic.LoadInt32(&runner.depth)
 
 	return &indentingCopier{
 		w:      bufio.NewWriter(w),
-		indent: strings.Repeat("  ", int(depth)),
+		indent: strings.Repeat("  ", int(depth)) + extra,
 		bol:    true,
 	}
 }
@@ -289,11 +289,8 @@ func (c *indentingCopier) Write(buf []byte) (int, error) {
 		n++
 	}
 
-	return n, nil
-}
-
-func (c *indentingCopier) Close() error {
-	return c.w.Flush()
+	err := c.w.Flush()
+	return n, err
 }
 
 func (c *indentingCopier) newline() error {

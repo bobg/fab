@@ -3,7 +3,6 @@ package fab
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -32,7 +31,7 @@ func TestHashTarget(t *testing.T) {
 	}
 
 	fc := &Files{
-		Target: Command(fmt.Sprintf("sh -c 'cat %s >> %s'", inpath, outpath)),
+		Target: Shellf("sh -c 'cat %s >> %s'", inpath, outpath),
 		In:     []string{inpath},
 		Out:    []string{outpath},
 	}

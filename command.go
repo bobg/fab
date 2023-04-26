@@ -7,46 +7,24 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/bobg/errors"
-	"github.com/mattn/go-shellwords"
 	"gopkg.in/yaml.v3"
 )
 
-// Command is a target whose Run function executes a command in a subprocess.
-//
-// If `CmdArgs` appears among the options,
-// then `cmd` is the name of a command to run
-// and its arguments are given by the `CmdArgs` option.
-// Otherwise `cmd` is the complete command
-// and is parsed as if by a Unix shell,
-// with quoting and so on
-// (but not tilde escapes or backtick substitution etc.)
-// in order to produce the command name
-// and argument list.
+// Command is a Target whose Run function executes a command in a subprocess.
 //
 // A Command target may be specified in YAML using the !Command tag,
-// which introduces a sequence.
-// The first element of the sequence is the command to run.
-// Remaining arguments are interpreted as CommandOpts.
-// See [CommandOpt] for a description of how to specify these.
-func Command(cmd string, opts ...CommandOpt) Target {
-	c := &command{
-		Shell: cmd,
-	}
-	for _, opt := range opts {
-		opt(c)
-	}
-	return c
-}
-
-type command struct {
+// xxx
+type Command struct {
 	// Shell is the command to run,
 	// as a single string with command name and arguments together.
-	// It is parsed as if by a Unix shell,
-	// with quoting and so on,
-	// in order to produce the command name
-	// and a list of individual argument strings.
+	// It is invoked with $SHELL -c,
+	// with $SHELL defaulting to /bin/sh.
+	//
+	// If you prefer to specify a command that is not executed by a shell,
+	// leave Shell blank and fill in Cmd and Args instead.
 	//
 	// To bypass this parsing behavior,
 	// you may specify Cmd and Args directly.
@@ -57,8 +35,8 @@ type command struct {
 	// or an executable file found in some directory
 	// named in the PATH environment variable.
 	//
-	// Leave Cmd blank and specify Shell instead
-	// to get shell-like parsing of a command and its arguments.
+	// If you need your command string to be parsed by a shell,
+	// leave Cmd and Args blank and specify Shell instead.
 	Cmd string `json:"cmd,omitempty"`
 
 	// Args is the list of command-line arguments
@@ -74,8 +52,27 @@ type command struct {
 
 	// StdoutFile is the name of a file to which the command's standard output should go.
 	// It is mutually exclusive with Stdout.
-	// When the command runs, the file is created or overwritten.
+	// When the command runs,
+	// the file is created or overwritten,
+	// unless this string has a >> prefix,
+	// which means "append."
+	// If StdoutFile and StderrFile name the same file,
+	// output from both streams is combined there.
 	StdoutFile string `json:"stdout_file,omitempty"`
+
+	// StderrFile is the name of a file to which the command's standard error should go.
+	// It is mutually exclusive with Stderr.
+	// When the command runs,
+	// the file is created or overwritten,
+	// unless this string has a >> prefix,
+	// which means "append."
+	// If StdoutFile and StderrFile name the same file,
+	// output from both streams is combined there.
+	StderrFile string `json:"stderr_file,omitempty"`
+
+	Stdin io.Reader `json:"-"`
+
+	StdinFile string `json:"stdin_file,omitempty"`
 
 	// Dir is the directory in which to run the command.
 	// The default is the value of GetDir(ctx) when the Run method is called.
@@ -85,65 +82,27 @@ type command struct {
 	Env []string `json:"env,omitempty"`
 }
 
-var _ Target = &command{}
+var _ Target = &Command{}
 
-// CommandOpt is the type of an option to [Command].
-// A CommandOpt may be specified in YAML as the second or subsequent child of a !Command node.
-// TODO: xxx elaborate.
-type CommandOpt func(*command)
-
-// CmdArgs sets the arguments for the command to run.
-// When this option is used,
-// the string passed to Command is used as argument 0
-// (i.e., the command name).
-func CmdArgs(args ...string) CommandOpt {
-	return func(c *command) {
-		c.Cmd = c.Shell
-		c.Args = args
-	}
-}
-
-// CmdStdout sets the stdout for the command.
-func CmdStdout(w io.Writer) CommandOpt {
-	return func(c *command) {
-		c.Stdout = w
-	}
-}
-
-// CmdStdoutFile sets a filename for the command's standard output.
-// The file is created or overwritten when the command runs.
-func CmdStdoutFile(name string) CommandOpt {
-	return func(c *command) {
-		c.StdoutFile = name
-	}
-}
-
-// CmdStderr sets the stderr for the command.
-func CmdStderr(w io.Writer) CommandOpt {
-	return func(c *command) {
-		c.Stderr = w
-	}
-}
-
-// CmdDir sets the working directory for the command.
-func CmdDir(dir string) CommandOpt {
-	return func(c *command) {
-		c.Dir = dir
-	}
-}
-
-// CmdEnv adds to the environment variables for the command.
-func CmdEnv(env []string) CommandOpt {
-	return func(c *command) {
-		c.Env = env
+// Shellf is a convenience routine that produces a *Command
+// whose Shell field is initialized by processing `format` and `args` with [fmt.Sprintf].
+func Shellf(format string, args ...any) *Command {
+	return &Command{
+		Shell: fmt.Sprintf(format, args...),
 	}
 }
 
 // Run implements Target.Run.
-func (c *command) Run(ctx context.Context) error {
-	cmdname, args, err := c.getCmdAndArgs()
-	if err != nil {
-		return err
+func (c *Command) Run(ctx context.Context) error {
+	var (
+		cmdname = c.Cmd
+		args    = c.Args
+	)
+	if cmdname == "" {
+		if cmdname = os.Getenv("SHELL"); cmdname == "" {
+			cmdname = "/bin/sh"
+		}
+		args = []string{"-c", c.Shell}
 	}
 
 	cmd := exec.CommandContext(ctx, cmdname, args...)
@@ -152,28 +111,93 @@ func (c *command) Run(ctx context.Context) error {
 	cmd.Env = append(os.Environ(), c.Env...)
 
 	cmd.Stdout, cmd.Stderr = c.Stdout, c.Stderr
-	if c.StdoutFile != "" {
-		f, err := os.Create(c.StdoutFile)
-		if err != nil {
-			return errors.Wrapf(err, "opening %s for writing", c.StdoutFile)
+
+	var (
+		stdoutFile   = c.StdoutFile
+		stderrFile   = c.StderrFile
+		stdoutAppend = strings.HasPrefix(stdoutFile, ">>")
+		stderrAppend = strings.HasPrefix(stderrFile, ">>")
+	)
+
+	if stdoutAppend {
+		stdoutFile = strings.TrimLeft(stdoutFile, "> ")
+	}
+	if stderrAppend {
+		stderrFile = strings.TrimLeft(stderrFile, "> ")
+	}
+
+	if stdoutFile == stderrFile && stdoutAppend != stderrAppend {
+		return fmt.Errorf("stdout and stderr name the same file but disagree about append vs. overwrite")
+	}
+
+	if stdoutFile != "" {
+		if stdoutAppend {
+			f, err := os.OpenFile(stdoutFile, os.O_APPEND, 0644)
+			if err != nil {
+				return errors.Wrapf(err, "opening %s for appending", stdoutFile)
+			}
+			defer f.Close()
+			cmd.Stdout = f
+		} else {
+			f, err := os.Create(stdoutFile)
+			if err != nil {
+				return errors.Wrapf(err, "opening %s for writing", stdoutFile)
+			}
+			defer f.Close()
+			cmd.Stdout = f
 		}
-		defer f.Close()
-		cmd.Stdout = f
+	}
+
+	if stderrFile != "" {
+		if stdoutFile == stderrFile {
+			cmd.Stderr = cmd.Stdout
+		} else if stderrAppend {
+			f, err := os.OpenFile(stderrFile, os.O_APPEND, 0644)
+			if err != nil {
+				return errors.Wrapf(err, "opening %s for appending", stderrFile)
+			}
+			defer f.Close()
+			cmd.Stderr = f
+		} else {
+			f, err := os.Create(stderrFile)
+			if err != nil {
+				return errors.Wrapf(err, "opening %s for writing", stderrFile)
+			}
+			defer f.Close()
+			cmd.Stderr = f
+		}
 	}
 
 	var buf bytes.Buffer
-	if cmd.Stdout == nil {
-		cmd.Stdout = &buf
-	}
-	if cmd.Stderr == nil {
-		cmd.Stderr = &buf
-	}
 
 	if GetVerbose(ctx) {
+		if cmd.Stdout == nil {
+			cmd.Stdout = IndentingCopier(ctx, os.Stdout, "    ")
+		}
+		if cmd.Stderr == nil {
+			cmd.Stderr = IndentingCopier(ctx, os.Stderr, "    ")
+		}
 		Indentf(ctx, "  Running command %s", cmd)
+	} else {
+		if cmd.Stdout == nil {
+			cmd.Stdout = &buf
+		}
+		if cmd.Stderr == nil {
+			cmd.Stderr = &buf
+		}
 	}
 
-	err = cmd.Run()
+	cmd.Stdin = c.Stdin
+	if c.StdinFile != "" {
+		f, err := os.Open(c.StdinFile)
+		if err != nil {
+			return errors.Wrapf(err, "opening %s", c.StdinFile)
+		}
+		defer f.Close()
+		cmd.Stdin = f
+	}
+
+	err := cmd.Run()
 	if err != nil && buf.Len() > 0 {
 		err = CommandErr{
 			Err:    err,
@@ -183,22 +207,8 @@ func (c *command) Run(ctx context.Context) error {
 	return err
 }
 
-func (*command) Desc() string {
+func (*Command) Desc() string {
 	return "Command"
-}
-
-func (c *command) getCmdAndArgs() (string, []string, error) {
-	if c.Cmd != "" {
-		return c.Cmd, c.Args, nil
-	}
-	words, err := shellwords.Parse(c.Shell)
-	if err != nil {
-		return "", nil, err
-	}
-	if len(words) == 0 {
-		return "", nil, fmt.Errorf("empty shell command")
-	}
-	return words[0], words[1:], nil
 }
 
 // CommandErr is a type of error that may be returned from command.Run.
@@ -221,47 +231,84 @@ func (e CommandErr) Unwrap() error {
 }
 
 func commandDecoder(node *yaml.Node) (Target, error) {
-	if node.Kind != yaml.SequenceNode {
-		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
-	}
-	if len(node.Content) == 0 {
-		return nil, fmt.Errorf("no child nodes")
-	}
-	cmdnode := node.Content[0]
-	if cmdnode.Kind != yaml.ScalarNode {
-		return nil, fmt.Errorf("got Command child node kind %v, want %v", cmdnode.Kind, yaml.ScalarNode)
-	}
-	cmd := cmdnode.Value
-
-	var opts []CommandOpt
-	for i := 1; i < len(node.Content); i++ {
-		opt, err := commandOptDecoder(node.Content[i])
-		if err != nil {
-			return nil, errors.Wrapf(err, "YAML error in Command-node option (child %d)", i)
-		}
-		opts = append(opts, opt)
+	if node.Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.MappingNode)
 	}
 
-	return Command(cmd, opts...), nil
-}
+	var c struct {
+		Shell  string    `yaml:"Shell"`
+		Cmd    string    `yaml:"Cmd"`
+		Args   yaml.Node `yaml:"Args"`
+		Stdin  string    `yaml:"Stdin"`
+		Stdout string    `yaml:"Stdout"`
+		Stderr string    `yaml:"Stderr"`
+		Dir    string    `yaml:"Dir"`
+		Env    yaml.Node `yaml:"Env"`
+	}
+	if err := node.Decode(&c); err != nil {
+		return nil, errors.Wrap(err, "YAML error decoding Command")
+	}
 
-func commandOptDecoder(node *yaml.Node) (CommandOpt, error) {
-	switch node.Kind {
-	case yaml.ScalarNode:
-		switch node.Value {
-		case "stdout":
-			return CmdStdout(os.Stdout), nil
-		case "stderr":
-			return CmdStderr(os.Stderr), nil
-		default:
-			// TODO: implement others
-			return nil, fmt.Errorf("unknown command option %s", node.Value)
-		}
+	args, err := YAMLStringList(&c.Args)
+	if err != nil {
+		return nil, errors.Wrap(err, "YAML error decoding Command.Args")
+	}
+	env, err := YAMLStringList(&c.Env)
+	if err != nil {
+		return nil, errors.Wrap(err, "YAML error decoding Command.Env")
+	}
+
+	result := &Command{
+		Shell: c.Shell,
+		Cmd:   c.Cmd,
+		Args:  args,
+		Dir:   c.Dir,
+		Env:   env,
+	}
+
+	if c.Stdin == "$stdin" {
+		result.Stdin = os.Stdin
+	}
+
+	switch c.Stdout {
+	case "$stdout":
+		result.Stdout = os.Stdout
+
+	case "$stderr":
+		result.Stdout = os.Stderr // who am I to judge
+
+	case "$discard":
+		result.Stdout = io.Discard
+
+	case "$indent":
+		return nil, fmt.Errorf("$indent not yet implemented for stdout")
+		// TODO: figure out the right API to make this work, requires the context from Run.
+		// result.Stdout = IndentingCopier(ctx, os.Stdout, "    ")
 
 	default:
-		// TODO: implement others
-		return nil, fmt.Errorf("unknown command option node kind %v", node.Kind)
+		result.StdoutFile = c.Stdout
 	}
+
+	switch c.Stderr {
+	case "$stdout":
+		result.Stderr = os.Stdout
+
+	case "$stderr":
+		result.Stderr = os.Stderr
+
+	case "$discard":
+		result.Stderr = io.Discard
+
+	case "$indent":
+		return nil, fmt.Errorf("$indent not yet implemented for stderr")
+		// TODO: figure out the right API to make this work, requires the context from Run.
+		// result.Stderr = IndentingCopier(ctx, os.Stderr, "    ")
+
+	default:
+		result.StderrFile = c.Stderr
+	}
+
+	return result, nil
 }
 
 func init() {

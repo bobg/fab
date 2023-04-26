@@ -216,6 +216,10 @@ func RegisterYAMLStringList(name string, fn YAMLStringListFunc) {
 // the node is expected to be a sequence,
 // and [YAMLStringListFromNodes] is called on its children.
 func YAMLStringList(node *yaml.Node) ([]string, error) {
+	if node.Kind == 0 {
+		return nil, nil
+	}
+
 	tag := normalizeTag(node.Tag)
 
 	if tag != "" {
