@@ -1,8 +1,10 @@
 package fab
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -227,4 +229,78 @@ func Indentf(ctx context.Context, format string, args ...any) {
 		}
 		fmt.Printf(format, args...)
 	}
+}
+
+func IndentingCopier(ctx context.Context, w io.Writer) io.WriteCloser {
+	runner := GetRunner(ctx)
+	if runner == nil {
+		runner = DefaultRunner
+	}
+	depth := atomic.LoadInt32(&runner.depth) + 1
+
+	return &indentingCopier{
+		w:      bufio.NewWriter(w),
+		indent: strings.Repeat("  ", int(depth)),
+		bol:    true,
+	}
+}
+
+type indentingCopier struct {
+	w          *bufio.Writer
+	indent     string
+	bol, sawcr bool
+}
+
+func (c *indentingCopier) Write(buf []byte) (int, error) {
+	var n int
+
+	for _, b := range buf {
+		switch b {
+		case '\n':
+			if err := c.newline(); err != nil {
+				return n, err
+			}
+
+		case '\r':
+			if c.sawcr {
+				if err := c.newline(); err != nil {
+					return n, err
+				}
+			}
+			c.sawcr = true
+
+		default:
+			if c.sawcr {
+				if err := c.newline(); err != nil {
+					return n, err
+				}
+			}
+			if c.bol {
+				_, err := c.w.WriteString(c.indent)
+				if err != nil {
+					return n, err
+				}
+			}
+			c.bol = false
+			if err := c.w.WriteByte(b); err != nil {
+				return n, err
+			}
+		}
+		n++
+	}
+
+	return n, nil
+}
+
+func (c *indentingCopier) Close() error {
+	return c.w.Flush()
+}
+
+func (c *indentingCopier) newline() error {
+	if err := c.w.WriteByte('\n'); err != nil {
+		return err
+	}
+	c.bol = true
+	c.sawcr = false
+	return nil
 }
