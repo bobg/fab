@@ -19,19 +19,29 @@ var (
 	fileRegistry   = make(map[string]*files)
 )
 
-// Files is a target that contains a list of input files
+// Files creates a target that contains a list of input files
 // and a list of expected output files.
 // It also contains a nested subtarget
-// whose Run method should produce the expected output files.
+// whose Run method should produce or update the expected output files.
 //
-// The Files target's hash is computed from the target and all the input and output files.
-// If none of those have changed since the last time the output files were built,
+// When the Files target runs,
+// a hash is computed from the nested subtarget
+// and all the input and output files.
+// If none of those has changed since the last time the output files were built,
 // then the output files are up to date and running of this Files target can be skipped.
 //
-// The Target must be of a type that can be JSON-marshaled.
+// For the hashing behavior to work correctly,
+// the nested subtarget should be of a type that can be JSON-marshaled.
+// Note that this excludes [F],
+// among others.
 //
-// The In list should mention every file where a change should cause a rebuild.
-// Ideally this includes any files required by the Target's Run method,
+// When a Files target runs,
+// it checks to see whether any of its input files
+// are listed as output files in other Files targets.
+// Other targets found in this way are [Run] first, as prerequisites.
+//
+// The list of input files should mention every file where a change should cause a rebuild.
+// Ideally this includes any files required by the nested subtarget
 // plus any transitive dependencies.
 // See the Deps function in the golang subpackage
 // for an example of a function that can compute such a list for a Go package.
