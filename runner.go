@@ -47,19 +47,6 @@ type outcome struct {
 // it blocks until the first one completes,
 // then uses the first one's result.
 //
-// As a special case,
-// if the target is a [HashTarget]
-// and there is a [HashDB] attached to the context,
-// then the HashTarget's hash is computed
-// and looked up in the HashDB.
-// If it's found,
-// the target's outputs are already up to date
-// and its Run method can be skipped.
-// Otherwise, Run is invoked and
-// (if it succeeds)
-// a new hash is computed for the target
-// and added to the HashDB.
-//
 // This function waits for all goroutines to complete.
 // The return value may be an accumulation of multiple errors
 // produced with [errors.Join].
@@ -81,9 +68,9 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 	defer atomic.AddInt32(&r.depth, -1)
 
 	var (
-		db   = GetHashDB(ctx)
-		errs = make([]error, len(targets))
-		wg   sync.WaitGroup
+		verbose = GetVerbose(ctx)
+		errs    = make([]error, len(targets))
+		wg      sync.WaitGroup
 	)
 	for i, target := range targets {
 		addr, err := targetAddr(target)
@@ -114,7 +101,13 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 			} else {
 				// This target was not previously launched,
 				// so run it and then open its "outcome gate."
-				err := r.runTarget(ctx, db, target)
+				if verbose {
+					r.Indentf("Running %s", Describe(target))
+				}
+				err := target.Run(ctx)
+				if err != nil {
+					err = errors.Wrapf(err, "running %s", Describe(target))
+				}
 				errs[i] = err
 				o.err = err
 				o.g.set(true)
@@ -125,56 +118,6 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 	wg.Wait()
 
 	return errors.Join(errs...)
-}
-
-func (r *Runner) runTarget(ctx context.Context, db HashDB, target Target) error {
-	var (
-		verbose = GetVerbose(ctx)
-		force   = GetForce(ctx)
-	)
-
-	var ht HashTarget
-	if db != nil {
-		ht, _ = target.(HashTarget)
-		if ht != nil && !force {
-			h, err := ht.Hash(ctx)
-			if err != nil {
-				return errors.Wrapf(err, "computing hash for %s", Describe(target))
-			}
-			has, err := db.Has(ctx, h)
-			if err != nil {
-				return errors.Wrapf(err, "checking hash db for hash of %s", Describe(target))
-			}
-			if has {
-				if verbose {
-					r.Indentf("%s is up to date", Describe(target))
-				}
-				return nil
-			}
-		}
-	}
-
-	if verbose {
-		r.Indentf("Running %s", Describe(target))
-	}
-
-	err := target.Run(ctx)
-	if err != nil {
-		return errors.Wrapf(err, "running %s", Describe(target))
-	}
-
-	if ht != nil {
-		h, err := ht.Hash(ctx)
-		if err != nil {
-			return errors.Wrapf(err, "computing new updatedhash for %s", Describe(target))
-		}
-		err = db.Add(ctx, h)
-		if err != nil {
-			return errors.Wrap(err, "updating hash db")
-		}
-	}
-
-	return nil
 }
 
 // Indentf formats and prints its arguments

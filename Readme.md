@@ -259,53 +259,61 @@ produces the list of files on which the Go code in `foo/bar` depends.
 You can add functions to _this_ registry with [RegisterYAMLStringList](https://pkg.go.dev/github.com/bobg/fab#RegisterYAMLStringList),
 and parse a YAML node into a string list using functions from this registry with [YAMLStringList](https://pkg.go.dev/github.com/bobg/fab#YAMLStringList).
 
-## HashTarget
+## Files
 
-If your target type implements the interface [HashTarget](https://pkg.go.dev/github.com/bobg/fab#HashTarget),
-it is handled specially.
-`HashTarget` is the same as `Target` but adds a new method,
-`Hash`.
-When the Fab runtime wants to run a `HashTarget` it first invokes its `Hash` method,
-then checks the result to see if it appears in a _hash database_.
-
-- If it does,
-  the target is considered up-to-date
-  and succeeds trivially.
-  Its `Run` method is skipped.
-- If it doesn’t,
-  the `Run` method executes
-  and then Fab re-invokes the `Hash` method,
-  placing the result into the hash database.
-
-To understand `HashTarget`,
-consider the [Files](https://pkg.go.dev/github.com/bobg/fab#Files) target type.
+The [Files](https://pkg.go.dev/github.com/bobg/fab#Files) target type has special behavior.
 It specifies a set of input files,
 a set of expected output files,
 and a nested subtarget for producing one from the other.
-`Files` implements `HashTarget`,
-and its `Hash` method produces a hash from the content of all the input files,
-all the output files,
-_and_ the rules for the nested subtarget.
-The first time this rule runs,
-its hash won’t be present in the database,
-so its `Run` method executes,
-and then the hash is recomputed from the now up-to-date files
-and placed in the database.
+When it runs,
+it first computes a _hash_ combining the content of all the input files,
+all the output files (those that exist),
+and the rules for the nested subtarget.
+It then checks for the presence of this hash in a persistent _hash database._
 
-As long as none of the input files,
-the output files,
-or the build rules change,
-`Hash` will produce the same value that was added to the database.
-Subsequent runs of the `Files` target
-will find that hash in the database and skip calling `Run`.
+If it’s there, then the run succeeds trivially;
+the output files are already up to date with respect to the inputs,
+and running the subtarget is skipped.
 
-(This is a key difference between Fab and Make.
+Otherwise the nested subtarget runs,
+and then the hash is computed again and placed into the hash database.
+The next time this target runs,
+if none of the files has changed,
+then the hash will be the same
+and running the subtarget will be skipped.
+On the other hand,
+if any file has changed,
+the hash will be different and won’t be found in the database,
+so the subtarget will run.
+
+(It is possible for input and output files to change
+in such a way that the hash _is_ found in the database,
+because they match a previous “up to date” state.
+Consider a simple `Files` rule for example
+that copies a single input file `in`
+to a single output file `out`.
+Let’s say the first time it runs,
+`in` contains `Hello` and that gets copied to `out`,
+and the resulting post-run hash is 17.
+[Actual hashes are much, much, _much_ bigger numbers.]
+Now you change `in` to contain `Goodbye` and rerun the target.
+The hash with `in=Goodbye` and `out=Hello` isn’t in the database,
+so the copy rule runs again
+and the new hash is 42.
+If you now change both `in` _and_ `out` back to `Hello`
+and rerun the target,
+the hash will again be 17,
+representing an earlier state where `out` is up to date
+with respect to `in`,
+so there is no copying needed.)
+
+This is a key difference between Fab and Make.
 Make uses file modification times
 to decide when a set of output files needs to be recomputed from their inputs.
 Considering the limited resolution of filesystem timestamps,
 the possibility of clock skew, etc.,
 the content-based test that Fab uses is preferable.
-But it would be easy to define a file-modtime-based target type in Fab
+(But it would be easy to define a file-modtime-based target type in Fab
 if that’s what you wanted.)
 
 The hash database is stored in `$HOME/.cache/fab` by default,

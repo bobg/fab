@@ -13,13 +13,16 @@ func TestRunTarget(t *testing.T) {
 	var (
 		ctx     = context.Background()
 		r       = NewRunner()
-		ct      countTarget
+		ct      = &countTarget{}
+		target  = &Files{Target: ct, In: nil, Out: []string{"/dev/null"}}
 		targets []Target
 	)
 
 	for i := 0; i < 1000; i++ {
-		targets = append(targets, &ct)
+		targets = append(targets, target)
 	}
+
+	ctx = WithVerbose(ctx, testing.Verbose())
 
 	err := r.Run(ctx, targets...)
 	if err != nil {
@@ -31,6 +34,7 @@ func TestRunTarget(t *testing.T) {
 
 	db := memHashDB{s: set.New[string]()}
 	ctx = WithHashDB(ctx, &db)
+
 	r = NewRunner()
 	err = r.Run(ctx, targets...)
 	if err != nil {
