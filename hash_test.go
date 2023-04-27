@@ -30,11 +30,11 @@ func TestHashTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fc := &Files{
-		Target: Shellf("sh -c 'cat %s >> %s'", inpath, outpath),
-		In:     []string{inpath},
-		Out:    []string{outpath},
-	}
+	fc := Files(
+		Shellf("sh -c 'cat %s >> %s'", inpath, outpath),
+		[]string{inpath},
+		[]string{outpath},
+	)
 
 	ctx := context.Background()
 	ctx = WithVerbose(ctx, testing.Verbose())
@@ -74,6 +74,7 @@ func TestHashTarget(t *testing.T) {
 
 	db := memdb(set.New[string]())
 	ctx = WithHashDB(ctx, db)
+	ctx = WithVerbose(ctx, testing.Verbose())
 
 	t.Run("2 empty db", try(true))
 	t.Run("3 non-empty db", try(false))

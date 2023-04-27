@@ -7,10 +7,16 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"sync"
 
 	"github.com/bobg/errors"
 	json "github.com/gibson042/canonicaljson-go"
 	"gopkg.in/yaml.v3"
+)
+
+var (
+	fileRegistryMu sync.Mutex
+	fileRegistry   = make(map[string]*files)
 )
 
 // Files is a HashTarget.
@@ -28,7 +34,8 @@ import (
 // The In list should mention every file where a change should cause a rebuild.
 // Ideally this includes any files required by the Target's Run method,
 // plus any transitive dependencies.
-// See the deps package for helper functions that can compute dependency lists of various kinds.
+// See the Deps function in the golang subpackage
+// for an example of a function that can compute such a list for a Go package.
 //
 // A Files target may be specified in YAML using the !Files tag,
 // which introduces a mapping whose fields are:
@@ -51,26 +58,49 @@ import (
 // which runs the given `go build` command
 // to update the output file `thingify`
 // when any files depended on by the Go package in `cmd` change.
-type Files struct {
+func Files(target Target, in, out []string) Target {
+	result := &files{
+		Target: target,
+		In:     in,
+		Out:    out,
+	}
+
+	fileRegistryMu.Lock()
+	for _, o := range out {
+		fileRegistry[o] = result
+	}
+	fileRegistryMu.Unlock()
+
+	return result
+}
+
+type files struct {
 	Target Target
 	In     []string
 	Out    []string
 }
 
-var _ HashTarget = &Files{}
+var _ HashTarget = &files{}
 
 // Run implements Target.Run.
-func (ft *Files) Run(ctx context.Context) error {
+func (ft *files) Run(ctx context.Context) error {
+	if err := ft.runPrereqs(ctx); err != nil {
+		return errors.Wrap(err, "in prerequisites")
+	}
 	return ft.Target.Run(ctx)
 }
 
 // Desc implements Target.Desc.
-func (*Files) Desc() string {
+func (*files) Desc() string {
 	return "Files"
 }
 
 // Hash implements HashTarget.Hash.
-func (ft *Files) Hash(ctx context.Context) ([]byte, error) {
+func (ft *files) Hash(ctx context.Context) ([]byte, error) {
+	if err := ft.runPrereqs(ctx); err != nil {
+		return nil, errors.Wrap(err, "in prerequisites")
+	}
+
 	inHashes, err := fileHashes(ft.In)
 	if err != nil {
 		return nil, errors.Wrapf(err, "computing input hash(es) for %s", Describe(ft))
@@ -94,6 +124,23 @@ func (ft *Files) Hash(ctx context.Context) ([]byte, error) {
 	}
 	sum := sha256.Sum224(j)
 	return sum[:], nil
+}
+
+func (ft *files) runPrereqs(ctx context.Context) error {
+	var prereqs []Target
+
+	fileRegistryMu.Lock()
+	for _, in := range ft.In {
+		if target, ok := fileRegistry[in]; ok {
+			prereqs = append(prereqs, target)
+		}
+	}
+	fileRegistryMu.Unlock()
+
+	if len(prereqs) == 0 {
+		return nil
+	}
+	return Run(ctx, prereqs...)
 }
 
 func fileHashes(files []string) (map[string][]byte, error) {
@@ -153,7 +200,7 @@ func filesDecoder(node *yaml.Node) (Target, error) {
 		return nil, errors.Wrap(err, "YAML error in Files.Out node")
 	}
 
-	return &Files{Target: target, In: in, Out: out}, nil
+	return Files(target, in, out), nil
 }
 
 func init() {
