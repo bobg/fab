@@ -35,7 +35,7 @@ var _ Target = &argTarget{}
 
 func (a *argTarget) Run(ctx context.Context) error {
 	ctx = WithArgs(ctx, a.args...)
-	return Run(ctx, target)
+	return Run(ctx, a.target)
 }
 
 func (*argTarget) Desc() string {
