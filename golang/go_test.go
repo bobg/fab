@@ -30,6 +30,7 @@ func TestGo(t *testing.T) {
 		"../embeds.go",
 		"../f.go",
 		"../files.go",
+		"../files_test.go",
 		"../gate.go",
 		"../gate_test.go",
 		"../go.mod",

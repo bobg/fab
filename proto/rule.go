@@ -42,11 +42,7 @@ func Proto(inputs, outputs, includes, otherOpts []string) (fab.Target, error) {
 	args := slices.Map(includes, func(inc string) string { return "-I" + inc })
 	args = append(args, otherOpts...)
 	args = append(args, inputs...)
-	return &fab.Files{
-		Target: &fab.Command{Cmd: "protoc", Args: args},
-		In:     alldepsSlice,
-		Out:    outputs,
-	}, nil
+	return fab.Files(&fab.Command{Cmd: "protoc", Args: args}, alldepsSlice, outputs), nil
 }
 
 func protoDecoder(node *yaml.Node) (fab.Target, error) {

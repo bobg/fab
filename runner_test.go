@@ -14,7 +14,7 @@ func TestRunTarget(t *testing.T) {
 		ctx     = context.Background()
 		r       = NewRunner()
 		ct      = &countTarget{}
-		target  = &Files{Target: ct, In: nil, Out: []string{"/dev/null"}}
+		target  = Files(ct, nil, []string{"/dev/null"})
 		targets []Target
 	)
 

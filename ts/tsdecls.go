@@ -29,16 +29,14 @@ func Decls(dir, typename, prefix, outfile string) (fab.Target, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting deps for %s", dir)
 	}
-	return &fab.Files{
-		Target: &declsType{
-			Dir:      dir,
-			Typename: typename,
-			Prefix:   prefix,
-			Outfile:  outfile,
-		},
-		In:  gopkg,
-		Out: []string{outfile},
-	}, nil
+	subtarget := &declsType{
+		Dir:      dir,
+		Typename: typename,
+		Prefix:   prefix,
+		Outfile:  outfile,
+	}
+
+	return fab.Files(subtarget, gopkg, []string{outfile}), nil
 }
 
 type declsType struct {

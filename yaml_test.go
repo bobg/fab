@@ -101,11 +101,11 @@ func TestYAML(t *testing.T) {
 	}
 
 	gotZ, gotZDoc := RegistryTarget("Z")
-	wantZ := &Files{
-		Target: &Command{Shell: "go build -o output ./..."},
-		In:     []string{"p.go", "q.go", "r.go"},
-		Out:    []string{"output"},
-	}
+	wantZ := Files(
+		Shellf("go build -o output ./..."),
+		[]string{"p.go", "q.go", "r.go"},
+		[]string{"output"},
+	)
 	const wantZDoc = "Z builds output if p.go, q.go, or r.go change."
 	if !reflect.DeepEqual(gotZ, wantZ) {
 		t.Errorf("mismatch for Z; got:\n%s\nwant:\n%s", spew.Sdump(gotZ), spew.Sdump(wantZ))

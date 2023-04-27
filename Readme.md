@@ -261,17 +261,31 @@ and parse a YAML node into a string list using functions from this registry with
 
 ## Files
 
-The [Files](https://pkg.go.dev/github.com/bobg/fab#Files) target type has special behavior.
-It specifies a set of input files,
+The [Files](https://pkg.go.dev/github.com/bobg/fab#Files) target type
+specifies a set of input files,
 a set of expected output files,
 and a nested subtarget for producing one from the other.
-When it runs,
-it first computes a _hash_ combining the content of all the input files,
+It uses this information in two special ways:
+for _file chaining_
+and for _content-based dependency checking._
+
+### File chaining
+
+When a `Files` target runs,
+it looks for filenames in its input-files list
+that appear in the output-files lists of other `Files` targets.
+Other targets found in this way are [Run](https://pkg.go.dev/github.com/bobg/fab#Run) first as prerequisites.
+
+### Content-based dependency checking
+
+After running any prerequisites found via file chaining,
+a `Files` target computes a _hash_ combining the content of all the input files,
 all the output files (those that exist),
 and the rules for the nested subtarget.
-It then checks for the presence of this hash in a persistent _hash database._
+It then checks for the presence of this hash in a persistent _hash database_
+that records the state of things after any successful past run of the target.
 
-If it’s there, then the run succeeds trivially;
+If the hash is there, then the run succeeds trivially;
 the output files are already up to date with respect to the inputs,
 and running the subtarget is skipped.
 

@@ -7,27 +7,44 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"sync"
 
 	"github.com/bobg/errors"
 	json "github.com/gibson042/canonicaljson-go"
 	"gopkg.in/yaml.v3"
 )
 
-// Files is a target that contains a list of input files
+var (
+	fileRegistryMu sync.Mutex
+	fileRegistry   = make(map[string]*files)
+)
+
+// Files creates a target that contains a list of input files
 // and a list of expected output files.
 // It also contains a nested subtarget
-// whose Run method should produce the expected output files.
+// whose Run method should produce or update the expected output files.
 //
-// The Files target's hash is computed from the target and all the input and output files.
-// If none of those have changed since the last time the output files were built,
+// When the Files target runs,
+// a hash is computed from the nested subtarget
+// and all the input and output files.
+// If none of those has changed since the last time the output files were built,
 // then the output files are up to date and running of this Files target can be skipped.
 //
-// The Target must be of a type that can be JSON-marshaled.
+// For the hashing behavior to work correctly,
+// the nested subtarget should be of a type that can be JSON-marshaled.
+// Note that this excludes [F],
+// among others.
 //
-// The In list should mention every file where a change should cause a rebuild.
-// Ideally this includes any files required by the Target's Run method,
+// When a Files target runs,
+// it checks to see whether any of its input files
+// are listed as output files in other Files targets.
+// Other targets found in this way are [Run] first, as prerequisites.
+//
+// The list of input files should mention every file where a change should cause a rebuild.
+// Ideally this includes any files required by the nested subtarget
 // plus any transitive dependencies.
-// See the deps package for helper functions that can compute dependency lists of various kinds.
+// See the Deps function in the golang subpackage
+// for an example of a function that can compute such a list for a Go package.
 //
 // A Files target may be specified in YAML using the !Files tag,
 // which introduces a mapping whose fields are:
@@ -50,23 +67,43 @@ import (
 // which runs the given `go build` command
 // to update the output file `thingify`
 // when any files depended on by the Go package in `cmd` change.
-type Files struct {
+func Files(target Target, in, out []string) Target {
+	result := &files{
+		Target: target,
+		In:     in,
+		Out:    out,
+	}
+
+	fileRegistryMu.Lock()
+	for _, o := range out {
+		fileRegistry[o] = result
+	}
+	fileRegistryMu.Unlock()
+
+	return result
+}
+
+type files struct {
 	Target Target
 	In     []string
 	Out    []string
 }
 
-var _ Target = &Files{}
+var _ Target = &files{}
 
 // Run implements Target.Run.
-func (ft *Files) Run(ctx context.Context) error {
+func (ft *files) Run(ctx context.Context) error {
+	if err := ft.runPrereqs(ctx); err != nil {
+		return errors.Wrap(err, "in prerequisites")
+	}
+
 	if GetForce(ctx) {
-		return ft.Target.Run(ctx)
+		return Run(ctx, ft.Target)
 	}
 
 	db := GetHashDB(ctx)
 	if db == nil {
-		return ft.Target.Run(ctx)
+		return Run(ctx, ft.Target)
 	}
 
 	h, err := ft.computeHash(ctx)
@@ -97,12 +134,12 @@ func (ft *Files) Run(ctx context.Context) error {
 }
 
 // Desc implements Target.Desc.
-func (*Files) Desc() string {
+func (*files) Desc() string {
 	return "Files"
 }
 
 // TODO: should this incorporate debug.ReadBuildInfo?
-func (ft *Files) computeHash(ctx context.Context) ([]byte, error) {
+func (ft *files) computeHash(ctx context.Context) ([]byte, error) {
 	inHashes, err := fileHashes(ft.In)
 	if err != nil {
 		return nil, errors.Wrapf(err, "computing input hash(es) for %s", Describe(ft))
@@ -126,6 +163,23 @@ func (ft *Files) computeHash(ctx context.Context) ([]byte, error) {
 	}
 	sum := sha256.Sum224(j)
 	return sum[:], nil
+}
+
+func (ft *files) runPrereqs(ctx context.Context) error {
+	var prereqs []Target
+
+	fileRegistryMu.Lock()
+	for _, in := range ft.In {
+		if target, ok := fileRegistry[in]; ok {
+			prereqs = append(prereqs, target)
+		}
+	}
+	fileRegistryMu.Unlock()
+
+	if len(prereqs) == 0 {
+		return nil
+	}
+	return Run(ctx, prereqs...)
 }
 
 func fileHashes(files []string) (map[string][]byte, error) {
@@ -185,7 +239,7 @@ func filesDecoder(node *yaml.Node) (Target, error) {
 		return nil, errors.Wrap(err, "YAML error in Files.Out node")
 	}
 
-	return &Files{Target: target, In: in, Out: out}, nil
+	return Files(target, in, out), nil
 }
 
 func init() {
