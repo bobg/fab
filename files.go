@@ -82,7 +82,7 @@ type files struct {
 var _ Target = &files{}
 
 // Run implements Target.Run.
-func (ft *Files) Run(ctx context.Context) error {
+func (ft *files) Run(ctx context.Context) error {
 	if err := ft.runPrereqs(ctx); err != nil {
 		return errors.Wrap(err, "in prerequisites")
 	}
@@ -129,7 +129,7 @@ func (*files) Desc() string {
 }
 
 // TODO: should this incorporate debug.ReadBuildInfo?
-func (ft *Files) computeHash(ctx context.Context) ([]byte, error) {
+func (ft *files) computeHash(ctx context.Context) ([]byte, error) {
 	inHashes, err := fileHashes(ft.In)
 	if err != nil {
 		return nil, errors.Wrapf(err, "computing input hash(es) for %s", Describe(ft))

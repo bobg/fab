@@ -30,14 +30,14 @@ func TestImplementsTarget(t *testing.T) {
 		t.Errorf("checkImplementsTarget(fab.Runner) wrongly reports true")
 	}
 
-	filesTargetObj := scope.Lookup("Files")
-	filesTargetTypeName, ok := filesTargetObj.(*types.TypeName)
+	commandTargetObj := scope.Lookup("Command")
+	commandTargetTypeName, ok := commandTargetObj.(*types.TypeName)
 	if !ok {
-		t.Fatalf("filesTargetObj is a %T, want types.TypeName", filesTargetObj)
+		t.Fatalf("commandTargetObj is a %T, want types.TypeName", commandTargetObj)
 	}
-	filesTargetType := filesTargetTypeName.Type()
-	filesPtrType := types.NewPointer(filesTargetType)
-	if err = checkImplementsTarget(filesPtrType); err != nil {
-		t.Errorf("checkImplementsTarget(fab.Files) wrongly reports false: %s", err)
+	commandTargetType := commandTargetTypeName.Type()
+	commandPtrType := types.NewPointer(commandTargetType)
+	if err = checkImplementsTarget(commandPtrType); err != nil {
+		t.Errorf("checkImplementsTarget(fab.Command) wrongly reports false: %s", err)
 	}
 }

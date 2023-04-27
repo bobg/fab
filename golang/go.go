@@ -33,11 +33,7 @@ func Binary(dir, outfile string, flags ...string) (fab.Target, error) {
 		Cmd:  "go",
 		Args: args,
 	}
-	return &fab.Files{
-		Target: c,
-		In:     deps,
-		Out:    []string{outfile},
-	}, nil
+	return fab.Files(c, deps, []string{outfile}), nil
 }
 
 func binaryDecoder(node *yaml.Node) (fab.Target, error) {
