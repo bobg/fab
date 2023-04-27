@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/bobg/errors"
+	"github.com/bobg/go-generics/v2/slices"
 	"gopkg.in/yaml.v3"
 )
 
@@ -37,13 +38,12 @@ func allDecoder(node *yaml.Node) (Target, error) {
 	if node.Kind != yaml.SequenceNode {
 		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
 	}
-	var targets []Target
-	for i, child := range node.Content {
-		target, err := YAMLTarget(child)
-		if err != nil {
-			return nil, errors.Wrapf(err, "YAML error in All node, child %d", i)
-		}
-		targets = append(targets, target)
+	targets, err := slices.Mapx(node.Content, func(idx int, n *yaml.Node) (Target, error) {
+		target, err := YAMLTarget(n)
+		return target, errors.Wrapf(err, "child %d", idx)
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "YAML error decoding All")
 	}
 	return All(targets...), nil
 }

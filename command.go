@@ -28,15 +28,17 @@ import (
 //   - Stdout, the name of a file to which the command's standard output should be written.
 //     The file is overwritten unless this is prefixed with >> which means append.
 //     This may also be one of these special strings:
-//   - $stdout meaning use Fab's standard output;
-//   - $stderr meaning use Fab's standard error;
-//   - $discard meaning discard the command's standard output.
+//     $stdout (copy the command's output to Fab's standard output);
+//     $stderr (copy the command's output to Fab's standard error);
+//     $indent (indent the command's output with [IndentingCopier] and copy it to Fab's standard output);
+//     $discard (discard the command's output).
 //   - Stderr, the name of a file to which the command's standard error should be written.
 //     The file is overwritten unless this is prefixed with >> which means append.
 //     This may also be one of these special strings:
-//   - $stdout meaning use Fab's standard output;
-//   - $stderr meaning use Fab's standard error;
-//   - $discard meaning discard the command's standard error.
+//     $stdout (copy the command's error output to Fab's standard error);
+//     $stderr (copy the command's error output to Fab's standard error);
+//     $indent (indent the command's error output with [IndentingCopier] and copy it to Fab's standard error);
+//     $discard (discard the command's error output).
 //   - Dir, the directory in which the command should run.
 //   - Env, a list of VAR=VALUE strings to add to the command's environment.
 type Command struct {
@@ -65,31 +67,72 @@ type Command struct {
 	// to pass to the command named in Cmd.
 	Args []string `json:"args,omitempty"`
 
-	// Stdout and Stderr tell where to send the command's output.
-	// If either or both is nil,
-	// that output is saved in case the subprocess encounters an error.
-	// Then the returned error is a CommandErr containing that output.
+	// Stdout tells where to send the command's output.
+	// When no output destination is specified,
+	// the default depends on whether Fab is running in verbose mode
+	// (i.e., if [GetVerbose] returns true).
+	// In verbose mode,
+	// the command's output is indented and copied to Fab's standard output
+	// (using [IndentingCopier]).
+	// Otherwise,
+	// the command's output is captured
+	// and bundled together with any error into a [CommandErr].
+	//
+	// Stdout, StdoutFile, and StdoutFn are all mutually exclusive.
 	Stdout io.Writer `json:"-"`
+
+	// Stderr tells where to send the command's error output.
+	// When no error-output destination is specified,
+	// the default depends on whether Fab is running in verbose mode
+	// (i.e., if [GetVerbose] returns true).
+	// In verbose mode,
+	// the command's error output is indented and copied to Fab's standard error
+	// (using [IndentingCopier]).
+	// Otherwise,
+	// the command's error output is captured
+	// and bundled together with any error into a [CommandErr].
+	//
+	// Stderr, StderrFile, and StderrFn are all mutually exclusive.
 	Stderr io.Writer `json:"-"`
 
+	// StdoutFn lets you defer assigning a value to Stdout
+	// until Run is invoked,
+	// at which time its context object is passed to this function to produce the [io.Writer] to use.
+	// If the writer produced by this function is also an [io.Closer],
+	// its Close method will be called before Run exits.
+	//
+	// Stdout, StdoutFile, and StdoutFn are all mutually exclusive.
+	StdoutFn func(context.Context) io.Writer `json:"-"`
+
+	// StderrFn lets you defer assigning a value to Stderr
+	// until Run is invoked,
+	// at which time its context object is passed to this function to produce the [io.Writer] to use.
+	// If the writer produced by this function is also an [io.Closer],
+	// its Close method will be called before Run exits.
+	//
+	// Stderr, StderrFile, and StderrFn are all mutually exclusive.
+	StderrFn func(context.Context) io.Writer `json:"-"`
+
 	// StdoutFile is the name of a file to which the command's standard output should go.
-	// It is mutually exclusive with Stdout.
 	// When the command runs,
 	// the file is created or overwritten,
 	// unless this string has a >> prefix,
 	// which means "append."
 	// If StdoutFile and StderrFile name the same file,
 	// output from both streams is combined there.
+	//
+	// Stdout, StdoutFile, and StdoutFn are all mutually exclusive.
 	StdoutFile string `json:"stdout_file,omitempty"`
 
 	// StderrFile is the name of a file to which the command's standard error should go.
-	// It is mutually exclusive with Stderr.
 	// When the command runs,
 	// the file is created or overwritten,
 	// unless this string has a >> prefix,
 	// which means "append."
 	// If StdoutFile and StderrFile name the same file,
 	// output from both streams is combined there.
+	//
+	// Stderr, StderrFile, and StderrFn are all mutually exclusive.
 	StderrFile string `json:"stderr_file,omitempty"`
 
 	// Stdin tells where to read the command's standard input.
@@ -119,7 +162,7 @@ func Shellf(format string, args ...any) *Command {
 }
 
 // Run implements Target.Run.
-func (c *Command) Run(ctx context.Context) error {
+func (c *Command) Run(ctx context.Context) (err error) {
 	var (
 		cmdname = c.Cmd
 		args    = c.Args
@@ -162,14 +205,24 @@ func (c *Command) Run(ctx context.Context) error {
 			if err != nil {
 				return errors.Wrapf(err, "opening %s for appending", stdoutFile)
 			}
-			defer f.Close()
+			defer func() {
+				closeErr := f.Close()
+				if err == nil {
+					err = errors.Wrapf(closeErr, "closing stdout file %s", stdoutFile)
+				}
+			}()
 			cmd.Stdout = f
 		} else {
 			f, err := os.Create(stdoutFile)
 			if err != nil {
 				return errors.Wrapf(err, "opening %s for writing", stdoutFile)
 			}
-			defer f.Close()
+			defer func() {
+				closeErr := f.Close()
+				if err == nil {
+					err = errors.Wrapf(closeErr, "closing stderr file %s", stdoutFile)
+				}
+			}()
 			cmd.Stdout = f
 		}
 	}
@@ -192,6 +245,31 @@ func (c *Command) Run(ctx context.Context) error {
 			defer f.Close()
 			cmd.Stderr = f
 		}
+	}
+
+	if cmd.Stdout == nil && c.StdoutFn != nil {
+		w := c.StdoutFn(ctx)
+		if closer, ok := w.(io.Closer); ok {
+			defer func() {
+				closeErr := closer.Close()
+				if err == nil {
+					err = errors.Wrap(closeErr, "closing stdout")
+				}
+			}()
+		}
+		cmd.Stdout = w
+	}
+	if cmd.Stderr == nil && c.StderrFn != nil {
+		w := c.StderrFn(ctx)
+		if closer, ok := w.(io.Closer); ok {
+			defer func() {
+				closeErr := closer.Close()
+				if err == nil {
+					err = errors.Wrap(closeErr, "closing stderr")
+				}
+			}()
+		}
+		cmd.Stderr = w
 	}
 
 	var buf bytes.Buffer
@@ -223,7 +301,7 @@ func (c *Command) Run(ctx context.Context) error {
 		cmd.Stdin = f
 	}
 
-	err := cmd.Run()
+	err = cmd.Run()
 	if err != nil && buf.Len() > 0 {
 		err = CommandErr{
 			Err:    err,
@@ -308,9 +386,9 @@ func commandDecoder(node *yaml.Node) (Target, error) {
 		result.Stdout = io.Discard
 
 	case "$indent":
-		return nil, fmt.Errorf("$indent not yet implemented for stdout")
-		// TODO: figure out the right API to make this work, requires the context from Run.
-		// result.Stdout = IndentingCopier(ctx, os.Stdout, "    ")
+		result.StdoutFn = func(ctx context.Context) io.Writer {
+			return IndentingCopier(ctx, os.Stdout, "    ")
+		}
 
 	default:
 		result.StdoutFile = c.Stdout
@@ -327,9 +405,9 @@ func commandDecoder(node *yaml.Node) (Target, error) {
 		result.Stderr = io.Discard
 
 	case "$indent":
-		return nil, fmt.Errorf("$indent not yet implemented for stderr")
-		// TODO: figure out the right API to make this work, requires the context from Run.
-		// result.Stderr = IndentingCopier(ctx, os.Stderr, "    ")
+		result.StderrFn = func(ctx context.Context) io.Writer {
+			return IndentingCopier(ctx, os.Stderr, "    ")
+		}
 
 	default:
 		result.StderrFile = c.Stderr
