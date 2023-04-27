@@ -35,8 +35,13 @@ func TestFileChaining(t *testing.T) {
 	aToB := fileCopyTarget(aFile, bFile)
 	bToC := fileCopyTarget(bFile, cFile)
 
-	RegisterTarget("aToB", "", aToB)
-	RegisterTarget("bToC", "", bToC)
+	// These registrations make things clearer in verbose mode.
+	if _, err = RegisterTarget("aToB", "", aToB); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = RegisterTarget("bToC", "", bToC); err != nil {
+		t.Fatal(err)
+	}
 
 	ctx := context.Background()
 
