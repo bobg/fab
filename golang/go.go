@@ -23,11 +23,16 @@ import (
 //   - Out: the output file that will contain the compiled binary
 //   - Flags: a sequence of additional command-line flags for `go build`
 func Binary(dir, outfile string, flags ...string) (fab.Target, error) {
+	relOutfile, err := filepath.Rel(dir, outfile)
+	if err != nil {
+		return nil, errors.Wrapf(err, "getting relative path from %s to %s", dir, outfile)
+	}
+
 	deps, err := Deps(dir, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "computing dependencies")
 	}
-	args := append([]string{"build", "-o", outfile, "-C", dir}, flags...)
+	args := append([]string{"build", "-o", relOutfile, "-C", dir}, flags...)
 	args = append(args, ".")
 	c := &fab.Command{
 		Cmd:  "go",

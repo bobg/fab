@@ -22,7 +22,7 @@ var (
 // Files creates a target that contains a list of input files
 // and a list of expected output files.
 // It also contains a nested subtarget
-// whose Run method should produce or update the expected output files.
+// whose Execute method should produce or update the expected output files.
 //
 // When the Files target runs,
 // a hash is computed from the nested subtarget
@@ -91,8 +91,8 @@ type files struct {
 
 var _ Target = &files{}
 
-// Run implements Target.Run.
-func (ft *files) Run(ctx context.Context) error {
+// Execute implements Target.Execute.
+func (ft *files) Execute(ctx context.Context) error {
 	if err := ft.runPrereqs(ctx); err != nil {
 		return errors.Wrap(err, "in prerequisites")
 	}

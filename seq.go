@@ -10,7 +10,7 @@ import (
 )
 
 // Seq produces a target that runs a collection of targets in sequence.
-// Its Run method exits early when a target in the sequence fails.
+// Its Execute method exits early when a target in the sequence fails.
 //
 // A Seq target may be specified in YAML using the tag !Seq,
 // which introduces a sequence.
@@ -26,8 +26,8 @@ type seq struct {
 
 var _ Target = &seq{}
 
-// Run implements Target.Run.
-func (s *seq) Run(ctx context.Context) error {
+// Execute implements Target.Execute.
+func (s *seq) Execute(ctx context.Context) error {
 	for _, t := range s.targets {
 		if err := Run(ctx, t); err != nil {
 			return err

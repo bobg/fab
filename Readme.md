@@ -215,7 +215,7 @@ You can define new target types in Go code in the `_fab` subdirectory
 (or anywhere else, that is then imported into the `_fab` package).
 
 Your type must implement [fab.Target](https://pkg.go.dev/github.com/bobg/fab#Target),
-which requires two methods: `Desc` and `Run`.
+which requires two methods: `Desc` and `Execute`.
 
 `Desc` produces a short string describing the target.
 It is used by [Describe](https://pkg.go.dev/github.com/bobg/fab#Describe)
@@ -223,12 +223,12 @@ to describe targets that don’t have a name
 (i.e., ones that were never registered with `RegisterTarget`,
 possibly because they are nested inside some other target).
 
-`Run` should unconditionally execute your target type’s logic.
+`Execute` should unconditionally execute your target type’s logic.
 The Fab runtime will take care of making sure your target runs only when it needs to.
 More about this appears below.
 
-If part of your `Run` method involves running other targets,
-do not invoke their `Run` methods directly.
+If part of your `Execute` method involves running other targets,
+do not invoke their `Execute` methods directly.
 Instead, invoke the [fab.Run](https://pkg.go.dev/github.com/bobg/fab#Run) _function_,
 which will skip that target if it has already run.
 This means that a “diamond dependency” —
@@ -336,7 +336,7 @@ and hash values normally expire after thirty days.
 ## The Fab runtime
 
 A Fab [Runner](https://pkg.go.dev/github.com/bobg/fab#Runner)
-is responsible for invoking targets’ `Run` methods,
+is responsible for invoking targets’ `Execute` methods,
 keeping track of which ones have already run
 so that they don’t get invoked a second time.
 A normal Fab session uses a single global default runner.

@@ -25,11 +25,12 @@ type all struct {
 
 var _ Target = &all{}
 
-// Run implements Target.Run.
-func (a *all) Run(ctx context.Context) error {
+// Run implements Target.Execute.
+func (a *all) Execute(ctx context.Context) error {
 	return Run(ctx, a.targets...)
 }
 
+// Desc implements Target.Desc.
 func (*all) Desc() string {
 	return "All"
 }

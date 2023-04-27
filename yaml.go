@@ -87,7 +87,7 @@ func (dt *deferredResolutionTarget) resolve() (Target, error) {
 	return dt.target, nil
 }
 
-func (dt *deferredResolutionTarget) Run(ctx context.Context) error {
+func (dt *deferredResolutionTarget) Execute(ctx context.Context) error {
 	target, err := dt.resolve()
 	if err != nil {
 		return err

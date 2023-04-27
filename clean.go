@@ -27,8 +27,8 @@ type clean struct {
 	Files []string
 }
 
-// Run implements Target.Run.
-func (c *clean) Run(_ context.Context) error {
+// Execute implements Target.Execute.
+func (c *clean) Execute(_ context.Context) error {
 	for _, f := range c.Files {
 		err := os.Remove(f)
 		if errors.Is(err, fs.ErrNotExist) {
@@ -41,6 +41,7 @@ func (c *clean) Run(_ context.Context) error {
 	return nil
 }
 
+// Desc implements Target.Desc.
 func (*clean) Desc() string {
 	return "Clean"
 }

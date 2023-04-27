@@ -54,7 +54,6 @@ type outcome struct {
 // The runner is added to the context with [WithRunner]
 // and can be retrieved with [GetRunner].
 // Calls to [Run]
-// (the global function, not the Runner.Run method)
 // will use it instead of [DefaultRunner]
 // by finding it in the context.
 func (r *Runner) Run(ctx context.Context, targets ...Target) error {
@@ -104,7 +103,7 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 				if verbose {
 					r.Indentf("Running %s", Describe(target))
 				}
-				err := target.Run(ctx)
+				err := target.Execute(ctx)
 				if err != nil {
 					err = errors.Wrapf(err, "running %s", Describe(target))
 				}

@@ -13,7 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Command is a Target whose Run function executes a command in a subprocess.
+// Command is a Target whose Execute function executes a command in a subprocess.
 //
 // A Command target may be specified in YAML using the !Command tag,
 // which introduces a mapping with the following fields:
@@ -96,19 +96,19 @@ type Command struct {
 	Stderr io.Writer `json:"-"`
 
 	// StdoutFn lets you defer assigning a value to Stdout
-	// until Run is invoked,
+	// until Execute is invoked,
 	// at which time its context object is passed to this function to produce the [io.Writer] to use.
 	// If the writer produced by this function is also an [io.Closer],
-	// its Close method will be called before Run exits.
+	// its Close method will be called before Execute exits.
 	//
 	// Stdout, StdoutFile, and StdoutFn are all mutually exclusive.
 	StdoutFn func(context.Context) io.Writer `json:"-"`
 
 	// StderrFn lets you defer assigning a value to Stderr
-	// until Run is invoked,
+	// until Execute is invoked,
 	// at which time its context object is passed to this function to produce the [io.Writer] to use.
 	// If the writer produced by this function is also an [io.Closer],
-	// its Close method will be called before Run exits.
+	// its Close method will be called before Execute exits.
 	//
 	// Stderr, StderrFile, and StderrFn are all mutually exclusive.
 	StderrFn func(context.Context) io.Writer `json:"-"`
@@ -144,7 +144,7 @@ type Command struct {
 	StdinFile string `json:"stdin_file,omitempty"`
 
 	// Dir is the directory in which to run the command.
-	// The default is the value of GetDir(ctx) when the Run method is called.
+	// The default is the value of GetDir(ctx) when the Execute method is called.
 	Dir string `json:"dir,omitempty"`
 
 	// Env is a list of VAR=VALUE strings to add to the environment when the command runs.
@@ -161,8 +161,8 @@ func Shellf(format string, args ...any) *Command {
 	}
 }
 
-// Run implements Target.Run.
-func (c *Command) Run(ctx context.Context) (err error) {
+// Execute implements Target.Execute.
+func (c *Command) Execute(ctx context.Context) (err error) {
 	var (
 		cmdname = c.Cmd
 		args    = c.Args
@@ -316,7 +316,7 @@ func (*Command) Desc() string {
 	return "Command"
 }
 
-// CommandErr is a type of error that may be returned from command.Run.
+// CommandErr is a type of error that may be returned from command.Execute.
 // If the command's Stdout or Stderr field was nil,
 // then that output from the subprocess is in CommandErr.Output
 // and the underlying error is in CommandErr.Err.

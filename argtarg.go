@@ -33,11 +33,13 @@ type argTarget struct {
 
 var _ Target = &argTarget{}
 
-func (a *argTarget) Run(ctx context.Context) error {
+// Execute implements Target.Execute.
+func (a *argTarget) Execute(ctx context.Context) error {
 	ctx = WithArgs(ctx, a.args...)
 	return Run(ctx, a.target)
 }
 
+// Desc implements Target.Desc.
 func (*argTarget) Desc() string {
 	return "ArgTarget"
 }
