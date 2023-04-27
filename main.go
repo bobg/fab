@@ -2,12 +2,15 @@ package fab
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -53,7 +56,7 @@ type Main struct {
 // in which case the driver will execute the associated rules
 // as defined by the code in m.Pkgdir.
 func (m Main) Run(ctx context.Context) error {
-	driver, err := m.getDriver(ctx)
+	driver, err := m.getDriver(ctx, false)
 	if errors.Is(err, errNoDriver) {
 		return m.driverless(ctx)
 	}
@@ -181,8 +184,12 @@ func ParseArgs(args []string) ([]Target, error) {
 	}
 }
 
-func (m Main) getDriver(ctx context.Context) (string, error) {
-	_, err := os.Stat(m.Pkgdir)
+const fabVersionBasename = "fab-version.json"
+
+// TODO: Remove skipVersionCheck, which is here only to help an old test keep running.
+// Update the test instead.
+func (m Main) getDriver(ctx context.Context, skipVersionCheck bool) (_ string, err error) {
+	_, err = os.Stat(m.Pkgdir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", errNoDriver
 	}
@@ -224,10 +231,11 @@ func (m Main) getDriver(ctx context.Context) (string, error) {
 	}
 
 	var (
-		hashfile = filepath.Join(driverdir, "hash")
-		driver   = filepath.Join(driverdir, "fab.bin")
-		compile  bool
-		oldhash  []byte
+		hashfile    = filepath.Join(driverdir, "hash")
+		driver      = filepath.Join(driverdir, "fab.bin")
+		versionfile = filepath.Join(driverdir, fabVersionBasename)
+		compile     bool
+		oldhash     []byte
 	)
 
 	if m.Force {
@@ -244,6 +252,14 @@ func (m Main) getDriver(ctx context.Context) (string, error) {
 			}
 		} else if err != nil {
 			return "", errors.Wrapf(err, "statting %s", driver)
+		}
+	}
+
+	var buildInfo *debug.BuildInfo
+	if !compile && !skipVersionCheck {
+		compile, buildInfo, err = m.checkVersion(versionfile)
+		if err != nil {
+			return "", errors.Wrap(err, "checking Fab version")
 		}
 	}
 
@@ -283,16 +299,79 @@ func (m Main) getDriver(ctx context.Context) (string, error) {
 		}
 	}
 
-	if compile {
-		if err = CompilePackage(ctx, pkg, driver); err != nil {
-			return "", errors.Wrapf(err, "compiling driver %s", driver)
+	if !compile {
+		return driver, nil
+	}
+
+	if err = CompilePackage(ctx, pkg, driver); err != nil {
+		return "", errors.Wrapf(err, "compiling driver %s", driver)
+	}
+	if err = os.WriteFile(hashfile, []byte(newhash), 0644); err != nil {
+		return "", errors.Wrapf(err, "writing %s", hashfile)
+	}
+	if buildInfo != nil {
+		v, err := os.OpenFile(versionfile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
+			return "", errors.Wrapf(err, "opening %s for writing", versionfile)
 		}
-		if err = os.WriteFile(hashfile, []byte(newhash), 0644); err != nil {
-			return "", errors.Wrapf(err, "writing %s", hashfile)
+		defer func() {
+			closeErr := v.Close()
+			if err == nil {
+				err = errors.Wrapf(closeErr, "closing %s", versionfile)
+			}
+		}()
+		enc := json.NewEncoder(v)
+		enc.SetIndent("", "  ")
+		if err = enc.Encode(buildInfo); err != nil {
+			return "", errors.Wrap(err, "encoding build info")
 		}
 	}
 
 	return driver, nil
+}
+
+func (m Main) checkVersion(versionfile string) (bool, *debug.BuildInfo, error) {
+	newInfo, ok := debug.ReadBuildInfo()
+	if !ok {
+		if m.Verbose {
+			fmt.Println("Could not read build info of running Fab process, will recompile driver")
+		}
+		_ = os.Remove(versionfile)
+		return true, nil, nil
+	}
+
+	f, err := os.Open(versionfile)
+	if errors.Is(err, fs.ErrNotExist) {
+		if m.Verbose {
+			fmt.Printf("No %s file, compiling driver\n", fabVersionBasename)
+		}
+		return true, newInfo, nil
+	}
+	if err != nil {
+		return false, nil, errors.Wrapf(err, "opening %s", versionfile)
+	}
+	defer f.Close()
+
+	var (
+		dec     = json.NewDecoder(f)
+		oldInfo debug.BuildInfo
+	)
+
+	if err = dec.Decode(&oldInfo); err != nil {
+		if m.Verbose {
+			fmt.Printf("Error decoding %s, will recompile driver: %s\n", versionfile, err)
+		}
+		return true, newInfo, nil
+	}
+
+	if !reflect.DeepEqual(*newInfo, oldInfo) {
+		if m.Verbose {
+			fmt.Println("Fab build info changed, will recompile driver")
+		}
+		return true, newInfo, nil
+	}
+
+	return false, nil, nil
 }
 
 func addFileToHash(dh *dirHasher, filename string) error {
