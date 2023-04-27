@@ -13,10 +13,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Files is a HashTarget.
-// It contains a list of input files,
+// Files is a target that contains a list of input files
 // and a list of expected output files.
-// It also contains an embedded Target
+// It also contains a nested subtarget
 // whose Run method should produce the expected output files.
 //
 // The Files target's hash is computed from the target and all the input and output files.
@@ -33,7 +32,7 @@ import (
 // A Files target may be specified in YAML using the !Files tag,
 // which introduces a mapping whose fields are:
 //
-//   - Target: the wrapped target, or target name
+//   - Target: the nested subtarget, or target name
 //   - In: the list of input files, interpreted with [YAMLStringList]
 //   - Out: the list of output files, interpreted with [YAMLStringList]
 //
@@ -42,7 +41,7 @@ import (
 //	Foo: !Files
 //	  Target: !Command
 //	    - go build -o thingify ./cmd/thingify
-//	  In: !deps.Go
+//	  In: !golang.Deps
 //	    Dir: cmd
 //	  Out:
 //	    - thingify
@@ -57,11 +56,44 @@ type Files struct {
 	Out    []string
 }
 
-var _ HashTarget = &Files{}
+var _ Target = &Files{}
 
 // Run implements Target.Run.
 func (ft *Files) Run(ctx context.Context) error {
-	return ft.Target.Run(ctx)
+	if GetForce(ctx) {
+		return ft.Target.Run(ctx)
+	}
+
+	db := GetHashDB(ctx)
+	if db == nil {
+		return ft.Target.Run(ctx)
+	}
+
+	h, err := ft.computeHash(ctx)
+	if err != nil {
+		return errors.Wrap(err, "computing hash before running subtarget")
+	}
+	has, err := db.Has(ctx, h)
+	if err != nil {
+		return errors.Wrap(err, "checking hash db")
+	}
+	if has {
+		if GetVerbose(ctx) {
+			Indentf(ctx, "%s is up to date", Describe(ft))
+		}
+		return nil
+	}
+
+	if err = Run(ctx, ft.Target); err != nil {
+		return errors.Wrap(err, "running subtarget")
+	}
+
+	h, err = ft.computeHash(ctx)
+	if err != nil {
+		return errors.Wrap(err, "computing hash after running subtarget")
+	}
+	err = db.Add(ctx, h)
+	return errors.Wrap(err, "adding hash to db")
 }
 
 // Desc implements Target.Desc.
@@ -69,8 +101,8 @@ func (*Files) Desc() string {
 	return "Files"
 }
 
-// Hash implements HashTarget.Hash.
-func (ft *Files) Hash(ctx context.Context) ([]byte, error) {
+// TODO: should this incorporate debug.ReadBuildInfo?
+func (ft *Files) computeHash(ctx context.Context) ([]byte, error) {
 	inHashes, err := fileHashes(ft.In)
 	if err != nil {
 		return nil, errors.Wrapf(err, "computing input hash(es) for %s", Describe(ft))
