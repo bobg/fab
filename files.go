@@ -3,10 +3,13 @@ package fab
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
+	"reflect"
+	"sort"
 	"sync"
 
 	"github.com/bobg/errors"
@@ -30,8 +33,7 @@ var (
 // If none of those has changed since the last time the output files were built,
 // then the output files are up to date and running of this Files target can be skipped.
 //
-// For the hashing behavior to work correctly,
-// the nested subtarget should be of a type that can be JSON-marshaled.
+// The nested subtarget must be of a type that can be JSON-marshaled.
 // Note that this excludes [F],
 // among others.
 //
@@ -138,7 +140,6 @@ func (*files) Desc() string {
 	return "Files"
 }
 
-// TODO: should this incorporate debug.ReadBuildInfo?
 func (ft *files) computeHash(ctx context.Context) ([]byte, error) {
 	inHashes, err := fileHashes(ft.In)
 	if err != nil {
@@ -148,19 +149,23 @@ func (ft *files) computeHash(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "computing output hash(es) for %s", Describe(ft))
 	}
+	tt := reflect.TypeOf(ft.Target)
 	s := struct {
-		Target
-		In  map[string][]byte `json:"in,omitempty"`
-		Out map[string][]byte `json:"out,omitempty"`
+		Target     Target   `json:"target"`
+		TargetType string   `json:"target_type"`
+		In         []string `json:"in,omitempty"`  // [filename, hash, filename, hash, ...]
+		Out        []string `json:"out,omitempty"` // [filename, hash, filename, hash, ...]
 	}{
-		Target: ft.Target,
-		In:     inHashes,
-		Out:    outHashes,
+		Target:     ft.Target,
+		TargetType: tt.String(),
+		In:         inHashes,
+		Out:        outHashes,
 	}
 	j, err := json.Marshal(s)
 	if err != nil {
 		return nil, errors.Wrap(err, "in JSON marshaling")
 	}
+
 	sum := sha256.Sum224(j)
 	return sum[:], nil
 }
@@ -182,32 +187,40 @@ func (ft *files) runPrereqs(ctx context.Context) error {
 	return Run(ctx, prereqs...)
 }
 
-func fileHashes(files []string) (map[string][]byte, error) {
-	hashes := make(map[string][]byte)
-	for _, file := range files {
+// Returns [filename, hash, filename, hash, ...],
+// with filenames sorted.
+func fileHashes(files []string) ([]string, error) {
+	sorted := make([]string, len(files))
+	copy(sorted, files)
+	sort.Strings(sorted)
+
+	result := make([]string, 0, 2*len(files))
+	for _, file := range sorted {
 		h, err := hashFile(file)
 		if errors.Is(err, fs.ErrNotExist) {
-			h = nil
+			h = ""
 		} else if err != nil {
 			return nil, errors.Wrapf(err, "computing hash of %s", file)
 		}
-		hashes[file] = h
+		result = append(result, file, h)
 	}
-	return hashes, nil
+
+	return result, nil
 }
 
-func hashFile(path string) ([]byte, error) {
+func hashFile(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, errors.Wrapf(err, "opening %s", path)
+		return "", errors.Wrapf(err, "opening %s", path)
 	}
 	defer f.Close()
 	hasher := sha256.New224()
 	_, err = io.Copy(hasher, f)
 	if err != nil {
-		return nil, errors.Wrapf(err, "hashing %s", path)
+		return "", errors.Wrapf(err, "hashing %s", path)
 	}
-	return hasher.Sum(nil), nil
+	h := hasher.Sum(nil)
+	return hex.EncodeToString(h), nil
 }
 
 func filesDecoder(node *yaml.Node) (Target, error) {

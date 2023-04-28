@@ -14,6 +14,10 @@ import (
 // When the target runs,
 // its arguments are available from the context using [GetArgs].
 //
+// It is JSON-encodable
+// (and therefore usable as the subtarget in [Files])
+// if its subtarget is.
+//
 // An ArgTarget target may be specified in YAML using the tag !ArgTarget,
 // which introduces a sequence.
 // The first element of the sequence is a target or target name.
@@ -21,22 +25,22 @@ import (
 // to produce the arguments for the target.
 func ArgTarget(target Target, args ...string) Target {
 	return &argTarget{
-		target: target,
-		args:   args,
+		Target: target,
+		Args:   args,
 	}
 }
 
 type argTarget struct {
-	target Target
-	args   []string
+	Target Target
+	Args   []string
 }
 
 var _ Target = &argTarget{}
 
 // Execute implements Target.Execute.
 func (a *argTarget) Execute(ctx context.Context) error {
-	ctx = WithArgs(ctx, a.args...)
-	return Run(ctx, a.target)
+	ctx = WithArgs(ctx, a.Args...)
+	return Run(ctx, a.Target)
 }
 
 // Desc implements Target.Desc.

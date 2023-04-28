@@ -15,6 +15,9 @@ import (
 
 // Command is a Target whose Execute function executes a command in a subprocess.
 //
+// It is JSON-encodable
+// (and therefore usable as the subtarget in [Files]).
+//
 // A Command target may be specified in YAML using the !Command tag,
 // which introduces a mapping with the following fields:
 //

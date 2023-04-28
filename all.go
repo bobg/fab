@@ -11,23 +11,27 @@ import (
 
 // All produces a target that runs a collection of targets in parallel.
 //
+// It is JSON-encodable
+// (and therefore usable as the subtarget in [Files])
+// if all of the targets in its collection are.
+//
 // An All target may be specified in YAML using the tag !All,
 // which introduces a sequence.
 // The elements in the sequence are targets themselves,
 // or target names.
 func All(targets ...Target) Target {
-	return &all{targets: targets}
+	return &all{Targets: targets}
 }
 
 type all struct {
-	targets []Target
+	Targets []Target
 }
 
 var _ Target = &all{}
 
 // Run implements Target.Execute.
 func (a *all) Execute(ctx context.Context) error {
-	return Run(ctx, a.targets...)
+	return Run(ctx, a.Targets...)
 }
 
 // Desc implements Target.Desc.

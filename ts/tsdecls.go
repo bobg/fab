@@ -17,6 +17,9 @@ import (
 // based on the Go `typename`
 // found in the package in `dir`.
 //
+// It is JSON-encodable
+// (and therefore usable as the subtarget in [fab.Files]).
+//
 // A Decls target may be specified in YAML using the tag !ts.Decls,
 // which introduces a mapping whose fields are:
 //

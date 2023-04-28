@@ -38,7 +38,7 @@ func TestYAML(t *testing.T) {
 	}
 
 	gotFoo, gotFooDoc := RegistryTarget("Foo")
-	wantFoo := All(&deferredResolutionTarget{name: "Bar"}, &deferredResolutionTarget{name: "Baz"})
+	wantFoo := All(&deferredResolutionTarget{Name: "Bar"}, &deferredResolutionTarget{Name: "Baz"})
 	const wantFooDoc = "Foo does Bar and Baz."
 	if !reflect.DeepEqual(gotFoo, wantFoo) {
 		t.Errorf("mismatch for Foo; got:\n%s\nwant:\n%s", spew.Sdump(gotFoo), spew.Sdump(wantFoo))
@@ -59,9 +59,9 @@ func TestYAML(t *testing.T) {
 
 	gotBaz, gotBazDoc := RegistryTarget("Baz")
 	wantBaz := Deps(
-		&deferredResolutionTarget{name: "X"},
-		&deferredResolutionTarget{name: "Y"},
-		&deferredResolutionTarget{name: "Z"},
+		&deferredResolutionTarget{Name: "X"},
+		&deferredResolutionTarget{Name: "Y"},
+		&deferredResolutionTarget{Name: "Z"},
 	)
 	const wantBazDoc = "Baz does X after Y and Z."
 	if !reflect.DeepEqual(gotBaz, wantBaz) {
@@ -78,9 +78,9 @@ func TestYAML(t *testing.T) {
 
 	gotX, gotXDoc := RegistryTarget("X")
 	wantX := Seq(
-		&deferredResolutionTarget{name: "A"},
-		&deferredResolutionTarget{name: "B"},
-		&deferredResolutionTarget{name: "C"},
+		&deferredResolutionTarget{Name: "A"},
+		&deferredResolutionTarget{Name: "B"},
+		&deferredResolutionTarget{Name: "C"},
 	)
 	const wantXDoc = "X does A then B then C."
 	if !reflect.DeepEqual(gotX, wantX) {

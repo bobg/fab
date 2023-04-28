@@ -3,6 +3,8 @@ package fab
 import "context"
 
 // F produces a target whose Execute function invokes the given function.
+// It is not JSON-encodable,
+// so it should not be used as the subtarget in a [Files] rule.
 func F(f func(context.Context) error) Target {
 	return &ftarget{f: f}
 }

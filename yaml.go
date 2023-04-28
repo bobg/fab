@@ -47,7 +47,7 @@ func YAMLTarget(node *yaml.Node) (Target, error) {
 	tag := normalizeTag(node.Tag)
 
 	if tag == "" && node.Kind == yaml.ScalarNode {
-		return &deferredResolutionTarget{name: node.Value}, nil
+		return &deferredResolutionTarget{Name: node.Value}, nil
 	}
 
 	if tag == "" {
@@ -66,8 +66,8 @@ func YAMLTarget(node *yaml.Node) (Target, error) {
 
 type deferredResolutionTarget struct {
 	mu     sync.Mutex
-	name   string
-	target Target
+	Name   string
+	Target Target
 }
 
 var _ Target = &deferredResolutionTarget{}
@@ -76,15 +76,15 @@ func (dt *deferredResolutionTarget) resolve() (Target, error) {
 	dt.mu.Lock()
 	defer dt.mu.Unlock()
 
-	if dt.target == nil {
-		target, _ := RegistryTarget(dt.name)
+	if dt.Target == nil {
+		target, _ := RegistryTarget(dt.Name)
 		if target == nil {
-			return nil, fmt.Errorf("cannot resolve target %s", dt.name)
+			return nil, fmt.Errorf("cannot resolve target %s", dt.Name)
 		}
-		dt.target = target
+		dt.Target = target
 	}
 
-	return dt.target, nil
+	return dt.Target, nil
 }
 
 func (dt *deferredResolutionTarget) Execute(ctx context.Context) error {
@@ -98,7 +98,7 @@ func (dt *deferredResolutionTarget) Execute(ctx context.Context) error {
 func (dt *deferredResolutionTarget) Desc() string {
 	dt.mu.Lock()
 	defer dt.mu.Unlock()
-	return dt.name
+	return dt.Name
 }
 
 // ReadYAML reads a YAML document from the given source,

@@ -12,6 +12,10 @@ import (
 // Seq produces a target that runs a collection of targets in sequence.
 // Its Execute method exits early when a target in the sequence fails.
 //
+// It is JSON-encodable
+// (and therefore usable as the subtarget in [Files])
+// if all of the targets in its collection are.
+//
 // A Seq target may be specified in YAML using the tag !Seq,
 // which introduces a sequence.
 // The elements in the sequence are targets themselves,

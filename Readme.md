@@ -236,6 +236,17 @@ A depends on B and C,
 and B and C each separately depend on X —
 won’t cause X to run twice when the user runs `fab A`.
 
+Your implementation should be a pointer type,
+which is required for targets passed to [Describe](https://pkg.go.dev/github.com/bobg/fab#Describe)
+and [RegisterTarget](https://pkg.go.dev/github.com/bobg/fab#RegisterTarget).
+
+If you would like your type to be usable as the subtarget in a [Files](https://pkg.go.dev/github.com/bobg/fab#Files) rule,
+it must be JSON-encodable (unlike [F](https://pkg.go.dev/github.com/bobg/fab#F), for example).
+Among other things,
+this means that struct fields should be [exported](https://go.dev/ref/spec#Exported_identifiers),
+or it should implement [json.Marshaler](https://pkg.go.dev/encoding/json#Marshaler).
+See [json.Marshal](https://pkg.go.dev/encoding/json#Marshal) for more detail on what’s encodable.
+
 If you would like your new target type to be usable in `fab.yaml`,
 you must define a YAML parser for it.
 This is done with [RegisterYAMLTarget](https://pkg.go.dev/github.com/bobg/fab#RegisterYAMLTarget),
