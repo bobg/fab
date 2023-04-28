@@ -191,12 +191,12 @@ Prog: !Files
 
 # Unconditionally rebuild prog.
 Build: !Command
-  - go build -o prog ./cmd/prog
+  Shell: go build -o prog ./cmd/prog
 
 # Test runs all tests.
 Test: !Command
-  - go test -race -cover ./...
-  - stdout
+  Shell: go test -race -cover ./...
+  Stdout: $stdout
 ```
 
 This defines `Prog` as a Fab target of type `Files`.
