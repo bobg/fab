@@ -127,7 +127,7 @@ import (
 )
 
 // Test runs tests.
-var Test = fab.Command("go test -cover ./...", fab.CmdStdout(os.Stdout))
+var Test = &fab.Command{Shell: "go test -cover ./...", Stdout: os.Stdout}
 ```
 
 This creates a `Command`-typed target named `Test`,
@@ -283,9 +283,36 @@ and for _content-based dependency checking._
 ### File chaining
 
 When a `Files` target runs,
-it looks for filenames in its input-files list
-that appear in the output-files lists of other `Files` targets.
+it looks for filenames in its input list
+that appear in the output lists of other `Files` targets.
 Other targets found in this way are [Run](https://pkg.go.dev/github.com/bobg/fab#Run) first as prerequisites.
+
+Here is a simple example in YAML:
+
+```yaml
+AB: !Files
+  In: [a]
+  Out: [b]
+  Target: !Command
+    Shell: cp a b
+
+BC: !Files
+  In: [b]
+  Out: [c]
+  Target: !Command
+    Shell: cp b c
+```
+
+(File a produces b by copying; file b produces c by copying.)
+
+If you run `fab BC` to update c from b,
+Fab will discover that the input file b
+appears in the output list of target `AB`,
+and run that target first.
+
+(If b is already up to date with respect to a,
+running `AB` will have no effect.
+See the next section for more about this.)
 
 ### Content-based dependency checking
 
