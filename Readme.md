@@ -156,7 +156,7 @@ for m := time.January; m <= time.December; m++ {
   fab.RegisterTarget(
     m.String(),
     "Say that it’s "+m.String(),
-    fab.Command("echo It is "+m.String(), fab.CmdStdout(os.Stdout)),
+    &fab.Command{Shell: "echo It is "+m.String(), Stdout: os.Stdout},
   )
 }
 ```
