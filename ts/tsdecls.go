@@ -42,6 +42,15 @@ func Decls(dir, typename, prefix, outfile string) (fab.Target, error) {
 	return fab.Files(subtarget, gopkg, []string{outfile}), nil
 }
 
+// MustDecls is the same as [Decls] but panics on error.
+func MustDecls(dir, typename, prefix, outfile string) fab.Target {
+	target, err := Decls(dir, typename, prefix, outfile)
+	if err != nil {
+		panic(err)
+	}
+	return target
+}
+
 type declsType struct {
 	Dir, Typename, Prefix, Outfile string
 }

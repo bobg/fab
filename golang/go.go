@@ -41,6 +41,15 @@ func Binary(dir, outfile string, flags ...string) (fab.Target, error) {
 	return fab.Files(c, deps, []string{outfile}), nil
 }
 
+// MustBinary is the same as [Binary] but panics on error.
+func MustBinary(dir, outfile string, flags ...string) fab.Target {
+	target, err := Binary(dir, outfile, flags...)
+	if err != nil {
+		panic(err)
+	}
+	return target
+}
+
 func binaryDecoder(node *yaml.Node) (fab.Target, error) {
 	var b struct {
 		Dir   string    `yaml:"Dir"`

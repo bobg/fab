@@ -7,8 +7,8 @@ import (
 	"github.com/bobg/fab/golang"
 )
 
-// Build runs "go build".
-var Build fab.Target
+// Build builds the fab binary.
+var Build = golang.MustBinary("cmd/fab", "fab")
 
 // Test runs "go test" with the race detector enabled, plus coverage reporting.
 var Test = fab.Shellf("go test -race -cover ./...")
@@ -28,10 +28,4 @@ var Cover = fab.Seq(
 	fab.Shellf("go tool cover -html cover.out"),
 )
 
-func init() {
-	var err error
-	Build, err = golang.Binary("cmd/fab", "fab")
-	if err != nil {
-		panic(err)
-	}
-}
+var Clean = fab.Clean("fab", "cover.out")

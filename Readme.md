@@ -371,6 +371,35 @@ if that’s what you wanted.)
 The hash database is stored in `$HOME/.cache/fab` by default,
 and hash values normally expire after thirty days.
 
+### Using the Files target type to translate Makefiles
+
+It is possible to translate Makefile rules to Fab rules using the `Files` target type.
+
+The following Makefile snippet means,
+“produce files a and b from input files c and d
+by running command1 followed by command2.”
+
+```Makefile
+a b: c d
+  command1
+  command2
+```
+
+The same thing in Fab’s YAML format looks like this.
+
+```yaml
+Name: !Files
+  - In: [c, d]
+  - Out: [a, b]
+  - Target: !Seq
+    - !Command
+      Shell: command1
+    - !Command
+      Shell: command2
+```
+
+Note that the Fab version has a `Name` whereas the Make version does not.
+
 ## The Fab runtime
 
 A Fab [Runner](https://pkg.go.dev/github.com/bobg/fab#Runner)
