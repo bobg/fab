@@ -22,6 +22,7 @@ func TestCompile(t *testing.T) {
 		m := Main{
 			Pkgdir:  pkgdir,
 			Fabdir:  fabdir,
+			Chdir:   tmpdir,
 			Verbose: testing.Verbose(),
 		}
 
@@ -39,6 +40,7 @@ func TestCompile(t *testing.T) {
 		modtime := info.ModTime()
 
 		cmd := exec.CommandContext(ctx, driver, "Noop")
+		cmd.Dir = tmpdir
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 		if err = cmd.Run(); err != nil {
 			t.Fatal(err)
@@ -85,6 +87,7 @@ func TestCompile(t *testing.T) {
 		}
 
 		cmd = exec.CommandContext(ctx, driver, "Noop")
+		cmd.Dir = tmpdir
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 		if err = cmd.Run(); err != nil {
 			t.Fatal(err)

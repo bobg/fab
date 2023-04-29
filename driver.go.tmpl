@@ -12,9 +12,8 @@ import (
 	"strings"
 
 	"github.com/bobg/fab"
-	_ "github.com/bobg/fab/golang"
 
-	subpkg "x/pkg/{{ .Subpkg }}"
+	{{ if .Targets }}subpkg{{ else }}_{{ end }} "x/pkg/{{ .Subpkg }}"
 )
 
 func main() {

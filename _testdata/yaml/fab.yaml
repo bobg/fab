@@ -41,3 +41,9 @@ Z: !Files
     - r.go
   Out:
     - output
+
+# W tests ArgTarget (passing args foo and bar to X).
+W: !ArgTarget
+  - X
+  - foo
+  - bar

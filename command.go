@@ -204,7 +204,7 @@ func (c *Command) Execute(ctx context.Context) (err error) {
 
 	if stdoutFile != "" {
 		if stdoutAppend {
-			f, err := os.OpenFile(stdoutFile, os.O_APPEND, 0644)
+			f, err := os.OpenFile(stdoutFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 			if err != nil {
 				return errors.Wrapf(err, "opening %s for appending", stdoutFile)
 			}
@@ -234,7 +234,7 @@ func (c *Command) Execute(ctx context.Context) (err error) {
 		if stdoutFile == stderrFile {
 			cmd.Stderr = cmd.Stdout
 		} else if stderrAppend {
-			f, err := os.OpenFile(stderrFile, os.O_APPEND, 0644)
+			f, err := os.OpenFile(stderrFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 			if err != nil {
 				return errors.Wrapf(err, "opening %s for appending", stderrFile)
 			}
