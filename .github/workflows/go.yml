@@ -17,6 +17,11 @@ jobs:
       with:
         go-version: '1.20.3'
 
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v1
+      with:
+        version: '3.12.4'
+
     - name: Unit tests
       run: go test -v -coverprofile=cover.out ./...
 

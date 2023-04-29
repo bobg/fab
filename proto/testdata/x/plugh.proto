@@ -1,1 +1,3 @@
+syntax = "proto3";
+
 import "nonexistent.proto"; // does not exist
