@@ -29,6 +29,7 @@ func TestYAML(t *testing.T) {
 		"Baz",
 		"Baz2",
 		"Foo",
+		"W",
 		"X",
 		"Y",
 		"Z",
@@ -112,5 +113,15 @@ func TestYAML(t *testing.T) {
 	}
 	if gotZDoc != wantZDoc {
 		t.Errorf("got %s for Z doc, want %s", gotZDoc, wantZDoc)
+	}
+
+	gotW, gotWDoc := RegistryTarget("W")
+	wantW := ArgTarget(&deferredResolutionTarget{Name: "X"}, "foo", "bar")
+	const wantWDoc = "W tests ArgTarget (passing args foo and bar to X)."
+	if !reflect.DeepEqual(gotW, wantW) {
+		t.Errorf("mismatch for W; got:\n%s\nwant:\n%s", spew.Sdump(gotW), spew.Sdump(wantW))
+	}
+	if gotWDoc != wantWDoc {
+		t.Errorf("got %s for W doc, want %s", gotWDoc, wantWDoc)
 	}
 }
