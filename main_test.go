@@ -35,11 +35,10 @@ func TestMain(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx := context.Background()
-
 	m := Main{
 		Pkgdir: filepath.Join(compiledir, "pkg"),
 		Fabdir: fabdir,
+		Chdir:  tmpdir,
 		Args:   []string{"Noop"},
 
 		// The following are here mainly to improve test coverage.
@@ -47,7 +46,7 @@ func TestMain(t *testing.T) {
 		Force:   true,
 	}
 
-	if err = m.Run(ctx); err != nil {
+	if err = m.Run(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 }

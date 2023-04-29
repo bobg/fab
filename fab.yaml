@@ -1,0 +1,35 @@
+# Build builds the fab binary.
+Build: !go.Binary
+  Dir: cmd/fab
+  Out: fab
+
+# Test runs "go test" with the race detector enabled, plus coverage reporting.
+Test: !Command
+  Shell: go test -race -cover ./...
+  Stdout: $stdout
+
+# Lint runs an assortment of linters.
+Lint: !Command
+  Shell: golangci-lint run ./...
+
+# Vet runs "go vet".
+Vet: !Command
+  Shell: go vet ./...
+
+# Check runs all of Vet, Lint, and Test.
+Check: !All
+  - Vet
+  - Lint
+  - Test
+
+# Cover produces a test-coverage profile and opens it in a browser.
+Cover: !Seq
+  - !Command
+    Shell: go test -coverprofile cover.out ./...
+  - !Command
+    Shell: go tool cover -html cover.out
+
+# Clean removes build-target output.
+Clean: !Clean
+  - fab
+  - cover.out

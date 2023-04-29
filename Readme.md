@@ -209,6 +209,27 @@ which produces the list of files on which the Go package in a given directory de
 
 This also defines a `Test` target as a `Command` that runs `go test`.
 
+All of the target types in the `github.com/bobg/fab` package are available to your YAML file by default.
+To make other target types available,
+it is necessary to import their packages
+in Go code in the `_fab` directory.
+For example,
+to make the `!go.Binary` tag work,
+you’ll need a `.go` file under `_fab` that contains:
+
+```go
+import _ "github.com/bobg/fab/golang"
+```
+
+(The `_` means your Go code doesn’t use anything in the `golang` package directly,
+but imports it for its side effects —
+namely, registering YAML tags like `!go.Binary`.)
+
+If you rely entirely on YAML files,
+it’s possible that your `.go` code will contain only `import` statements like this
+and not define any targets or types,
+which is fine.
+
 ## Defining new target types
 
 You can define new target types in Go code in the `_fab` subdirectory

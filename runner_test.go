@@ -2,7 +2,6 @@ package fab
 
 import (
 	"context"
-	"encoding/binary"
 	"sync/atomic"
 	"testing"
 
@@ -65,12 +64,6 @@ func (ct *countTarget) Execute(_ context.Context) error {
 
 func (*countTarget) Desc() string {
 	return "count"
-}
-
-func (ct *countTarget) Hash(_ context.Context) ([]byte, error) {
-	var b [4]byte
-	binary.LittleEndian.PutUint32(b[:], atomic.LoadUint32(&ct.count))
-	return b[:], nil
 }
 
 type memHashDB struct {

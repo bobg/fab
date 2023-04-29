@@ -25,12 +25,14 @@ func main() {
 	var (
 		pkgdir  string
 		fabdir  string
+		chdir   string
 		verbose bool
 		list    bool
 		force   bool
 	)
 	flag.StringVar(&pkgdir, "pkg", "_fab", "directory containing Go package of build rules")
 	flag.StringVar(&fabdir, "fab", filepath.Join(cacheDir, "fab"), "directory containing fab DB and compiled drivers")
+	flag.StringVar(&chdir, "C", "", "chdir to this directory on startup")
 	flag.BoolVar(&verbose, "v", false, "run verbosely")
 	flag.BoolVar(&list, "list", false, "list available targets")
 	flag.BoolVar(&force, "f", false, "force compilation of -bin executable")
@@ -39,6 +41,7 @@ func main() {
 	m := fab.Main{
 		Pkgdir:  pkgdir,
 		Fabdir:  fabdir,
+		Chdir:   chdir,
 		Verbose: verbose,
 		List:    list,
 		Force:   force,

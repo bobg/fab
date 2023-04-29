@@ -29,6 +29,10 @@ type Main struct {
 	// Fabdir is where to find the user's hash DB and compiled binaries, e.g. $HOME/.cache/fab.
 	Fabdir string
 
+	// Chdir sets the current directory for running the driver.
+	// In driverless mode it causes a Chdir to the named directory.
+	Chdir string
+
 	// Verbose tells whether to run the driver in verbose mode
 	// (by supplying the -v command-line flag).
 	Verbose bool
@@ -77,6 +81,7 @@ func (m Main) Run(ctx context.Context) error {
 	args = append(args, m.Args...)
 
 	cmd := exec.CommandContext(ctx, driver, args...)
+	cmd.Dir = m.Chdir
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	err = cmd.Run()
 	return errors.Wrapf(err, "running %s %s", driver, strings.Join(args, " "))
@@ -87,6 +92,12 @@ var errNoDriver = errors.New("no driver")
 func (m Main) driverless(ctx context.Context) error {
 	if m.Verbose {
 		fmt.Println("Running in driverless mode")
+	}
+
+	if m.Chdir != "" {
+		if err := os.Chdir(m.Chdir); err != nil {
+			return errors.Wrapf(err, "changing to directory %s", m.Chdir)
+		}
 	}
 
 	if err := ReadYAMLFile(); err != nil && !errors.Is(err, fs.ErrNotExist) {
