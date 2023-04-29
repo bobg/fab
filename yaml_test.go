@@ -135,9 +135,13 @@ func TestDeferredResolutionTarget(t *testing.T) {
 		dtarg = &deferredResolutionTarget{Name: "c"}
 		ctarg = &countTarget{}
 	)
-	RegisterTarget("c", "", ctarg)
 
-	if err := Run(context.Background(), dtarg); err != nil {
+	_, err := RegisterTarget("c", "", ctarg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = Run(context.Background(), dtarg); err != nil {
 		t.Fatal(err)
 	}
 	if got := atomic.LoadUint32(&ctarg.count); got != 1 {
