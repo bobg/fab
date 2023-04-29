@@ -202,8 +202,6 @@ func (c *Command) Execute(ctx context.Context) (err error) {
 		return fmt.Errorf("stdout and stderr name the same file but disagree about append vs. overwrite")
 	}
 
-	fmt.Printf("xxx stdoutFile %s stdoutAppend %v\n", stdoutFile, stdoutAppend)
-
 	if stdoutFile != "" {
 		if stdoutAppend {
 			f, err := os.OpenFile(stdoutFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)

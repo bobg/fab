@@ -19,6 +19,7 @@ func TestGo(t *testing.T) {
 		"../clean.go",
 		"../clean_test.go",
 		"../command.go",
+		"../command_test.go",
 		"../compile.go",
 		"../compile_test.go",
 		"../context.go",
