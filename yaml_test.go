@@ -1,8 +1,10 @@
 package fab
 
 import (
+	"context"
 	"os"
 	"reflect"
+	"sync/atomic"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
@@ -123,5 +125,22 @@ func TestYAML(t *testing.T) {
 	}
 	if gotWDoc != wantWDoc {
 		t.Errorf("got %s for W doc, want %s", gotWDoc, wantWDoc)
+	}
+}
+
+func TestDeferredResolutionTarget(t *testing.T) {
+	resetRegistry()
+
+	var (
+		dtarg = &deferredResolutionTarget{Name: "c"}
+		ctarg = &countTarget{}
+	)
+	RegisterTarget("c", "", ctarg)
+
+	if err := Run(context.Background(), dtarg); err != nil {
+		t.Fatal(err)
+	}
+	if got := atomic.LoadUint32(&ctarg.count); got != 1 {
+		t.Errorf("got %d, want 1", got)
 	}
 }
