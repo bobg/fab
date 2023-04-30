@@ -145,7 +145,7 @@ func (dt *deferredResolutionTarget) Desc() string {
 //
 //	Test: !Command
 //	  - go test ./...
-func (con *Controller) ReadYAML(r io.Reader, dir string) error { // xxx propagate dir
+func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 	var (
 		dec = yaml.NewDecoder(r)
 		doc yaml.Node
@@ -329,7 +329,7 @@ func YAMLFileList(node *yaml.Node, dir string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return slices.Map(strs, func(s string) string { return filepath.Join(dir, s) }), nil // xxx unless absolute
+	return slices.Map(strs, func(s string) string { return Qualify(s, dir) }), nil
 }
 
 func YAMLFileListFromNodes(nodes []*yaml.Node, dir string) ([]string, error) {
@@ -337,7 +337,7 @@ func YAMLFileListFromNodes(nodes []*yaml.Node, dir string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return slices.Map(strs, func(s string) string { return filepath.Join(dir, s) }), nil // xxx unless absolute
+	return slices.Map(strs, func(s string) string { return Qualify(s, dir) }), nil
 }
 
 func normalizeTag(tag string) string {
@@ -345,4 +345,11 @@ func normalizeTag(tag string) string {
 		return ""
 	}
 	return strings.TrimPrefix(tag, "!")
+}
+
+func Qualify(path, dir string) string {
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path)
+	}
+	return filepath.Join(dir, path)
 }

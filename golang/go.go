@@ -50,7 +50,7 @@ func MustBinary(dir, outfile string, flags ...string) fab.Target {
 	return target
 }
 
-func binaryDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target, error) {
+func binaryDecoder(_ *fab.Controller, node *yaml.Node, dir string) (fab.Target, error) {
 	var b struct {
 		Dir   string    `yaml:"Dir"`
 		Out   string    `yaml:"Out"`
@@ -66,9 +66,7 @@ func binaryDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target
 		return nil, errors.Wrap(err, "YAML error decoding go.Binary.Flags")
 	}
 
-	// xxx make b.Dir and b.Out relative to dir, unless absolute
-
-	return Binary(b.Dir, b.Out, flags...)
+	return Binary(fab.Qualify(b.Dir, dir), fab.Qualify(b.Out, dir), flags...)
 }
 
 // Deps produces the list of files involved in building the Go package in the given directory.

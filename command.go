@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/bobg/errors"
@@ -397,7 +396,7 @@ func commandDecoder(_ *Controller, node *yaml.Node, dir string) (Target, error) 
 		}
 
 	default:
-		result.StdoutFile = filepath.Join(dir, c.Stdout) // xxx unless absolute
+		result.StdoutFile = Qualify(c.Stdout, dir)
 	}
 
 	switch c.Stderr {
@@ -416,7 +415,7 @@ func commandDecoder(_ *Controller, node *yaml.Node, dir string) (Target, error) 
 		}
 
 	default:
-		result.StderrFile = filepath.Join(dir, c.Stderr) // xxx unless absolute
+		result.StderrFile = Qualify(c.Stderr, dir)
 	}
 
 	return result, nil

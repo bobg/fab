@@ -24,6 +24,7 @@ func TestGo(t *testing.T) {
 		"../compile_test.go",
 		"../context.go",
 		"../context_test.go",
+		"../controller.go",
 		"../deps.go",
 		"../deps_test.go",
 		"../dirhash.go",

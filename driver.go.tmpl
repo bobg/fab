@@ -17,17 +17,23 @@ import (
 )
 
 func main() {
-	var err error
+	topdir, err := fab.TopDir("")
+	if err != nil {
+		fmt.Printf("Error finding project's top directory: %s\n", err)
+		os.Exit(1)
+	}
+
+	con := fab.NewController(topdir)
 
 	{{- range .Targets }}
-	_, err = fab.RegisterTarget("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }})
+	_, err = con.RegisterTarget("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }})
 	if err != nil {
 		fmt.Printf("Error registering target {{ .Name }}: %s\n", err)
 		os.Exit(1)
 	}
 	{{- end }}
 
-	if err = fab.ReadYAMLFile(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err = con.ReadYAMLFile(""); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		fmt.Printf("Error reading YAML file: %s\n", err)
 		os.Exit(1)
 	}
@@ -72,17 +78,16 @@ func main() {
 	}
 
 	if list {
-		fab.ListTargets()
+		con.ListTargets()
 		return
 	}
 
-	targets, err := fab.ParseArgs(args)
+	targets, err := con.ParseArgs(args)
 	if err != nil {
 		fatalf("Parsing args: %s", err)
 	}
 
-	runner := fab.NewRunner()
-	if err := runner.Run(ctx, targets...); err != nil {
+	if err := con.Run(ctx, targets...); err != nil {
 		fatalf("Error: %s", err)
 	}
 }

@@ -56,9 +56,11 @@ func TestSeq(t *testing.T) {
 		t.Error("t2 did not run")
 	}
 
-	// Reset ran2 and run s with a new Runner.
+	// Reset ran2 and run s with a new Controller.
 	// t1 should error and prevent t2 from running.
 	ran2 = false
+
+	con = NewController("")
 
 	err = con.Run(ctx, s)
 	if !errors.Is(err, t1secondTimeErr) {

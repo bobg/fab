@@ -100,7 +100,12 @@ func (m Main) driverless(ctx context.Context) error {
 		}
 	}
 
-	con := NewController("")
+	topDir, err := TopDir("")
+	if err != nil {
+		return errors.Wrap(err, "finding project's top directory")
+	}
+
+	con := NewController(topDir)
 
 	if err := con.ReadYAMLFile(""); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return errors.Wrap(err, "reading YAML file")

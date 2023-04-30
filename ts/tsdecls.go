@@ -85,9 +85,7 @@ func declsDecoder(_ *fab.Controller, node *yaml.Node, dir string) (fab.Target, e
 		return nil, errors.Wrap(err, "YAML error decoding ts.Decls node")
 	}
 
-	// xxx make files relative to dir, unless absolute
-
-	return Decls(d.Dir, d.Type, d.Prefix, d.Out)
+	return Decls(fab.Qualify(d.Dir, dir), d.Type, d.Prefix, fab.Qualify(d.Out, dir))
 }
 
 func init() {
