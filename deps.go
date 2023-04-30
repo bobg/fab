@@ -2,6 +2,7 @@ package fab
 
 import (
 	"fmt"
+	"io/fs"
 
 	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/slices"
@@ -45,18 +46,18 @@ func Deps(target Target, depTargets ...Target) Target {
 	return Seq(All(depTargets...), target)
 }
 
-func depsDecoder(node *yaml.Node) (Target, error) {
+func depsDecoder(fsys fs.FS, node *yaml.Node, dir string) (Target, error) {
 	switch node.Kind {
 	case yaml.SequenceNode:
 		if len(node.Content) == 0 {
 			return nil, fmt.Errorf("no child nodes")
 		}
-		target, err := YAMLTarget(node.Content[0])
+		target, err := YAMLTargetFS(fsys, node.Content[0], dir)
 		if err != nil {
 			return nil, errors.Wrap(err, "YAML error in Deps sequence")
 		}
 		depTargets, err := slices.Mapx(node.Content[1:], func(idx int, n *yaml.Node) (Target, error) {
-			target, err := YAMLTarget(n)
+			target, err := YAMLTargetFS(fsys, n, dir)
 			return target, errors.Wrapf(err, "deptarget %d", idx)
 		})
 		if err != nil {
@@ -72,12 +73,12 @@ func depsDecoder(node *yaml.Node) (Target, error) {
 		if err := node.Decode(&d); err != nil {
 			return nil, errors.Wrap(err, "YAML error in Deps mapping")
 		}
-		target, err := YAMLTarget(&d.Post)
+		target, err := YAMLTargetFS(fsys, &d.Post, dir)
 		if err != nil {
 			return nil, errors.Wrap(err, "YAML error in Deps Post target")
 		}
 		depTargets, err := slices.Mapx(d.Pre, func(idx int, n yaml.Node) (Target, error) {
-			target, err := YAMLTarget(&n)
+			target, err := YAMLTargetFS(fsys, &n, dir)
 			return target, errors.Wrapf(err, "deptarget %d", idx)
 		})
 		if err != nil {

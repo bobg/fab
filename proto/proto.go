@@ -51,7 +51,7 @@ func Proto(inputs, outputs, includes, otherOpts []string) (fab.Target, error) {
 	return fab.Files(&fab.Command{Cmd: "protoc", Args: args}, alldepsSlice, outputs), nil
 }
 
-func protoDecoder(node *yaml.Node) (fab.Target, error) {
+func protoDecoder(_ fs.FS, node *yaml.Node, dir string) (fab.Target, error) {
 	var p struct {
 		Inputs   []string `yaml:"Inputs"`
 		Outputs  []string `yaml:"Outputs"`
@@ -61,6 +61,9 @@ func protoDecoder(node *yaml.Node) (fab.Target, error) {
 	if err := node.Decode(&p); err != nil {
 		return nil, errors.Wrap(err, "YAML error decoding proto.Proto node")
 	}
+
+	// xxx make files relative to dir, unless absolute
+
 	return Proto(p.Inputs, p.Outputs, p.Includes, p.Opts)
 }
 

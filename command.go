@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/bobg/errors"
@@ -338,7 +340,7 @@ func (e CommandErr) Unwrap() error {
 	return e.Err
 }
 
-func commandDecoder(node *yaml.Node) (Target, error) {
+func commandDecoder(_ fs.FS, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.MappingNode)
 	}
@@ -370,7 +372,7 @@ func commandDecoder(node *yaml.Node) (Target, error) {
 		Shell: c.Shell,
 		Cmd:   c.Cmd,
 		Args:  args,
-		Dir:   c.Dir,
+		Dir:   c.Dir, // xxx default to dir?
 		Env:   env,
 	}
 
@@ -394,7 +396,7 @@ func commandDecoder(node *yaml.Node) (Target, error) {
 		}
 
 	default:
-		result.StdoutFile = c.Stdout
+		result.StdoutFile = filepath.Join(dir, c.Stdout) // xxx unless absolute
 	}
 
 	switch c.Stderr {
@@ -413,7 +415,7 @@ func commandDecoder(node *yaml.Node) (Target, error) {
 		}
 
 	default:
-		result.StderrFile = c.Stderr
+		result.StderrFile = filepath.Join(dir, c.Stderr) // xxx unless absolute
 	}
 
 	return result, nil

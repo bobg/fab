@@ -223,7 +223,7 @@ func hashFile(path string) (string, error) {
 	return hex.EncodeToString(h), nil
 }
 
-func filesDecoder(node *yaml.Node) (Target, error) {
+func filesDecoder(fsys fs.FS, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.MappingNode)
 	}
@@ -237,17 +237,17 @@ func filesDecoder(node *yaml.Node) (Target, error) {
 		return nil, errors.Wrap(err, "YAML error in Files node")
 	}
 
-	target, err := YAMLTarget(&yfiles.Target)
+	target, err := YAMLTargetFS(fsys, &yfiles.Target, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error in Target child of Files node")
 	}
 
-	in, err := YAMLStringList(&yfiles.In)
+	in, err := YAMLFileList(&yfiles.In, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error in Files.In node")
 	}
 
-	out, err := YAMLStringList(&yfiles.Out)
+	out, err := YAMLFileList(&yfiles.Out, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error in Files.Out node")
 	}

@@ -58,7 +58,7 @@ func topDir(fsys fs.StatFS, dir string) (string, error) {
 }
 
 func topDirHelper(fsys fs.FS, dir string) (string, error) {
-	rc, err := openFabYAML(fsys, dir)
+	rc, err := openFabYAMLFS(fsys, dir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", nil
 	}
@@ -92,8 +92,6 @@ func topDirHelper(fsys fs.FS, dir string) (string, error) {
 			declBase = filepath.Base(decl)
 			dirBase  = filepath.Base(dir)
 		)
-
-		fmt.Printf("xxx decl %s dir %s declBase %s dirBase %s\n", decl, dir, declBase, dirBase)
 
 		if declBase != dirBase {
 			return "", fmt.Errorf("_dir decl %s does not match actual dir %s", origDecl, origDir)

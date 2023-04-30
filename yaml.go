@@ -11,12 +11,13 @@ import (
 	"sync"
 
 	"github.com/bobg/errors"
+	"github.com/bobg/go-generics/v2/slices"
 	"gopkg.in/yaml.v3"
 )
 
 type (
 	// YAMLTargetFunc is the type of a function in the YAML target registry.
-	YAMLTargetFunc = func(*yaml.Node) (Target, error)
+	YAMLTargetFunc = func(fs.FS, *yaml.Node, string) (Target, error)
 
 	// YAMLStringListFunc is the type of a function in the YAML string-list registry.
 	YAMLStringListFunc = func(*yaml.Node) ([]string, error)
@@ -44,11 +45,34 @@ func RegisterYAMLTarget(name string, fn YAMLTargetFunc) {
 // Otherwise,
 // if the node is a bare string `foo`,
 // then it is presumed to refer to a target in the (non-YAML) target registry named `foo`.
-func YAMLTarget(node *yaml.Node) (Target, error) {
+func YAMLTarget(node *yaml.Node, dir string) (Target, error) {
+	return YAMLTargetFS(os.DirFS("/"), node, dir)
+}
+
+func YAMLTargetFS(fsys fs.FS, node *yaml.Node, dir string) (Target, error) {
 	tag := normalizeTag(node.Tag)
 
 	if tag == "" && node.Kind == yaml.ScalarNode {
-		return &deferredResolutionTarget{Name: node.Value}, nil
+		qualifiedName := filepath.Join(dir, node.Value)
+		if tdir := filepath.Dir(qualifiedName); tdir != "." {
+			found, _ := RegistryTarget(qualifiedName)
+			if found != nil {
+				return found, nil
+			}
+
+			if err := ReadYAMLFileFS(fsys, tdir); err != nil {
+				return nil, errors.Wrapf(err, "resolving target %s", qualifiedName)
+			}
+
+			found, _ = RegistryTarget(qualifiedName)
+			if found != nil {
+				return found, nil
+			}
+
+			return nil, fmt.Errorf("cannot resolve target %s", qualifiedName)
+		}
+
+		return &deferredResolutionTarget{Name: qualifiedName}, nil
 	}
 
 	if tag == "" {
@@ -62,7 +86,7 @@ func YAMLTarget(node *yaml.Node) (Target, error) {
 	if !ok {
 		return nil, fmt.Errorf("unknown YAML target type %s", tag)
 	}
-	return fn(node)
+	return fn(fsys, node, dir)
 }
 
 type deferredResolutionTarget struct {
@@ -167,17 +191,28 @@ func ReadYAML(r io.Reader, dir string) error { // xxx propagate dir
 		}
 		doc = strings.TrimLeft(doc, "# ")
 
+		if name == "_dir" {
+			// xxx check value against actual dir
+			continue
+		}
+
+		if strings.Contains(name, "/") {
+			return fmt.Errorf("no slashes in target names")
+		}
+
 		targetNode := m.Content[i+1]
-		target, err := YAMLTarget(targetNode)
+		target, err := YAMLTarget(targetNode, dir)
 		if err != nil {
 			return errors.Wrapf(err, "in YAML node for %s", name)
 		}
 
-		if _, ok := target.(*deferredResolutionTarget); !ok {
-			_, err = RegisterTarget(name, doc, target)
-			if err != nil {
-				return errors.Wrapf(err, "registering target %s", name)
-			}
+		// The following was previously inside a "if target is not a deferredResolutionTarget" block,
+		// but I think that was wrong.
+		// Or maybe I'm wrong now...
+		qualifiedName := filepath.Join(dir, name)
+		_, err = RegisterTarget(qualifiedName, doc, target)
+		if err != nil {
+			return errors.Wrapf(err, "registering target %s", qualifiedName)
 		}
 	}
 
@@ -192,7 +227,11 @@ func ReadYAML(r io.Reader, dir string) error { // xxx propagate dir
 // The specified directory should be relative to the project's top level.
 func ReadYAMLFile(dir string) error {
 	// https://pkg.go.dev/os#DirFS assures us that the result of os.DirFS implements StatFS.
-	rc, err := openFabYAML(os.DirFS("/").(fs.StatFS), dir)
+	return ReadYAMLFileFS(os.DirFS("/"), dir)
+}
+
+func ReadYAMLFileFS(fsys fs.FS, dir string) error {
+	rc, err := openFabYAMLFS(fsys, dir)
 	if err != nil {
 		return err
 	}
@@ -201,7 +240,7 @@ func ReadYAMLFile(dir string) error {
 	return ReadYAML(rc, dir)
 }
 
-func openFabYAML(fsys fs.FS, dir string) (io.ReadCloser, error) {
+func openFabYAMLFS(fsys fs.FS, dir string) (io.ReadCloser, error) {
 	filename := filepath.Join(dir, "fab.yaml")
 	f, err := fsys.Open(filename)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -288,6 +327,22 @@ func YAMLStringListFromNodes(nodes []*yaml.Node) ([]string, error) {
 	}
 
 	return result, nil
+}
+
+func YAMLFileList(node *yaml.Node, dir string) ([]string, error) {
+	strs, err := YAMLStringList(node)
+	if err != nil {
+		return nil, err
+	}
+	return slices.Map(strs, func(s string) string { return filepath.Join(dir, s) }), nil // xxx unless absolute
+}
+
+func YAMLFileListFromNodes(nodes []*yaml.Node, dir string) ([]string, error) {
+	strs, err := YAMLStringListFromNodes(nodes)
+	if err != nil {
+		return nil, err
+	}
+	return slices.Map(strs, func(s string) string { return filepath.Join(dir, s) }), nil // xxx unless absolute
 }
 
 func normalizeTag(tag string) string {

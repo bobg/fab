@@ -2,6 +2,7 @@ package ts
 
 import (
 	"context"
+	"io/fs"
 	"os"
 
 	"github.com/bobg/errors"
@@ -74,7 +75,7 @@ func (*declsType) Desc() string {
 	return "ts.Decls"
 }
 
-func declsDecoder(node *yaml.Node) (fab.Target, error) {
+func declsDecoder(_ fs.FS, node *yaml.Node, dir string) (fab.Target, error) {
 	var d struct {
 		Dir    string `yaml:"Dir"`
 		Type   string `yaml:"Type"`
@@ -84,6 +85,9 @@ func declsDecoder(node *yaml.Node) (fab.Target, error) {
 	if err := node.Decode(&d); err != nil {
 		return nil, errors.Wrap(err, "YAML error decoding ts.Decls node")
 	}
+
+	// xxx make files relative to dir, unless absolute
+
 	return Decls(d.Dir, d.Type, d.Prefix, d.Out)
 }
 

@@ -3,6 +3,7 @@ package fab
 import (
 	"context"
 	"fmt"
+	"io/fs"
 
 	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/slices"
@@ -39,12 +40,12 @@ func (*all) Desc() string {
 	return "All"
 }
 
-func allDecoder(node *yaml.Node) (Target, error) {
+func allDecoder(fsys fs.FS, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.SequenceNode {
 		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
 	}
 	targets, err := slices.Mapx(node.Content, func(idx int, n *yaml.Node) (Target, error) {
-		target, err := YAMLTarget(n)
+		target, err := YAMLTargetFS(fsys, n, dir)
 		return target, errors.Wrapf(err, "child %d", idx)
 	})
 	if err != nil {
