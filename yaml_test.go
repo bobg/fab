@@ -21,7 +21,9 @@ func TestYAML(t *testing.T) {
 	}
 	defer f.Close()
 
-	if err := ReadYAML(f, ""); err != nil {
+	fsys := os.DirFS("/")
+
+	if err := ReadYAML(fsys, f, ""); err != nil {
 		t.Fatal(err)
 	}
 

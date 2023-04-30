@@ -45,11 +45,7 @@ func RegisterYAMLTarget(name string, fn YAMLTargetFunc) {
 // Otherwise,
 // if the node is a bare string `foo`,
 // then it is presumed to refer to a target in the (non-YAML) target registry named `foo`.
-func YAMLTarget(node *yaml.Node, dir string) (Target, error) {
-	return YAMLTargetFS(os.DirFS("/"), node, dir)
-}
-
-func YAMLTargetFS(fsys fs.FS, node *yaml.Node, dir string) (Target, error) {
+func YAMLTarget(fsys fs.FS, node *yaml.Node, dir string) (Target, error) {
 	tag := normalizeTag(node.Tag)
 
 	if tag == "" && node.Kind == yaml.ScalarNode {
@@ -150,7 +146,7 @@ func (dt *deferredResolutionTarget) Desc() string {
 //
 //	Test: !Command
 //	  - go test ./...
-func ReadYAML(r io.Reader, dir string) error { // xxx propagate dir
+func ReadYAML(fsys fs.FS, r io.Reader, dir string) error { // xxx propagate dir
 	var (
 		dec = yaml.NewDecoder(r)
 		doc yaml.Node
@@ -201,7 +197,7 @@ func ReadYAML(r io.Reader, dir string) error { // xxx propagate dir
 		}
 
 		targetNode := m.Content[i+1]
-		target, err := YAMLTarget(targetNode, dir)
+		target, err := YAMLTarget(fsys, targetNode, dir)
 		if err != nil {
 			return errors.Wrapf(err, "in YAML node for %s", name)
 		}
@@ -237,7 +233,7 @@ func ReadYAMLFileFS(fsys fs.FS, dir string) error {
 	}
 	defer rc.Close()
 
-	return ReadYAML(rc, dir)
+	return ReadYAML(fsys, rc, dir)
 }
 
 func openFabYAMLFS(fsys fs.FS, dir string) (io.ReadCloser, error) {

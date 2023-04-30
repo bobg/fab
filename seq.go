@@ -50,7 +50,7 @@ func seqDecoder(fsys fs.FS, node *yaml.Node, dir string) (Target, error) {
 		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
 	}
 	targets, err := slices.Mapx(node.Content, func(idx int, n *yaml.Node) (Target, error) {
-		target, err := YAMLTargetFS(fsys, n, dir)
+		target, err := YAMLTarget(fsys, n, dir)
 		if err != nil {
 			return nil, errors.Wrapf(err, "child %d", idx)
 		}

@@ -56,7 +56,7 @@ func argTargetDecoder(fsys fs.FS, node *yaml.Node, dir string) (Target, error) {
 	if len(node.Content) == 0 {
 		return nil, fmt.Errorf("no child nodes")
 	}
-	target, err := YAMLTargetFS(fsys, node.Content[0], dir)
+	target, err := YAMLTarget(fsys, node.Content[0], dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error in target child of AllTarget node")
 	}

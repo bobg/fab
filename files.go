@@ -237,7 +237,7 @@ func filesDecoder(fsys fs.FS, node *yaml.Node, dir string) (Target, error) {
 		return nil, errors.Wrap(err, "YAML error in Files node")
 	}
 
-	target, err := YAMLTargetFS(fsys, &yfiles.Target, dir)
+	target, err := YAMLTarget(fsys, &yfiles.Target, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error in Target child of Files node")
 	}
