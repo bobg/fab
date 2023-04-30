@@ -21,7 +21,7 @@ func TestYAML(t *testing.T) {
 	}
 	defer f.Close()
 
-	if err := ReadYAML(f); err != nil {
+	if err := ReadYAML(f, ""); err != nil {
 		t.Fatal(err)
 	}
 

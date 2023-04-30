@@ -100,7 +100,7 @@ func (m Main) driverless(ctx context.Context) error {
 		}
 	}
 
-	if err := ReadYAMLFile(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err := ReadYAMLFile(""); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return errors.Wrap(err, "reading YAML file")
 	}
 

@@ -52,6 +52,8 @@ func TestGo(t *testing.T) {
 		"../sqlite/db_test.go",
 		"../sqlite/migrations/20220829093104_initial.sql",
 		"../target.go",
+		"../top.go",
+		"../top_test.go",
 		"../ts/tsdecls.go",
 		"../types.go",
 		"../types_test.go",

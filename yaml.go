@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -125,7 +126,7 @@ func (dt *deferredResolutionTarget) Desc() string {
 //
 //	Test: !Command
 //	  - go test ./...
-func ReadYAML(r io.Reader) error {
+func ReadYAML(r io.Reader, dir string) error { // xxx propagate dir
 	var (
 		dec = yaml.NewDecoder(r)
 		doc yaml.Node
@@ -184,21 +185,30 @@ func ReadYAML(r io.Reader) error {
 }
 
 // ReadYAMLFile calls ReadYAML
-// on the file `fab.yaml` in the current directory
+// on the file `fab.yaml` in the given directory
 // or, if that doesn't exist,
 // `fab.yml`.
-func ReadYAMLFile() error {
-	f, err := os.Open("fab.yaml")
-	if errors.Is(err, fs.ErrNotExist) {
-		f, err = os.Open("fab.yml")
-		// Error checked below.
-	}
+//
+// The specified directory should be relative to the project's top level.
+func ReadYAMLFile(dir string) error {
+	// https://pkg.go.dev/os#DirFS assures us that the result of os.DirFS implements StatFS.
+	rc, err := openFabYAML(os.DirFS("/").(fs.StatFS), dir)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer rc.Close()
 
-	return ReadYAML(f)
+	return ReadYAML(rc, dir)
+}
+
+func openFabYAML(fsys fs.FS, dir string) (io.ReadCloser, error) {
+	filename := filepath.Join(dir, "fab.yaml")
+	f, err := fsys.Open(filename)
+	if errors.Is(err, fs.ErrNotExist) {
+		filename = filepath.Join(dir, "fab.yml")
+		f, err = fsys.Open(filename)
+	}
+	return f, err
 }
 
 // RegisterYAMLStringList places a function in the YAML string-list registry with the given name.
