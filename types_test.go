@@ -20,14 +20,14 @@ func TestImplementsTarget(t *testing.T) {
 	}
 	scope := pkgs[0].Types.Scope()
 
-	runnerObj := scope.Lookup("Runner")
-	runnerTypeName, ok := runnerObj.(*types.TypeName)
+	controllerObj := scope.Lookup("Controller")
+	controllerTypeName, ok := controllerObj.(*types.TypeName)
 	if !ok {
-		t.Fatalf("runnerObj is a %T, want types.TypeName", runnerObj)
+		t.Fatalf("controllerObj is a %T, want types.TypeName", controllerObj)
 	}
-	runnerType := runnerTypeName.Type()
-	if checkImplementsTarget(runnerType) == nil {
-		t.Errorf("checkImplementsTarget(fab.Runner) wrongly reports true")
+	controllerType := controllerTypeName.Type()
+	if checkImplementsTarget(controllerType) == nil {
+		t.Errorf("checkImplementsTarget(fab.Controller) wrongly reports true")
 	}
 
 	commandTargetObj := scope.Lookup("Command")
