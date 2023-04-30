@@ -12,7 +12,7 @@ type Target interface {
 	// That will handle concurrency properly
 	// and make sure that the target is not rerun
 	// when it doesn't need to be.
-	Execute(context.Context) error
+	Execute(context.Context, *Controller) error
 
 	// Desc produces a short descriptive string for this target.
 	// It is used by [Describe] when the target is not found in the target registry.

@@ -21,7 +21,7 @@ while avoiding unnecessarily rebuilding any target that is already up to date.
 ## Usage
 
 You will need an installation of Go version 1.20 or later.
-Download Go here: [go.dev](https://go.dev/dl/).
+Download Go here: [go.dev/dl](https://go.dev/dl/).
 
 Once Go is installed you can install Fab like this:
 

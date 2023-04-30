@@ -100,12 +100,14 @@ func (m Main) driverless(ctx context.Context) error {
 		}
 	}
 
-	if err := ReadYAMLFile(""); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	con := NewController("")
+
+	if err := con.ReadYAMLFile(""); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return errors.Wrap(err, "reading YAML file")
 	}
 
 	if m.List {
-		ListTargets()
+		con.ListTargets()
 		return nil
 	}
 
@@ -119,23 +121,22 @@ func (m Main) driverless(ctx context.Context) error {
 	defer db.Close()
 	ctx = WithHashDB(ctx, db)
 
-	targets, err := ParseArgs(m.Args)
+	targets, err := con.ParseArgs(m.Args)
 	if err != nil {
 		return errors.Wrap(err, "parsing args")
 	}
 
-	runner := NewRunner()
-	return runner.Run(ctx, targets...)
+	return con.Run(ctx, targets...)
 }
 
 var bolRegex = regexp.MustCompile("^")
 
 // ListTargets outputs a formatted list of the targets in the registry and their docstrings.
-func ListTargets() {
-	names := RegistryNames()
+func (con *Controller) ListTargets() {
+	names := con.RegistryNames()
 	for _, name := range names {
 		fmt.Println(name)
-		if _, d := RegistryTarget(name); d != "" {
+		if _, d := con.RegistryTarget(name); d != "" {
 			d = bolRegex.ReplaceAllString(d, "    ")
 			fmt.Println(d)
 		}
@@ -162,7 +163,7 @@ func OpenHashDB(ctx context.Context, dir string) (*sqlite.DB, error) {
 // The two cases are distinguished by whether there is a second argument
 // and whether it begins with a hyphen.
 // (That's the ArgTarget case.)
-func ParseArgs(args []string) ([]Target, error) {
+func (con *Controller) ParseArgs(args []string) ([]Target, error) {
 	var (
 		targets []Target
 		unknown []string
@@ -170,14 +171,14 @@ func ParseArgs(args []string) ([]Target, error) {
 
 	if len(args) > 1 && args[1][0] == '-' {
 		// Just one target, and remaining args are arguments for that target.
-		if target, _ := RegistryTarget(args[0]); target != nil {
+		if target, _ := con.RegistryTarget(args[0]); target != nil {
 			targets = append(targets, ArgTarget(target, args[1:]...))
 		} else {
 			unknown = append(unknown, args[0])
 		}
 	} else {
 		for _, arg := range args {
-			if target, _ := RegistryTarget(arg); target != nil {
+			if target, _ := con.RegistryTarget(arg); target != nil {
 				targets = append(targets, target)
 			} else {
 				unknown = append(unknown, arg)

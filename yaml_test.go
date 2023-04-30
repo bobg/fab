@@ -11,8 +11,6 @@ import (
 )
 
 func TestYAML(t *testing.T) {
-	resetRegistry()
-
 	spew.Config.DisableMethods = true
 
 	f, err := os.Open("_testdata/yaml/fab.yaml")
@@ -21,13 +19,13 @@ func TestYAML(t *testing.T) {
 	}
 	defer f.Close()
 
-	fsys := os.DirFS("/")
+	con := NewController("")
 
-	if err := ReadYAML(fsys, f, ""); err != nil {
+	if err := con.ReadYAML(f, ""); err != nil {
 		t.Fatal(err)
 	}
 
-	names := RegistryNames()
+	names := con.RegistryNames()
 	wantNames := []string{
 		"Bar",
 		"Baz",
@@ -42,7 +40,7 @@ func TestYAML(t *testing.T) {
 		t.Fatalf("got %v, want %v", names, wantNames)
 	}
 
-	gotFoo, gotFooDoc := RegistryTarget("Foo")
+	gotFoo, gotFooDoc := con.RegistryTarget("Foo")
 	wantFoo := All(&deferredResolutionTarget{Name: "Bar"}, &deferredResolutionTarget{Name: "Baz"})
 	const wantFooDoc = "Foo does Bar and Baz."
 	if !reflect.DeepEqual(gotFoo, wantFoo) {
@@ -52,7 +50,7 @@ func TestYAML(t *testing.T) {
 		t.Errorf("got %s for Foo doc, want %s", gotFooDoc, wantFooDoc)
 	}
 
-	gotBar, gotBarDoc := RegistryTarget("Bar")
+	gotBar, gotBarDoc := con.RegistryTarget("Bar")
 	wantBar := &Command{Shell: "echo How do you do", Stdout: os.Stdout}
 	const wantBarDoc = "Bar doesn't do much."
 	if !reflect.DeepEqual(gotBar, wantBar) {
@@ -62,7 +60,7 @@ func TestYAML(t *testing.T) {
 		t.Errorf("got %s for Bar doc, want %s", gotBarDoc, wantBarDoc)
 	}
 
-	gotBaz, gotBazDoc := RegistryTarget("Baz")
+	gotBaz, gotBazDoc := con.RegistryTarget("Baz")
 	wantBaz := Deps(
 		&deferredResolutionTarget{Name: "X"},
 		&deferredResolutionTarget{Name: "Y"},
@@ -76,12 +74,12 @@ func TestYAML(t *testing.T) {
 		t.Errorf("got %s for Baz doc, want %s", gotBazDoc, wantBazDoc)
 	}
 
-	gotBaz2, _ := RegistryTarget("Baz2")
+	gotBaz2, _ := con.RegistryTarget("Baz2")
 	if !reflect.DeepEqual(gotBaz2, wantBaz) { // sic
 		t.Errorf("mismatch for Baz2; got:\n%s\nwant:\n%s", spew.Sdump(gotBaz2), spew.Sdump(wantBaz))
 	}
 
-	gotX, gotXDoc := RegistryTarget("X")
+	gotX, gotXDoc := con.RegistryTarget("X")
 	wantX := Seq(
 		&deferredResolutionTarget{Name: "A"},
 		&deferredResolutionTarget{Name: "B"},
@@ -95,7 +93,7 @@ func TestYAML(t *testing.T) {
 		t.Errorf("got %s for X doc, want %s", gotXDoc, wantXDoc)
 	}
 
-	gotY, gotYDoc := RegistryTarget("Y")
+	gotY, gotYDoc := con.RegistryTarget("Y")
 	wantY := Clean("file1", "file2")
 	const wantYDoc = "Y cleans."
 	if !reflect.DeepEqual(gotY, wantY) {
@@ -105,7 +103,7 @@ func TestYAML(t *testing.T) {
 		t.Errorf("got %s for Y doc, want %s", gotYDoc, wantYDoc)
 	}
 
-	gotZ, gotZDoc := RegistryTarget("Z")
+	gotZ, gotZDoc := con.RegistryTarget("Z")
 	wantZ := Files(
 		Shellf("go build -o output ./..."),
 		[]string{"p.go", "q.go", "r.go"},
@@ -119,7 +117,7 @@ func TestYAML(t *testing.T) {
 		t.Errorf("got %s for Z doc, want %s", gotZDoc, wantZDoc)
 	}
 
-	gotW, gotWDoc := RegistryTarget("W")
+	gotW, gotWDoc := con.RegistryTarget("W")
 	wantW := ArgTarget(&deferredResolutionTarget{Name: "X"}, "foo", "bar")
 	const wantWDoc = "W tests ArgTarget (passing args foo and bar to X)."
 	if !reflect.DeepEqual(gotW, wantW) {
@@ -131,19 +129,18 @@ func TestYAML(t *testing.T) {
 }
 
 func TestDeferredResolutionTarget(t *testing.T) {
-	resetRegistry()
-
 	var (
 		dtarg = &deferredResolutionTarget{Name: "c"}
 		ctarg = &countTarget{}
+		con   = NewController("")
 	)
 
-	_, err := RegisterTarget("c", "", ctarg)
+	_, err := con.RegisterTarget("c", "", ctarg)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = Run(context.Background(), dtarg); err != nil {
+	if err = con.Run(context.Background(), dtarg); err != nil {
 		t.Fatal(err)
 	}
 	if got := atomic.LoadUint32(&ctarg.count); got != 1 {

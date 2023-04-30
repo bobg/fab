@@ -2,7 +2,6 @@ package ts
 
 import (
 	"context"
-	"io/fs"
 	"os"
 
 	"github.com/bobg/errors"
@@ -58,7 +57,7 @@ type declsType struct {
 
 var _ fab.Target = &declsType{}
 
-func (t *declsType) Execute(context.Context) error {
+func (t *declsType) Execute(context.Context, *fab.Controller) error {
 	f, err := os.Create(t.Outfile)
 	if err != nil {
 		return errors.Wrapf(err, "opening %s for writing", t.Outfile)
@@ -75,7 +74,7 @@ func (*declsType) Desc() string {
 	return "ts.Decls"
 }
 
-func declsDecoder(_ fs.FS, node *yaml.Node, dir string) (fab.Target, error) {
+func declsDecoder(_ *fab.Controller, node *yaml.Node, dir string) (fab.Target, error) {
 	var d struct {
 		Dir    string `yaml:"Dir"`
 		Type   string `yaml:"Type"`

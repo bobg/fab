@@ -3,7 +3,6 @@ package fab
 import (
 	"context"
 	"fmt"
-	"io/fs"
 
 	"github.com/bobg/errors"
 	"gopkg.in/yaml.v3"
@@ -39,9 +38,9 @@ type argTarget struct {
 var _ Target = &argTarget{}
 
 // Execute implements Target.Execute.
-func (a *argTarget) Execute(ctx context.Context) error {
+func (a *argTarget) Execute(ctx context.Context, con *Controller) error {
 	ctx = WithArgs(ctx, a.Args...)
-	return Run(ctx, a.Target)
+	return con.Run(ctx, a.Target)
 }
 
 // Desc implements Target.Desc.
@@ -49,14 +48,14 @@ func (*argTarget) Desc() string {
 	return "ArgTarget"
 }
 
-func argTargetDecoder(fsys fs.FS, node *yaml.Node, dir string) (Target, error) {
+func argTargetDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.SequenceNode {
 		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
 	}
 	if len(node.Content) == 0 {
 		return nil, fmt.Errorf("no child nodes")
 	}
-	target, err := YAMLTarget(fsys, node.Content[0], dir)
+	target, err := con.YAMLTarget(node.Content[0], dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error in target child of AllTarget node")
 	}

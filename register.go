@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"sync"
 
 	"github.com/bobg/go-generics/v2/maps"
 )
 
 // RegisterTarget places a target in the registry with a given name and doc string.
-func RegisterTarget(name, doc string, target Target) (Target, error) {
+func (con *Controller) RegisterTarget(name, doc string, target Target) (Target, error) {
 	addr, err := targetAddr(target)
 	if err != nil {
 		return nil, err
@@ -18,10 +17,10 @@ func RegisterTarget(name, doc string, target Target) (Target, error) {
 
 	tuple := targetRegistryTuple{target: target, name: name, doc: doc}
 
-	targetRegistryMu.Lock()
-	targetRegistryByName[name] = tuple
-	targetRegistryByAddr[addr] = tuple
-	targetRegistryMu.Unlock()
+	con.mu.Lock()
+	con.targetsByName[name] = tuple
+	con.targetsByAddr[addr] = tuple
+	con.mu.Unlock()
 
 	return target, nil
 }
@@ -39,34 +38,21 @@ type targetRegistryTuple struct {
 	name, doc string
 }
 
-var (
-	targetRegistryMu     sync.Mutex // protects both maps
-	targetRegistryByName = make(map[string]targetRegistryTuple)
-	targetRegistryByAddr = make(map[uintptr]targetRegistryTuple)
-)
-
-func resetRegistry() {
-	targetRegistryMu.Lock()
-	targetRegistryByName = make(map[string]targetRegistryTuple)
-	targetRegistryByAddr = make(map[uintptr]targetRegistryTuple)
-	targetRegistryMu.Unlock()
-}
-
 // RegistryNames returns the names in the target registry.
-func RegistryNames() []string {
-	targetRegistryMu.Lock()
-	keys := maps.Keys(targetRegistryByName)
-	targetRegistryMu.Unlock()
+func (con *Controller) RegistryNames() []string {
+	con.mu.Lock()
+	keys := maps.Keys(con.targetsByName)
+	con.mu.Unlock()
 	sort.Strings(keys)
 	return keys
 }
 
 // RegistryTarget returns the target in the registry with the given name,
 // and its doc string.
-func RegistryTarget(name string) (Target, string) {
-	targetRegistryMu.Lock()
-	tuple := targetRegistryByName[name]
-	targetRegistryMu.Unlock()
+func (con *Controller) RegistryTarget(name string) (Target, string) {
+	con.mu.Lock()
+	tuple := con.targetsByName[name]
+	con.mu.Unlock()
 	return tuple.target, tuple.doc
 }
 
@@ -76,12 +62,12 @@ func RegistryTarget(name string) (Target, string) {
 // (i.e., if the target was registered with [RegisterTarget]),
 // otherwise it's "unnamed X"
 // where X is the result of calling the target's Desc method.
-func Describe(target Target) string {
+func (con *Controller) Describe(target Target) string {
 	addr, err := targetAddr(target)
 	if err == nil { // sic
-		targetRegistryMu.Lock()
-		tuple, ok := targetRegistryByAddr[addr]
-		targetRegistryMu.Unlock()
+		con.mu.Lock()
+		tuple, ok := con.targetsByAddr[addr]
+		con.mu.Unlock()
 		if ok {
 			return tuple.name
 		}

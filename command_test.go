@@ -18,7 +18,10 @@ func TestCommand(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 
-	ctx := context.Background()
+	var (
+		ctx = context.Background()
+		con = NewController("")
+	)
 
 	hw, err := os.ReadFile("_testdata/hw")
 	if err != nil {
@@ -29,7 +32,7 @@ func TestCommand(t *testing.T) {
 
 	t.Run("stdoutfile", func(t *testing.T) {
 		c1 := &Command{Cmd: "cat", Args: []string{"_testdata/hw"}, StdoutFile: f1}
-		if err = Run(ctx, c1); err != nil {
+		if err = con.Run(ctx, c1); err != nil {
 			t.Fatal(err)
 		}
 		got1, err := os.ReadFile(f1)
@@ -46,7 +49,7 @@ func TestCommand(t *testing.T) {
 		hwhw = append(hwhw, hw...)
 
 		c2 := &Command{Cmd: "cat", Args: []string{"_testdata/hw"}, StdoutFile: ">>" + f1}
-		if err = Run(ctx, c2); err != nil {
+		if err = con.Run(ctx, c2); err != nil {
 			t.Fatal(err)
 		}
 		got2, err := os.ReadFile(f1)
@@ -66,7 +69,7 @@ func TestCommand(t *testing.T) {
 
 	t.Run("stderrfile", func(t *testing.T) {
 		c3 := &Command{Cmd: "cat", Args: []string{dne}, StderrFile: f3}
-		err = Run(ctx, c3)
+		err = con.Run(ctx, c3)
 		if err == nil { // sic
 			t.Fatal("got no error but expected one")
 		}
@@ -87,7 +90,7 @@ func TestCommand(t *testing.T) {
 
 	t.Run("stderrfile_append", func(t *testing.T) {
 		c4 := &Command{Cmd: "cat", Args: []string{dne}, StderrFile: ">>" + f3}
-		err = Run(ctx, c4)
+		err = con.Run(ctx, c4)
 		if err == nil { // sic
 			t.Fatal("got no error but expected one")
 		}
@@ -107,9 +110,9 @@ func TestCommand(t *testing.T) {
 
 	t.Run("stdoutfn", func(t *testing.T) {
 		buf := new(bytes.Buffer)
-		fn := func(context.Context) io.Writer { return buf }
+		fn := func(context.Context, *Controller) io.Writer { return buf }
 		c5 := &Command{Cmd: "cat", Args: []string{"_testdata/hw"}, StdoutFn: fn}
-		if err = Run(ctx, c5); err != nil {
+		if err = con.Run(ctx, c5); err != nil {
 			t.Fatal(err)
 		}
 		if !bytes.Equal(buf.Bytes(), hw) {
@@ -119,9 +122,9 @@ func TestCommand(t *testing.T) {
 
 	t.Run("stderrfn", func(t *testing.T) {
 		buf := new(bytes.Buffer)
-		fn := func(context.Context) io.Writer { return buf }
+		fn := func(context.Context, *Controller) io.Writer { return buf }
 		c6 := &Command{Cmd: "cat", Args: []string{dne}, StderrFn: fn}
-		err = Run(ctx, c6)
+		err = con.Run(ctx, c6)
 		if err == nil { // sic
 			t.Fatal("got no error but expected one")
 		}

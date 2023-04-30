@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -17,7 +16,7 @@ import (
 
 type (
 	// YAMLTargetFunc is the type of a function in the YAML target registry.
-	YAMLTargetFunc = func(fs.FS, *yaml.Node, string) (Target, error)
+	YAMLTargetFunc = func(*Controller, *yaml.Node, string) (Target, error)
 
 	// YAMLStringListFunc is the type of a function in the YAML string-list registry.
 	YAMLStringListFunc = func(*yaml.Node) ([]string, error)
@@ -45,22 +44,22 @@ func RegisterYAMLTarget(name string, fn YAMLTargetFunc) {
 // Otherwise,
 // if the node is a bare string `foo`,
 // then it is presumed to refer to a target in the (non-YAML) target registry named `foo`.
-func YAMLTarget(fsys fs.FS, node *yaml.Node, dir string) (Target, error) {
+func (con *Controller) YAMLTarget(node *yaml.Node, dir string) (Target, error) {
 	tag := normalizeTag(node.Tag)
 
 	if tag == "" && node.Kind == yaml.ScalarNode {
 		qualifiedName := filepath.Join(dir, node.Value)
 		if tdir := filepath.Dir(qualifiedName); tdir != "." {
-			found, _ := RegistryTarget(qualifiedName)
+			found, _ := con.RegistryTarget(qualifiedName)
 			if found != nil {
 				return found, nil
 			}
 
-			if err := ReadYAMLFileFS(fsys, tdir); err != nil {
+			if err := con.ReadYAMLFile(tdir); err != nil {
 				return nil, errors.Wrapf(err, "resolving target %s", qualifiedName)
 			}
 
-			found, _ = RegistryTarget(qualifiedName)
+			found, _ = con.RegistryTarget(qualifiedName)
 			if found != nil {
 				return found, nil
 			}
@@ -82,7 +81,7 @@ func YAMLTarget(fsys fs.FS, node *yaml.Node, dir string) (Target, error) {
 	if !ok {
 		return nil, fmt.Errorf("unknown YAML target type %s", tag)
 	}
-	return fn(fsys, node, dir)
+	return fn(con, node, dir)
 }
 
 type deferredResolutionTarget struct {
@@ -93,12 +92,12 @@ type deferredResolutionTarget struct {
 
 var _ Target = &deferredResolutionTarget{}
 
-func (dt *deferredResolutionTarget) resolve() (Target, error) {
+func (dt *deferredResolutionTarget) resolve(con *Controller) (Target, error) {
 	dt.mu.Lock()
 	defer dt.mu.Unlock()
 
 	if dt.Target == nil {
-		target, _ := RegistryTarget(dt.Name)
+		target, _ := con.RegistryTarget(dt.Name)
 		if target == nil {
 			return nil, fmt.Errorf("cannot resolve target %s", dt.Name)
 		}
@@ -108,12 +107,12 @@ func (dt *deferredResolutionTarget) resolve() (Target, error) {
 	return dt.Target, nil
 }
 
-func (dt *deferredResolutionTarget) Execute(ctx context.Context) error {
-	target, err := dt.resolve()
+func (dt *deferredResolutionTarget) Execute(ctx context.Context, con *Controller) error {
+	target, err := dt.resolve(con)
 	if err != nil {
 		return err
 	}
-	return Run(ctx, target)
+	return con.Run(ctx, target)
 }
 
 func (dt *deferredResolutionTarget) Desc() string {
@@ -146,7 +145,7 @@ func (dt *deferredResolutionTarget) Desc() string {
 //
 //	Test: !Command
 //	  - go test ./...
-func ReadYAML(fsys fs.FS, r io.Reader, dir string) error { // xxx propagate dir
+func (con *Controller) ReadYAML(r io.Reader, dir string) error { // xxx propagate dir
 	var (
 		dec = yaml.NewDecoder(r)
 		doc yaml.Node
@@ -197,7 +196,7 @@ func ReadYAML(fsys fs.FS, r io.Reader, dir string) error { // xxx propagate dir
 		}
 
 		targetNode := m.Content[i+1]
-		target, err := YAMLTarget(fsys, targetNode, dir)
+		target, err := con.YAMLTarget(targetNode, dir)
 		if err != nil {
 			return errors.Wrapf(err, "in YAML node for %s", name)
 		}
@@ -206,7 +205,7 @@ func ReadYAML(fsys fs.FS, r io.Reader, dir string) error { // xxx propagate dir
 		// but I think that was wrong.
 		// Or maybe I'm wrong now...
 		qualifiedName := filepath.Join(dir, name)
-		_, err = RegisterTarget(qualifiedName, doc, target)
+		_, err = con.RegisterTarget(qualifiedName, doc, target)
 		if err != nil {
 			return errors.Wrapf(err, "registering target %s", qualifiedName)
 		}
@@ -221,19 +220,19 @@ func ReadYAML(fsys fs.FS, r io.Reader, dir string) error { // xxx propagate dir
 // `fab.yml`.
 //
 // The specified directory should be relative to the project's top level.
-func ReadYAMLFile(dir string) error {
+func (con *Controller) ReadYAMLFile(dir string) error {
 	// https://pkg.go.dev/os#DirFS assures us that the result of os.DirFS implements StatFS.
-	return ReadYAMLFileFS(os.DirFS("/"), dir)
-}
-
-func ReadYAMLFileFS(fsys fs.FS, dir string) error {
-	rc, err := openFabYAMLFS(fsys, dir)
+	rc, err := con.openFabYAML(dir)
 	if err != nil {
 		return err
 	}
 	defer rc.Close()
 
-	return ReadYAML(fsys, rc, dir)
+	return con.ReadYAML(rc, dir)
+}
+
+func (con *Controller) openFabYAML(dir string) (io.ReadCloser, error) {
+	return openFabYAMLFS(con.fsys, dir)
 }
 
 func openFabYAMLFS(fsys fs.FS, dir string) (io.ReadCloser, error) {

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -102,21 +101,23 @@ type Command struct {
 
 	// StdoutFn lets you defer assigning a value to Stdout
 	// until Execute is invoked,
-	// at which time its context object is passed to this function to produce the [io.Writer] to use.
+	// at which time this function is called with the context and the [Controller]
+	// to produce the [io.Writer] to use.
 	// If the writer produced by this function is also an [io.Closer],
 	// its Close method will be called before Execute exits.
 	//
 	// Stdout, StdoutFile, and StdoutFn are all mutually exclusive.
-	StdoutFn func(context.Context) io.Writer `json:"-"`
+	StdoutFn func(context.Context, *Controller) io.Writer `json:"-"`
 
 	// StderrFn lets you defer assigning a value to Stderr
 	// until Execute is invoked,
-	// at which time its context object is passed to this function to produce the [io.Writer] to use.
+	// at which time this function is called with the context and the [Controller]
+	// to produce the [io.Writer] to use.
 	// If the writer produced by this function is also an [io.Closer],
 	// its Close method will be called before Execute exits.
 	//
 	// Stderr, StderrFile, and StderrFn are all mutually exclusive.
-	StderrFn func(context.Context) io.Writer `json:"-"`
+	StderrFn func(context.Context, *Controller) io.Writer `json:"-"`
 
 	// StdoutFile is the name of a file to which the command's standard output should go.
 	// When the command runs,
@@ -167,7 +168,7 @@ func Shellf(format string, args ...any) *Command {
 }
 
 // Execute implements Target.Execute.
-func (c *Command) Execute(ctx context.Context) (err error) {
+func (c *Command) Execute(ctx context.Context, con *Controller) (err error) {
 	var (
 		cmdname = c.Cmd
 		args    = c.Args
@@ -253,7 +254,7 @@ func (c *Command) Execute(ctx context.Context) (err error) {
 	}
 
 	if cmd.Stdout == nil && c.StdoutFn != nil {
-		w := c.StdoutFn(ctx)
+		w := c.StdoutFn(ctx, con)
 		if closer, ok := w.(io.Closer); ok {
 			defer func() {
 				closeErr := closer.Close()
@@ -265,7 +266,7 @@ func (c *Command) Execute(ctx context.Context) (err error) {
 		cmd.Stdout = w
 	}
 	if cmd.Stderr == nil && c.StderrFn != nil {
-		w := c.StderrFn(ctx)
+		w := c.StderrFn(ctx, con)
 		if closer, ok := w.(io.Closer); ok {
 			defer func() {
 				closeErr := closer.Close()
@@ -281,12 +282,12 @@ func (c *Command) Execute(ctx context.Context) (err error) {
 
 	if GetVerbose(ctx) {
 		if cmd.Stdout == nil {
-			cmd.Stdout = IndentingCopier(ctx, os.Stdout, "    ")
+			cmd.Stdout = con.IndentingCopier(os.Stdout, "    ")
 		}
 		if cmd.Stderr == nil {
-			cmd.Stderr = IndentingCopier(ctx, os.Stderr, "    ")
+			cmd.Stderr = con.IndentingCopier(os.Stderr, "    ")
 		}
-		Indentf(ctx, "  Running command %s", cmd)
+		con.Indentf("  Running command %s", cmd)
 	} else {
 		if cmd.Stdout == nil {
 			cmd.Stdout = &buf
@@ -340,7 +341,7 @@ func (e CommandErr) Unwrap() error {
 	return e.Err
 }
 
-func commandDecoder(_ fs.FS, node *yaml.Node, dir string) (Target, error) {
+func commandDecoder(_ *Controller, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.MappingNode)
 	}
@@ -391,8 +392,8 @@ func commandDecoder(_ fs.FS, node *yaml.Node, dir string) (Target, error) {
 		result.Stdout = io.Discard
 
 	case "$indent":
-		result.StdoutFn = func(ctx context.Context) io.Writer {
-			return IndentingCopier(ctx, os.Stdout, "    ")
+		result.StdoutFn = func(_ context.Context, con *Controller) io.Writer {
+			return con.IndentingCopier(os.Stdout, "    ")
 		}
 
 	default:
@@ -410,8 +411,8 @@ func commandDecoder(_ fs.FS, node *yaml.Node, dir string) (Target, error) {
 		result.Stderr = io.Discard
 
 	case "$indent":
-		result.StderrFn = func(ctx context.Context) io.Writer {
-			return IndentingCopier(ctx, os.Stderr, "    ")
+		result.StderrFn = func(_ context.Context, con *Controller) io.Writer {
+			return con.IndentingCopier(os.Stderr, "    ")
 		}
 
 	default:

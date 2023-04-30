@@ -1,7 +1,6 @@
 package golang
 
 import (
-	"io/fs"
 	"path/filepath"
 	"sort"
 
@@ -51,7 +50,7 @@ func MustBinary(dir, outfile string, flags ...string) fab.Target {
 	return target
 }
 
-func binaryDecoder(fsys fs.FS, node *yaml.Node, dir string) (fab.Target, error) {
+func binaryDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target, error) {
 	var b struct {
 		Dir   string    `yaml:"Dir"`
 		Out   string    `yaml:"Out"`

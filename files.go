@@ -94,21 +94,21 @@ type files struct {
 var _ Target = &files{}
 
 // Execute implements Target.Execute.
-func (ft *files) Execute(ctx context.Context) error {
-	if err := ft.runPrereqs(ctx); err != nil {
+func (ft *files) Execute(ctx context.Context, con *Controller) error {
+	if err := ft.runPrereqs(ctx, con); err != nil {
 		return errors.Wrap(err, "in prerequisites")
 	}
 
 	if GetForce(ctx) {
-		return Run(ctx, ft.Target)
+		return con.Run(ctx, ft.Target)
 	}
 
 	db := GetHashDB(ctx)
 	if db == nil {
-		return Run(ctx, ft.Target)
+		return con.Run(ctx, ft.Target)
 	}
 
-	h, err := ft.computeHash(ctx)
+	h, err := ft.computeHash(ctx, con)
 	if err != nil {
 		return errors.Wrap(err, "computing hash before running subtarget")
 	}
@@ -118,16 +118,16 @@ func (ft *files) Execute(ctx context.Context) error {
 	}
 	if has {
 		if GetVerbose(ctx) {
-			Indentf(ctx, "%s is up to date", Describe(ft))
+			con.Indentf("%s is up to date", con.Describe(ft))
 		}
 		return nil
 	}
 
-	if err = Run(ctx, ft.Target); err != nil {
+	if err = con.Run(ctx, ft.Target); err != nil {
 		return errors.Wrap(err, "running subtarget")
 	}
 
-	h, err = ft.computeHash(ctx)
+	h, err = ft.computeHash(ctx, con)
 	if err != nil {
 		return errors.Wrap(err, "computing hash after running subtarget")
 	}
@@ -140,14 +140,14 @@ func (*files) Desc() string {
 	return "Files"
 }
 
-func (ft *files) computeHash(ctx context.Context) ([]byte, error) {
+func (ft *files) computeHash(ctx context.Context, con *Controller) ([]byte, error) {
 	inHashes, err := fileHashes(ft.In)
 	if err != nil {
-		return nil, errors.Wrapf(err, "computing input hash(es) for %s", Describe(ft))
+		return nil, errors.Wrapf(err, "computing input hash(es) for %s", con.Describe(ft))
 	}
 	outHashes, err := fileHashes(ft.Out)
 	if err != nil {
-		return nil, errors.Wrapf(err, "computing output hash(es) for %s", Describe(ft))
+		return nil, errors.Wrapf(err, "computing output hash(es) for %s", con.Describe(ft))
 	}
 	tt := reflect.TypeOf(ft.Target)
 	s := struct {
@@ -170,7 +170,7 @@ func (ft *files) computeHash(ctx context.Context) ([]byte, error) {
 	return sum[:], nil
 }
 
-func (ft *files) runPrereqs(ctx context.Context) error {
+func (ft *files) runPrereqs(ctx context.Context, con *Controller) error {
 	var prereqs []Target
 
 	fileRegistryMu.Lock()
@@ -184,7 +184,7 @@ func (ft *files) runPrereqs(ctx context.Context) error {
 	if len(prereqs) == 0 {
 		return nil
 	}
-	return Run(ctx, prereqs...)
+	return con.Run(ctx, prereqs...)
 }
 
 // Returns [filename, hash, filename, hash, ...],
@@ -223,7 +223,7 @@ func hashFile(path string) (string, error) {
 	return hex.EncodeToString(h), nil
 }
 
-func filesDecoder(fsys fs.FS, node *yaml.Node, dir string) (Target, error) {
+func filesDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.MappingNode)
 	}
@@ -237,7 +237,7 @@ func filesDecoder(fsys fs.FS, node *yaml.Node, dir string) (Target, error) {
 		return nil, errors.Wrap(err, "YAML error in Files node")
 	}
 
-	target, err := YAMLTarget(fsys, &yfiles.Target, dir)
+	target, err := con.YAMLTarget(&yfiles.Target, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error in Target child of Files node")
 	}

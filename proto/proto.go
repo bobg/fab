@@ -51,7 +51,7 @@ func Proto(inputs, outputs, includes, otherOpts []string) (fab.Target, error) {
 	return fab.Files(&fab.Command{Cmd: "protoc", Args: args}, alldepsSlice, outputs), nil
 }
 
-func protoDecoder(_ fs.FS, node *yaml.Node, dir string) (fab.Target, error) {
+func protoDecoder(_ *fab.Controller, node *yaml.Node, dir string) (fab.Target, error) {
 	var p struct {
 		Inputs   []string `yaml:"Inputs"`
 		Outputs  []string `yaml:"Outputs"`
