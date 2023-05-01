@@ -99,7 +99,7 @@ func (con *Controller) Run(ctx context.Context, targets ...Target) error {
 				if verbose {
 					con.Indentf("Running %s", con.Describe(target))
 				}
-				err := target.Execute(ctx, con)
+				err := target.Run(ctx, con)
 				if err != nil {
 					err = errors.Wrapf(err, "running %s", con.Describe(target))
 				}

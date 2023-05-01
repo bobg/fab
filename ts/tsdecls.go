@@ -59,7 +59,7 @@ type declsType struct {
 
 var _ fab.Target = &declsType{}
 
-func (t *declsType) Execute(context.Context, *fab.Controller) error {
+func (t *declsType) Run(context.Context, *fab.Controller) error {
 	f, err := os.Create(t.Outfile)
 	if err != nil {
 		return errors.Wrapf(err, "opening %s for writing", t.Outfile)

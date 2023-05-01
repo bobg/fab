@@ -13,7 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Command is a Target whose Execute function executes a command in a subprocess.
+// Command is a Target whose Run function executes a command in a subprocess.
 //
 // It is JSON-encodable
 // (and therefore usable as the subtarget in [Files]).
@@ -104,21 +104,21 @@ type Command struct {
 	Stderr io.Writer `json:"-"`
 
 	// StdoutFn lets you defer assigning a value to Stdout
-	// until Execute is invoked,
+	// until Run is invoked,
 	// at which time this function is called with the context and the [Controller]
 	// to produce the [io.Writer] to use.
 	// If the writer produced by this function is also an [io.Closer],
-	// its Close method will be called before Execute exits.
+	// its Close method will be called before Run exits.
 	//
 	// Stdout, StdoutFile, and StdoutFn are all mutually exclusive.
 	StdoutFn func(context.Context, *Controller) io.Writer `json:"-"`
 
 	// StderrFn lets you defer assigning a value to Stderr
-	// until Execute is invoked,
+	// until Run is invoked,
 	// at which time this function is called with the context and the [Controller]
 	// to produce the [io.Writer] to use.
 	// If the writer produced by this function is also an [io.Closer],
-	// its Close method will be called before Execute exits.
+	// its Close method will be called before Run exits.
 	//
 	// Stderr, StderrFile, and StderrFn are all mutually exclusive.
 	StderrFn func(context.Context, *Controller) io.Writer `json:"-"`
@@ -170,8 +170,8 @@ func Shellf(format string, args ...any) *Command {
 	}
 }
 
-// Execute implements Target.Execute.
-func (c *Command) Execute(ctx context.Context, con *Controller) (err error) {
+// Run implements Target.Run.
+func (c *Command) Run(ctx context.Context, con *Controller) (err error) {
 	var (
 		cmdname = c.Cmd
 		args    = c.Args
@@ -327,7 +327,7 @@ func (*Command) Desc() string {
 	return "Command"
 }
 
-// CommandErr is a type of error that may be returned from command.Execute.
+// CommandErr is a type of error that may be returned from command.Run.
 // If the command's Stdout or Stderr field was nil,
 // then that output from the subprocess is in CommandErr.Output
 // and the underlying error is in CommandErr.Err.

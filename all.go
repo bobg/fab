@@ -29,8 +29,8 @@ type all struct {
 
 var _ Target = &all{}
 
-// Run implements Target.Execute.
-func (a *all) Execute(ctx context.Context, con *Controller) error {
+// Run implements Target.Run.
+func (a *all) Run(ctx context.Context, con *Controller) error {
 	return con.Run(ctx, a.Targets...)
 }
 

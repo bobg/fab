@@ -2,7 +2,7 @@ package fab
 
 import "context"
 
-// F produces a target whose Execute function invokes the given function.
+// F produces a target whose Run function invokes the given function.
 // It is not JSON-encodable,
 // so it should not be used as the subtarget in a [Files] rule.
 func F(f func(context.Context, *Controller) error) Target {
@@ -15,8 +15,8 @@ type ftarget struct {
 
 var _ Target = &ftarget{}
 
-// Execute implements Target.Execute.
-func (f *ftarget) Execute(ctx context.Context, con *Controller) error {
+// Run implements Target.Run.
+func (f *ftarget) Run(ctx context.Context, con *Controller) error {
 	return f.f(ctx, con)
 }
 

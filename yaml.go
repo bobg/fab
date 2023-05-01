@@ -120,7 +120,7 @@ func (dt *deferredResolutionTarget) resolve(con *Controller) (Target, error) {
 	return dt.Target, nil
 }
 
-func (dt *deferredResolutionTarget) Execute(ctx context.Context, con *Controller) error {
+func (dt *deferredResolutionTarget) Run(ctx context.Context, con *Controller) error {
 	target, err := dt.resolve(con)
 	if err != nil {
 		return err

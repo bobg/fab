@@ -37,8 +37,8 @@ type argTarget struct {
 
 var _ Target = &argTarget{}
 
-// Execute implements Target.Execute.
-func (a *argTarget) Execute(ctx context.Context, con *Controller) error {
+// Run implements Target.Run.
+func (a *argTarget) Run(ctx context.Context, con *Controller) error {
 	ctx = WithArgs(ctx, a.Args...)
 	return con.Run(ctx, a.Target)
 }

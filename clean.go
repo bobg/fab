@@ -27,8 +27,8 @@ type clean struct {
 	Files []string
 }
 
-// Execute implements Target.Execute.
-func (c *clean) Execute(context.Context, *Controller) error {
+// Run implements Target.Run.
+func (c *clean) Run(context.Context, *Controller) error {
 	for _, f := range c.Files {
 		err := os.Remove(f)
 		if errors.Is(err, fs.ErrNotExist) {

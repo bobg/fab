@@ -236,7 +236,7 @@ You can define new target types in Go code in the `_fab` subdirectory
 (or anywhere else, that is then imported into the `_fab` package).
 
 Your type must implement [fab.Target](https://pkg.go.dev/github.com/bobg/fab#Target),
-which requires two methods: `Desc` and `Execute`.
+which requires two methods: `Desc` and `Run`.
 
 `Desc` produces a short string describing the target.
 It is used by [Describe](https://pkg.go.dev/github.com/bobg/fab#Describe)
@@ -244,14 +244,16 @@ to describe targets that don’t have a name
 (i.e., ones that were never registered with `RegisterTarget`,
 possibly because they are nested inside some other target).
 
-`Execute` should unconditionally execute your target type’s logic.
+`Run` should unconditionally execute your target type’s logic.
 The Fab runtime will take care of making sure your target runs only when it needs to.
 More about this appears below.
 
-If part of your `Execute` method involves running other targets,
-do not invoke their `Execute` methods directly.
-Instead, invoke the [fab.Run](https://pkg.go.dev/github.com/bobg/fab#Run) _function_,
-which will skip that target if it has already run.
+If part of your `Run` method involves running other targets,
+do not invoke their `Run` methods directly.
+Instead, invoke the `Run` method on the [Controller](https://pkg.go.dev/github.com/bobg/fab#Controller)
+that your `Run` method receives as an argument,
+passing it the target you want to run.
+This will skip that target if it has already run.
 This means that a “diamond dependency” —
 A depends on B and C,
 and B and C each separately depend on X —
@@ -423,16 +425,15 @@ Note that the Fab version has a `Name` whereas the Make version does not.
 
 ## The Fab runtime
 
-A Fab [Runner](https://pkg.go.dev/github.com/bobg/fab#Runner)
-is responsible for invoking targets’ `Execute` methods,
+A Fab [Controller](https://pkg.go.dev/github.com/bobg/fab#Controller)
+is responsible for invoking targets’ `Run` methods,
 keeping track of which ones have already run
 so that they don’t get invoked a second time.
-A normal Fab session uses a single global default runner.
 
-The runner uses the address of each target as a unique key.
+The controller uses the address of each target as a unique key.
 This means that pointer types should be used to implement `Target`.
 After a target runs,
-the runner records its outcome
+the controller records its outcome
 (error or no error).
 The second and subsequent attempts to run a given target
 will use the previously computed outcome.

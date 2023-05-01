@@ -17,8 +17,8 @@ type nullTarget struct{}
 
 var _ Target = nullTarget{}
 
-func (nullTarget) Execute(context.Context, *Controller) error { return nil }
-func (nullTarget) Desc() string                               { return "(null)" }
+func (nullTarget) Run(context.Context, *Controller) error { return nil }
+func (nullTarget) Desc() string                           { return "(null)" }
 
 func init() {
 	var nt Target = nullTarget{}

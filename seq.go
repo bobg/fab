@@ -10,7 +10,7 @@ import (
 )
 
 // Seq produces a target that runs a collection of targets in sequence.
-// Its Execute method exits early when a target in the sequence fails.
+// Its Run method exits early when a target in the sequence fails.
 //
 // It is JSON-encodable
 // (and therefore usable as the subtarget in [Files])
@@ -30,8 +30,8 @@ type seq struct {
 
 var _ Target = &seq{}
 
-// Execute implements Target.Execute.
-func (s *seq) Execute(ctx context.Context, con *Controller) error {
+// Run implements Target.Run.
+func (s *seq) Run(ctx context.Context, con *Controller) error {
 	for _, t := range s.targets {
 		if err := con.Run(ctx, t); err != nil {
 			return err

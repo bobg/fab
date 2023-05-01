@@ -57,7 +57,7 @@ type countTarget struct {
 	count uint32
 }
 
-func (ct *countTarget) Execute(context.Context, *Controller) error {
+func (ct *countTarget) Run(context.Context, *Controller) error {
 	atomic.AddUint32(&ct.count, 1)
 	return nil
 }
