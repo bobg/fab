@@ -7,10 +7,13 @@
 
 This is Fab,
 a system for orchestrating software builds.
-It’s like [Make](https://en.wikipedia.org/wiki/Make_(software)),
-except that you express build rules and dependencies as [Go](https://go.dev/) code.
 
-(But that doesn’t mean it’s for building Go programs only,
+Fab is like [Make](https://en.wikipedia.org/wiki/Make_(software)),
+but with named, parameterized target types.
+You can describe your build with YAML files and/or [Go](https://go.dev/) code,
+and you can also define new target types in Go.
+
+(But that doesn’t mean Fab is for building Go programs only,
 any more than writing shell commands in a Makefile means Make builds only shell programs.)
 
 Running `fab` on one or more targets ensures that the targets’ prerequisites,
@@ -92,7 +95,7 @@ and giving it a name.
 There are three ways to do this:
 statically in Go code;
 dynamically in Go code;
-and declaratively in a YAML file.
+and declaratively in one or more YAML files.
 These options are discussed below.
 
 You can also define new target types
@@ -169,13 +172,11 @@ Internally, static target definition works by calling `fab.RegisterTarget`.
 
 In addition to Go code in the `_fab` subdirectory,
 or instead of it,
-you can define targets in a `fab.yaml` file
-at the top level of your project.
+you can define targets in one or more `fab.yaml` files.
 
 The top-level structure of the YAML file is a mapping from names to targets.
 Targets are specified using YAML type tags.
 Most Fab target types define a tag and a syntax for extracting necessary arguments from YAML.
-
 Targets may also be referred to by name.
 
 Here is an example `fab.yaml` file:
@@ -208,6 +209,47 @@ which is a `Command` that runs `go build`.
 which produces the list of files on which the Go package in a given directory depends.
 
 This also defines a `Test` target as a `Command` that runs `go test`.
+
+You may write `fab.yaml` files in multiple subdirectories of your project.
+When you write a `fab.yaml` file in a subdirectory `foo/bar` of your project’s top directory,
+it must include this declaration:
+
+```yaml
+_dir: foo/bar
+```
+
+A `fab.yaml` file at the top level of your project does not need this declaration.
+
+When a target `T` is defined in a YAML file in subdirectory `D`,
+it is registered
+(using [RegisterTarget](https://pkg.go.dev/github.com/bobg/fab#RegisterTarget))
+with the name `D/T`.
+A target in one `fab.yaml` file may refer to a target in another
+by specifying the relative path to it.
+for example,
+if the top-level `fab.yaml` contains:
+
+```yaml
+A: foo/B
+```
+
+this means that `foo/fab.yaml` defines a target `B`.
+
+```yaml
+_dir: foo
+
+B: ../bar/C
+```
+
+Here, `B` is defined in terms of a target in yet another file, `bar/fab.yaml`:
+
+```yaml
+_dir: bar
+
+C: !Command
+  Shell: echo Hello
+  Stdout: $stdout
+```
 
 All of the target types in the `github.com/bobg/fab` package are available to your YAML file by default.
 To make other target types available,
