@@ -28,21 +28,26 @@ import (
 //   - Args, list of arguments for Cmd.
 //   - Stdin, the name of a file from which the command's standard input should be read,
 //     or the special string $stdin to mean read Fab's standard input.
-//   - Stdout, the name of a file to which the command's standard output should be written.
+//   - Stdout, the name of a file to which the command's standard output should be written,
+//     either absolute or relative to the directory in which the YAML file is found.
 //     The file is overwritten unless this is prefixed with >> which means append.
 //     This may also be one of these special strings:
 //     $stdout (copy the command's output to Fab's standard output);
 //     $stderr (copy the command's output to Fab's standard error);
 //     $indent (indent the command's output with [IndentingCopier] and copy it to Fab's standard output);
+//     $verbose (like $indent, but produce output only when fab is running in verbose mode [with the -v flag]);
 //     $discard (discard the command's output).
-//   - Stderr, the name of a file to which the command's standard error should be written.
+//   - Stderr, the name of a file to which the command's standard error should be written,
+//     either absolute or relative to the directory in which the YAML file is found.
 //     The file is overwritten unless this is prefixed with >> which means append.
 //     This may also be one of these special strings:
 //     $stdout (copy the command's error output to Fab's standard error);
 //     $stderr (copy the command's error output to Fab's standard error);
 //     $indent (indent the command's error output with [IndentingCopier] and copy it to Fab's standard error);
+//     $verbose (like $indent, but produce output only when fab is running in verbose mode [with the -v flag]);
 //     $discard (discard the command's error output).
-//   - Dir, the directory in which the command should run.
+//   - Dir, the directory in which the command should run,
+//     either absolute or relative to the directory in which the YAML file is found.
 //   - Env, a list of VAR=VALUE strings to add to the command's environment.
 type Command struct {
 	// Shell is the command to run,
@@ -149,7 +154,6 @@ type Command struct {
 	StdinFile string `json:"stdin_file,omitempty"`
 
 	// Dir is the directory in which to run the command.
-	// The default is the value of GetDir(ctx) when the Execute method is called.
 	Dir string `json:"dir,omitempty"`
 
 	// Env is a list of VAR=VALUE strings to add to the environment when the command runs.
@@ -253,28 +257,30 @@ func (c *Command) Execute(ctx context.Context, con *Controller) (err error) {
 	}
 
 	if cmd.Stdout == nil && c.StdoutFn != nil {
-		w := c.StdoutFn(ctx, con)
-		if closer, ok := w.(io.Closer); ok {
-			defer func() {
-				closeErr := closer.Close()
-				if err == nil {
-					err = errors.Wrap(closeErr, "closing stdout")
-				}
-			}()
+		if w := c.StdoutFn(ctx, con); w != nil {
+			if closer, ok := w.(io.Closer); ok {
+				defer func() {
+					closeErr := closer.Close()
+					if err == nil {
+						err = errors.Wrap(closeErr, "closing stdout")
+					}
+				}()
+			}
+			cmd.Stdout = w
 		}
-		cmd.Stdout = w
 	}
 	if cmd.Stderr == nil && c.StderrFn != nil {
-		w := c.StderrFn(ctx, con)
-		if closer, ok := w.(io.Closer); ok {
-			defer func() {
-				closeErr := closer.Close()
-				if err == nil {
-					err = errors.Wrap(closeErr, "closing stderr")
-				}
-			}()
+		if w := c.StderrFn(ctx, con); w != nil {
+			if closer, ok := w.(io.Closer); ok {
+				defer func() {
+					closeErr := closer.Close()
+					if err == nil {
+						err = errors.Wrap(closeErr, "closing stderr")
+					}
+				}()
+			}
+			cmd.Stderr = w
 		}
-		cmd.Stderr = w
 	}
 
 	var buf bytes.Buffer
@@ -368,16 +374,11 @@ func commandDecoder(con *Controller, node *yaml.Node, dir string) (Target, error
 		return nil, errors.Wrap(err, "YAML error decoding Command.Env")
 	}
 
-	rundir, err := con.AbsPath(c.Dir, dir)
-	if err != nil {
-		return nil, errors.Wrap(err, "qualifying run directory for Command target")
-	}
-
 	result := &Command{
 		Shell: c.Shell,
 		Cmd:   c.Cmd,
 		Args:  args,
-		Dir:   rundir,
+		Dir:   con.JoinPath(dir, c.Dir),
 		Env:   env,
 	}
 
@@ -400,15 +401,19 @@ func commandDecoder(con *Controller, node *yaml.Node, dir string) (Target, error
 			return con.IndentingCopier(os.Stdout, "    ")
 		}
 
+	case "$verbose":
+		result.StdoutFn = func(ctx context.Context, con *Controller) io.Writer {
+			if GetVerbose(ctx) {
+				return con.IndentingCopier(os.Stdout, "    ")
+			}
+			return nil
+		}
+
 	case "":
 		// do nothing
 
 	default:
-		stdoutfile, err := con.AbsPath(c.Stdout, dir)
-		if err != nil {
-			return nil, errors.Wrapf(err, "getting relative name for %s in %s", c.Stdout, dir)
-		}
-		result.StdoutFile = stdoutfile
+		result.StdoutFile = con.JoinPath(dir, c.Stdout)
 	}
 
 	switch c.Stderr {
@@ -426,15 +431,19 @@ func commandDecoder(con *Controller, node *yaml.Node, dir string) (Target, error
 			return con.IndentingCopier(os.Stderr, "    ")
 		}
 
+	case "$verbose":
+		result.StderrFn = func(ctx context.Context, con *Controller) io.Writer {
+			if GetVerbose(ctx) {
+				return con.IndentingCopier(os.Stderr, "    ")
+			}
+			return nil
+		}
+
 	case "":
 		// do nothing
 
 	default:
-		stderrfile, err := con.AbsPath(c.Stderr, dir)
-		if err != nil {
-			return nil, errors.Wrapf(err, "getting relative name for %s in %s", c.Stderr, dir)
-		}
-		result.StderrFile = stderrfile
+		result.StderrFile = con.JoinPath(dir, c.Stderr)
 	}
 
 	return result, nil

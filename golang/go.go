@@ -20,8 +20,10 @@ import (
 // which introduces a mapping whose fields are:
 //
 //   - Dir: the directory containing the main Go package
-//   - Out: the output file that will contain the compiled binary
+//   - Out: the output file that will contain the compiled binary,
 //   - Flags: a sequence of additional command-line flags for `go build`
+//
+// Both Dir and Out are either absolute or relative to the directory containing the YAML file.
 func Binary(dir, outfile string, flags ...string) (fab.Target, error) {
 	relOutfile, err := filepath.Rel(dir, outfile)
 	if err != nil {
@@ -66,17 +68,7 @@ func binaryDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target
 		return nil, errors.Wrap(err, "YAML error decoding go.Binary.Flags")
 	}
 
-	qdir, err := con.AbsPath(b.Dir, dir)
-	if err != nil {
-		return nil, errors.Wrapf(err, "getting relative path for directory %s in %s", b.Dir, dir)
-	}
-
-	qout, err := con.AbsPath(b.Out, dir)
-	if err != nil {
-		return nil, errors.Wrapf(err, "getting relative path for output file %s in %s", b.Out, dir)
-	}
-
-	return Binary(qdir, qout, flags...)
+	return Binary(con.JoinPath(dir, b.Dir), con.JoinPath(dir, b.Out), flags...)
 }
 
 // Deps produces the list of files involved in building the Go package in the given directory.

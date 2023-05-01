@@ -27,6 +27,8 @@ import (
 //   - Type: the Go type to examine for producing TypeScript declarations
 //   - Prefix: the path prefix for the generated POST URL
 //   - Out: the output file
+//
+// Both Dir and Out are either absolute or relative to the directory containing the YAML file.
 func Decls(dir, typename, prefix, outfile string) (fab.Target, error) {
 	gopkg, err := golang.Deps(dir, false)
 	if err != nil {
@@ -85,17 +87,7 @@ func declsDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target,
 		return nil, errors.Wrap(err, "YAML error decoding ts.Decls node")
 	}
 
-	qdir, err := con.AbsPath(d.Dir, dir)
-	if err != nil {
-		return nil, errors.Wrapf(err, "getting relative path for directory %s in %s", d.Dir, dir)
-	}
-
-	qout, err := con.AbsPath(d.Out, dir)
-	if err != nil {
-		return nil, errors.Wrapf(err, "getting relative path for output file %s in %s", d.Out, dir)
-	}
-
-	return Decls(qdir, d.Type, d.Prefix, qout)
+	return Decls(con.JoinPath(dir, d.Dir), d.Type, d.Prefix, con.JoinPath(dir, d.Out))
 }
 
 func init() {

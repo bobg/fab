@@ -6,20 +6,21 @@ import (
 )
 
 type Controller struct {
-	topdir string
+	topdir string // absolute, or relative to the current directory
 
 	mu sync.Mutex // protects the remaining fields
 
 	depth int
 
+	// Records targets that have run or are running.
 	ran map[uintptr]*outcome
 
 	// Maps output files from Files targets
 	// to the targets that create them.
-	// Keys are qualified filenames.
+	// Keys are filenames relative to topdir.
 	files map[string]*files
 
-	// Keys are qualified names.
+	// Keys are names related to topdir.
 	targetsByName map[string]targetRegistryTuple
 
 	targetsByAddr map[uintptr]targetRegistryTuple
@@ -39,17 +40,28 @@ func NewController(topdir string) *Controller {
 	}
 }
 
-func (con *Controller) RelPath(path, dir string) (string, error) {
-	if filepath.IsAbs(path) {
-		return filepath.Clean(path), nil
+// JoinPath is like [filepath.Join] with some additional behavior.
+// Any absolute path segment discards everything to the left of it.
+// If all path segments are relative,
+// then con's top directory is implicitly joined at the beginning.
+//
+// Examples:
+//
+//   - JoinPath("a/b", "c/d") -> TOP/a/b/c/d
+//   - JoinPath("a/b", "/c/d") -> /c/d
+func (con *Controller) JoinPath(elts ...string) string {
+	for i := len(elts) - 1; i >= 0; i-- {
+		if filepath.IsAbs(elts[i]) {
+			return filepath.Join(elts[i:]...)
+		}
 	}
-	return filepath.Rel(con.topdir, filepath.Join(dir, path))
+	args := make([]string, 1, 1+len(elts))
+	args[0] = con.topdir
+	args = append(args, elts...)
+	return filepath.Join(args...)
 }
 
-func (con *Controller) AbsPath(path, dir string) (string, error) {
-	rel, err := con.RelPath(path, dir)
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(con.topdir, rel), nil
+// RelPath returns the relative path to `path` from con's top directory.
+func (con *Controller) RelPath(path string) (string, error) {
+	return filepath.Rel(con.topdir, path)
 }

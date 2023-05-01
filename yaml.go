@@ -45,14 +45,35 @@ func RegisterYAMLTarget(name string, fn YAMLTargetFunc) {
 // Otherwise,
 // if the node is a bare string `foo`,
 // then it is presumed to refer to a target in the (non-YAML) target registry named `foo`.
+// This string may refer to a target in another directory's YAML file,
+// in which case it should have a path prefix relative to `dir`
+// (e.g. x/foo or ../a/b/foo).
 func (con *Controller) YAMLTarget(node *yaml.Node, dir string) (Target, error) {
-	tag := normalizeTag(node.Tag)
+	if tag := normalizeTag(node.Tag); tag != "" {
+		yamlTargetRegistryMu.Lock()
+		fn, ok := yamlTargetRegistry[tag]
+		yamlTargetRegistryMu.Unlock()
 
-	if tag == "" && node.Kind == yaml.ScalarNode {
-		qname, err := con.RelPath(node.Value, dir)
-		if err != nil {
-			return nil, errors.Wrapf(err, "getting relative name for target %s in %s", node.Value, dir)
+		if !ok {
+			return nil, fmt.Errorf("unknown YAML target type %s", tag)
 		}
+		return fn(con, node, dir)
+	}
+
+	if node.Kind != yaml.ScalarNode {
+		return nil, fmt.Errorf("untyped YAML target node")
+	}
+
+	qname := node.Value
+	if strings.Contains(qname, "/") {
+		qname = con.JoinPath(dir, qname)
+
+		var err error
+		qname, err = con.RelPath(qname)
+		if err != nil {
+			return nil, errors.Wrapf(err, "making %s related to topdir", node.Value)
+		}
+
 		if tdir := filepath.Dir(qname); tdir != "." {
 			found, _ := con.RegistryTarget(qname)
 			if found != nil {
@@ -70,22 +91,10 @@ func (con *Controller) YAMLTarget(node *yaml.Node, dir string) (Target, error) {
 
 			return nil, fmt.Errorf("cannot resolve target %s", qname)
 		}
-
-		return &deferredResolutionTarget{Name: qname}, nil
 	}
 
-	if tag == "" {
-		return nil, fmt.Errorf("untyped YAML target node")
-	}
-
-	yamlTargetRegistryMu.Lock()
-	fn, ok := yamlTargetRegistry[tag]
-	yamlTargetRegistryMu.Unlock()
-
-	if !ok {
-		return nil, fmt.Errorf("unknown YAML target type %s", tag)
-	}
-	return fn(con, node, dir)
+	// TODO: try to resolve now?
+	return &deferredResolutionTarget{Name: qname}, nil
 }
 
 type deferredResolutionTarget struct {
@@ -127,6 +136,8 @@ func (dt *deferredResolutionTarget) Desc() string {
 
 // ReadYAML reads a YAML document from the given source,
 // registering Targets that it finds.
+// The `dir` argument is relative to the top directory of `con`
+// and serves as the prefix for any targets registered.
 //
 // The top level of the YAML document should be a mapping from names to targets.
 // Each target is either a target-typed node,
@@ -175,6 +186,8 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 		return fmt.Errorf("got %d children for second-level node, want an even number", len(m.Content))
 	}
 
+	var sawDirDecl bool
+
 	for i := 0; i < len(m.Content); i += 2 {
 		nameNode := m.Content[i]
 		if nameNode.Kind != yaml.ScalarNode {
@@ -191,7 +204,14 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 		doc = strings.TrimLeft(doc, "# ")
 
 		if name == "_dir" {
-			// xxx check value against actual dir
+			decl := m.Content[i+1]
+			if decl.Kind != yaml.ScalarNode {
+				return fmt.Errorf("_dir declaration value has kind %v, want %v", decl.Kind, yaml.ScalarNode)
+			}
+			if decl.Value != dir {
+				return fmt.Errorf("_dir declaration %s does not match actual directory %s", decl.Value, dir)
+			}
+			sawDirDecl = true
 			continue
 		}
 
@@ -209,15 +229,16 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 		// but I think that was wrong.
 		// Or maybe I'm wrong now...
 
-		qname, err := con.RelPath(name, dir)
-		if err != nil {
-			return errors.Wrapf(err, "getting relative name for %s in %s", name, dir)
-		}
+		qname := filepath.Join(dir, name)
 
 		_, err = con.RegisterTarget(qname, doc, target)
 		if err != nil {
 			return errors.Wrapf(err, "registering target %s", qname)
 		}
+	}
+
+	if dir != "" && !sawDirDecl {
+		return fmt.Errorf("no _dir declaration in YAML file")
 	}
 
 	return nil
@@ -227,8 +248,6 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 // on the file `fab.yaml` in the given directory
 // or, if that doesn't exist,
 // `fab.yml`.
-//
-// The specified directory should be relative to the project's top level.
 func (con *Controller) ReadYAMLFile(dir string) error {
 	dir = filepath.Join(con.topdir, dir)
 	f, err := openFabYAML(dir)
@@ -237,7 +256,15 @@ func (con *Controller) ReadYAMLFile(dir string) error {
 	}
 	defer f.Close()
 
-	err = con.ReadYAML(f, dir)
+	rel, err := filepath.Rel(con.topdir, dir)
+	if err != nil {
+		return errors.Wrapf(err, "getting relative path from %s to %s", con.topdir, dir)
+	}
+	if rel == "." {
+		rel = ""
+	}
+
+	err = con.ReadYAML(f, rel)
 	return errors.Wrapf(err, "reading YAML file in %s", dir)
 }
 
@@ -330,24 +357,20 @@ func YAMLStringListFromNodes(nodes []*yaml.Node) ([]string, error) {
 	return result, nil
 }
 
-// YAMLFileList parses a list of filenames from a YAML node in a given directory
-// by processing the output of [YAMLStringList] through [Controller.AbsPath].
 func (con *Controller) YAMLFileList(node *yaml.Node, dir string) ([]string, error) {
 	strs, err := YAMLStringList(node)
 	if err != nil {
 		return nil, err
 	}
-	return slices.Mapx(strs, func(_ int, s string) (string, error) { return con.AbsPath(s, dir) })
+	return slices.Map(strs, func(s string) string { return con.JoinPath(dir, s) }), nil
 }
 
-// YAMLFileListFromNodes parses a list of filenames from a slice of YAML nodes in a given directory
-// by processing the output of [YAMLStringListFromNodes] through [Controller.AbsPath].
 func (con *Controller) YAMLFileListFromNodes(nodes []*yaml.Node, dir string) ([]string, error) {
 	strs, err := YAMLStringListFromNodes(nodes)
 	if err != nil {
 		return nil, err
 	}
-	return slices.Mapx(strs, func(_ int, s string) (string, error) { return con.AbsPath(s, dir) })
+	return slices.Map(strs, func(s string) string { return con.JoinPath(dir, s) }), nil
 }
 
 func normalizeTag(tag string) string {
