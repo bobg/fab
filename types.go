@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/bobg/errors"
+	"github.com/bobg/go-generics/set"
 )
 
 var targetMethods = make(map[string]reflect.Method)
@@ -16,8 +17,8 @@ type nullTarget struct{}
 
 var _ Target = nullTarget{}
 
-func (nullTarget) Execute(context.Context) error { return nil }
-func (nullTarget) Desc() string                  { return "(null)" }
+func (nullTarget) Run(context.Context, *Controller) error { return nil }
+func (nullTarget) Desc() string                           { return "(null)" }
 
 func init() {
 	var nt Target = nullTarget{}
@@ -27,6 +28,16 @@ func init() {
 		targetMethods[method.Name] = method
 	}
 }
+
+type (
+	typeChecker struct {
+		seen set.Of[typeCheckerPair]
+	}
+	typeCheckerPair struct {
+		t types.Type
+		r reflect.Type
+	}
+)
 
 // checkImplementsTarget checks whether the given type implements the Target interface.
 func checkImplementsTarget(typ types.Type) error {
@@ -45,14 +56,16 @@ func checkImplementsTarget(typ types.Type) error {
 			return fmt.Errorf("the type of func %s is %T, not a signature", name, f.Type())
 		}
 
-		if err := checkSignaturesMatch(sig, targetMethod.Func.Type(), true); err != nil {
+		checker := typeChecker{seen: set.New[typeCheckerPair]()}
+
+		if err := checker.checkSignaturesMatch(sig, targetMethod.Func.Type(), true); err != nil {
 			return errors.Wrapf(err, "checking method %s", name)
 		}
 	}
 	return nil
 }
 
-func checkSignaturesMatch(sig *types.Signature, fn reflect.Type, skipReceiver bool) (err error) {
+func (ch *typeChecker) checkSignaturesMatch(sig *types.Signature, fn reflect.Type, skipReceiver bool) (err error) {
 	if fn.Kind() != reflect.Func {
 		return fmt.Errorf("kind is %v, not func", fn.Kind())
 	}
@@ -82,13 +95,13 @@ func checkSignaturesMatch(sig *types.Signature, fn reflect.Type, skipReceiver bo
 			j++
 		}
 		sp, tp := params.At(i).Type(), fn.In(j)
-		if err = checkTypesMatch(sp, tp); err != nil {
+		if err = ch.checkTypesMatch(sp, tp); err != nil {
 			return errors.Wrapf(err, "checking param %d", i)
 		}
 	}
 	for i := 0; i < results.Len(); i++ {
 		sr, tr := results.At(i).Type(), fn.Out(i)
-		if err = checkTypesMatch(sr, tr); err != nil {
+		if err = ch.checkTypesMatch(sr, tr); err != nil {
 			return errors.Wrapf(err, "checking result %d", i)
 		}
 	}
@@ -97,7 +110,13 @@ func checkSignaturesMatch(sig *types.Signature, fn reflect.Type, skipReceiver bo
 }
 
 // TODO: Handle parameterized types.
-func checkTypesMatch(t types.Type, r reflect.Type) (err error) {
+func (ch *typeChecker) checkTypesMatch(t types.Type, r reflect.Type) (err error) {
+	pair := typeCheckerPair{t: t, r: r}
+	if ch.seen.Has(pair) {
+		return nil
+	}
+	ch.seen.Add(pair)
+
 	switch t := t.(type) {
 	case *types.Array:
 		if r.Kind() != reflect.Array {
@@ -106,7 +125,7 @@ func checkTypesMatch(t types.Type, r reflect.Type) (err error) {
 		if t.Len() != int64(r.Len()) {
 			return fmt.Errorf("array lengths %d and %d do not match", t.Len(), r.Len())
 		}
-		return checkTypesMatch(t.Elem(), r.Elem())
+		return ch.checkTypesMatch(t.Elem(), r.Elem())
 
 	case *types.Basic:
 		switch t.Kind() {
@@ -203,7 +222,7 @@ func checkTypesMatch(t types.Type, r reflect.Type) (err error) {
 				return fmt.Errorf("channel direction RecvOnly and %v do not match", r.ChanDir())
 			}
 		}
-		return checkTypesMatch(t.Elem(), r.Elem())
+		return ch.checkTypesMatch(t.Elem(), r.Elem())
 
 	case *types.Interface:
 		if r.Kind() != reflect.Interface {
@@ -227,7 +246,7 @@ func checkTypesMatch(t types.Type, r reflect.Type) (err error) {
 			if !ok {
 				return fmt.Errorf("%s is a %T, not a signature", f.Name(), f.Type())
 			}
-			if err = checkSignaturesMatch(sig, method.Type, false); err != nil {
+			if err = ch.checkSignaturesMatch(sig, method.Type, false); err != nil {
 				return errors.Wrapf(err, "checking %s", f.Name())
 			}
 		}
@@ -237,31 +256,31 @@ func checkTypesMatch(t types.Type, r reflect.Type) (err error) {
 		if r.Kind() != reflect.Map {
 			return fmt.Errorf("kinds Map and %v do not match", r.Kind())
 		}
-		if err = checkTypesMatch(t.Key(), r.Key()); err != nil {
+		if err = ch.checkTypesMatch(t.Key(), r.Key()); err != nil {
 			return err
 		}
-		return checkTypesMatch(t.Elem(), r.Elem())
+		return ch.checkTypesMatch(t.Elem(), r.Elem())
 
 	case *types.Named:
 		if t.Obj().Name() != r.Name() {
 			return fmt.Errorf("names %s and %s do not match", t.Obj().Name(), r.Name())
 		}
-		return checkTypesMatch(t.Underlying(), r)
+		return ch.checkTypesMatch(t.Underlying(), r)
 
 	case *types.Pointer:
 		if r.Kind() != reflect.Ptr {
 			return fmt.Errorf("kinds Pointer and %v do not match", r.Kind())
 		}
-		return checkTypesMatch(t.Elem(), r.Elem())
+		return ch.checkTypesMatch(t.Elem(), r.Elem())
 
 	case *types.Signature:
-		return checkSignaturesMatch(t, r, true)
+		return ch.checkSignaturesMatch(t, r, true)
 
 	case *types.Slice:
 		if r.Kind() != reflect.Slice {
 			return fmt.Errorf("kinds Slice and %v do not match", r.Kind())
 		}
-		return checkTypesMatch(t.Elem(), r.Elem())
+		return ch.checkTypesMatch(t.Elem(), r.Elem())
 
 	case *types.Struct:
 		if r.Kind() != reflect.Struct {
@@ -278,7 +297,7 @@ func checkTypesMatch(t types.Type, r reflect.Type) (err error) {
 			if t.Tag(i) != string(f.Tag) {
 				return fmt.Errorf("struct field tag mismatch in field %d", i)
 			}
-			if err = checkTypesMatch(v.Type(), f.Type); err != nil {
+			if err = ch.checkTypesMatch(v.Type(), f.Type); err != nil {
 				return errors.Wrapf(err, "checking field %d", i)
 			}
 		}

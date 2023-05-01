@@ -51,17 +51,33 @@ func Proto(inputs, outputs, includes, otherOpts []string) (fab.Target, error) {
 	return fab.Files(&fab.Command{Cmd: "protoc", Args: args}, alldepsSlice, outputs), nil
 }
 
-func protoDecoder(node *yaml.Node) (fab.Target, error) {
+func protoDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target, error) {
 	var p struct {
-		Inputs   []string `yaml:"Inputs"`
-		Outputs  []string `yaml:"Outputs"`
-		Includes []string `yaml:"Includes"`
-		Opts     []string `yaml:"Opts"`
+		Inputs   yaml.Node `yaml:"Inputs"`
+		Outputs  yaml.Node `yaml:"Outputs"`
+		Includes yaml.Node `yaml:"Includes"`
+		Opts     []string  `yaml:"Opts"`
 	}
 	if err := node.Decode(&p); err != nil {
 		return nil, errors.Wrap(err, "YAML error decoding proto.Proto node")
 	}
-	return Proto(p.Inputs, p.Outputs, p.Includes, p.Opts)
+
+	inputs, err := con.YAMLFileList(&p.Inputs, dir)
+	if err != nil {
+		return nil, errors.Wrap(err, "parsing protoc input files")
+	}
+
+	outputs, err := con.YAMLFileList(&p.Outputs, dir)
+	if err != nil {
+		return nil, errors.Wrap(err, "parsing protoc output files")
+	}
+
+	includes, err := con.YAMLFileList(&p.Includes, dir)
+	if err != nil {
+		return nil, errors.Wrap(err, "parsing protoc include list")
+	}
+
+	return Proto(inputs, outputs, includes, p.Opts)
 }
 
 func init() {

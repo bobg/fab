@@ -10,7 +10,7 @@ import (
 )
 
 // Seq produces a target that runs a collection of targets in sequence.
-// Its Execute method exits early when a target in the sequence fails.
+// Its Run method exits early when a target in the sequence fails.
 //
 // It is JSON-encodable
 // (and therefore usable as the subtarget in [Files])
@@ -30,10 +30,10 @@ type seq struct {
 
 var _ Target = &seq{}
 
-// Execute implements Target.Execute.
-func (s *seq) Execute(ctx context.Context) error {
+// Run implements Target.Run.
+func (s *seq) Run(ctx context.Context, con *Controller) error {
 	for _, t := range s.targets {
-		if err := Run(ctx, t); err != nil {
+		if err := con.Run(ctx, t); err != nil {
 			return err
 		}
 	}
@@ -44,12 +44,12 @@ func (*seq) Desc() string {
 	return "Seq"
 }
 
-func seqDecoder(node *yaml.Node) (Target, error) {
+func seqDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.SequenceNode {
 		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
 	}
 	targets, err := slices.Mapx(node.Content, func(idx int, n *yaml.Node) (Target, error) {
-		target, err := YAMLTarget(n)
+		target, err := con.YAMLTarget(n, dir)
 		if err != nil {
 			return nil, errors.Wrapf(err, "child %d", idx)
 		}

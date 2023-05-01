@@ -5,12 +5,15 @@
 [![Tests](https://github.com/bobg/fab/actions/workflows/go.yml/badge.svg)](https://github.com/bobg/fab/actions/workflows/go.yml)
 [![Coverage Status](https://coveralls.io/repos/github/bobg/fab/badge.svg?branch=main)](https://coveralls.io/github/bobg/fab?branch=main)
 
-This is fab,
+This is Fab,
 a system for orchestrating software builds.
-It’s like [Make](https://en.wikipedia.org/wiki/Make_(software)),
-except that you express build rules and dependencies as [Go](https://go.dev/) code.
 
-(But that doesn’t mean it’s for building Go programs only,
+Fab is like [Make](https://en.wikipedia.org/wiki/Make_(software)),
+but with named, parameterized target types.
+You can describe your build with YAML files and/or [Go](https://go.dev/) code,
+and you can also define new target types in Go.
+
+(But that doesn’t mean Fab is for building Go programs only,
 any more than writing shell commands in a Makefile means Make builds only shell programs.)
 
 Running `fab` on one or more targets ensures that the targets’ prerequisites,
@@ -21,7 +24,7 @@ while avoiding unnecessarily rebuilding any target that is already up to date.
 ## Usage
 
 You will need an installation of Go version 1.20 or later.
-Download Go here: [go.dev](https://go.dev/dl/).
+Download Go here: [go.dev/dl](https://go.dev/dl/).
 
 Once Go is installed you can install Fab like this:
 
@@ -32,7 +35,7 @@ go install github.com/bobg/fab/cmd/fab@latest
 To define build targets in your software project,
 write Go code in a `_fab` subdirectory
 and/or write a `fab.yaml` file.
-(See [Targets](#Targets) below.)
+See [Targets](#Targets) below for how to do this.
 
 To build targets in your software project,
 run
@@ -92,7 +95,7 @@ and giving it a name.
 There are three ways to do this:
 statically in Go code;
 dynamically in Go code;
-and declaratively in a YAML file.
+and declaratively in one or more YAML files.
 These options are discussed below.
 
 You can also define new target types
@@ -169,13 +172,11 @@ Internally, static target definition works by calling `fab.RegisterTarget`.
 
 In addition to Go code in the `_fab` subdirectory,
 or instead of it,
-you can define targets in a `fab.yaml` file
-at the top level of your project.
+you can define targets in one or more `fab.yaml` files.
 
 The top-level structure of the YAML file is a mapping from names to targets.
 Targets are specified using YAML type tags.
 Most Fab target types define a tag and a syntax for extracting necessary arguments from YAML.
-
 Targets may also be referred to by name.
 
 Here is an example `fab.yaml` file:
@@ -209,6 +210,47 @@ which produces the list of files on which the Go package in a given directory de
 
 This also defines a `Test` target as a `Command` that runs `go test`.
 
+You may write `fab.yaml` files in multiple subdirectories of your project.
+When you write a `fab.yaml` file in a subdirectory `foo/bar` of your project’s top directory,
+it must include this declaration:
+
+```yaml
+_dir: foo/bar
+```
+
+A `fab.yaml` file at the top level of your project does not need this declaration.
+
+When a target `T` is defined in a YAML file in subdirectory `D`,
+it is registered
+(using [RegisterTarget](https://pkg.go.dev/github.com/bobg/fab#RegisterTarget))
+with the name `D/T`.
+A target in one `fab.yaml` file may refer to a target in another
+by specifying the relative path to it.
+for example,
+if the top-level `fab.yaml` contains:
+
+```yaml
+A: foo/B
+```
+
+this means that `foo/fab.yaml` defines a target `B`.
+
+```yaml
+_dir: foo
+
+B: ../bar/C
+```
+
+Here, `B` is defined in terms of a target in yet another file, `bar/fab.yaml`:
+
+```yaml
+_dir: bar
+
+C: !Command
+  Shell: echo Hello
+  Stdout: $stdout
+```
+
 All of the target types in the `github.com/bobg/fab` package are available to your YAML file by default.
 To make other target types available,
 it is necessary to import their packages
@@ -236,7 +278,7 @@ You can define new target types in Go code in the `_fab` subdirectory
 (or anywhere else, that is then imported into the `_fab` package).
 
 Your type must implement [fab.Target](https://pkg.go.dev/github.com/bobg/fab#Target),
-which requires two methods: `Desc` and `Execute`.
+which requires two methods: `Desc` and `Run`.
 
 `Desc` produces a short string describing the target.
 It is used by [Describe](https://pkg.go.dev/github.com/bobg/fab#Describe)
@@ -244,14 +286,16 @@ to describe targets that don’t have a name
 (i.e., ones that were never registered with `RegisterTarget`,
 possibly because they are nested inside some other target).
 
-`Execute` should unconditionally execute your target type’s logic.
+`Run` should unconditionally execute your target type’s logic.
 The Fab runtime will take care of making sure your target runs only when it needs to.
 More about this appears below.
 
-If part of your `Execute` method involves running other targets,
-do not invoke their `Execute` methods directly.
-Instead, invoke the [fab.Run](https://pkg.go.dev/github.com/bobg/fab#Run) _function_,
-which will skip that target if it has already run.
+If part of your `Run` method involves running other targets,
+do not invoke their `Run` methods directly.
+Instead, invoke the `Run` method on the [Controller](https://pkg.go.dev/github.com/bobg/fab#Controller)
+that your `Run` method receives as an argument,
+passing it the target you want to run.
+This will skip that target if it has already run.
 This means that a “diamond dependency” —
 A depends on B and C,
 and B and C each separately depend on X —
@@ -423,16 +467,15 @@ Note that the Fab version has a `Name` whereas the Make version does not.
 
 ## The Fab runtime
 
-A Fab [Runner](https://pkg.go.dev/github.com/bobg/fab#Runner)
-is responsible for invoking targets’ `Execute` methods,
+A Fab [Controller](https://pkg.go.dev/github.com/bobg/fab#Controller)
+is responsible for invoking targets’ `Run` methods,
 keeping track of which ones have already run
 so that they don’t get invoked a second time.
-A normal Fab session uses a single global default runner.
 
-The runner uses the address of each target as a unique key.
+The controller uses the address of each target as a unique key.
 This means that pointer types should be used to implement `Target`.
 After a target runs,
-the runner records its outcome
+the controller records its outcome
 (error or no error).
 The second and subsequent attempts to run a given target
 will use the previously computed outcome.

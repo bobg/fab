@@ -23,6 +23,7 @@ func TestProto(t *testing.T) {
 
 	var (
 		ctx        = context.Background()
+		con        = fab.NewController("")
 		outfilecpp = filepath.Join(tmpdir, "foo2.pb.cc")
 		outfileh   = filepath.Join(tmpdir, "foo2.pb.h")
 	)
@@ -31,7 +32,7 @@ func TestProto(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = fab.Run(ctx, p); err != nil {
+	if err = con.Run(ctx, p); err != nil {
 		t.Fatal(err)
 	}
 

@@ -7,40 +7,38 @@ import (
 	"io"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"github.com/bobg/errors"
 )
-
-// Runner is an object that knows how to run Targets
-// without ever running the same Target twice.
-//
-// A zero runner is not usable. Use NewRunner to obtain one instead.
-type Runner struct {
-	depth int32
-
-	mu  sync.Mutex // protects ran and Indentf
-	ran map[uintptr]*outcome
-}
-
-// NewRunner produces a new Runner.
-func NewRunner() *Runner {
-	return &Runner{ran: make(map[uintptr]*outcome)}
-}
 
 type outcome struct {
 	g   *gate
 	err error
 }
 
+func (con *Controller) incDepth() {
+	con.mu.Lock()
+	con.depth++
+	con.mu.Unlock()
+}
+
+func (con *Controller) decDepth() {
+	con.mu.Lock()
+	con.depth--
+	if con.depth < 0 {
+		con.depth = 0
+	}
+	con.mu.Unlock()
+}
+
 // Run runs the given targets, skipping any that have already run.
 //
-// A Runner remembers which targets it has already run
+// A controller remembers which targets it has already run
 // (whether in this call or any previous call to Run).
 //
 // The targets are executed concurrently.
 // A separate goroutine is created for each one passed to Run.
-// If the Runner has never yet run the target,
+// If the controller has never yet run the target,
 // it does so, and caches the result (error or no error).
 // If the target did already run, the cached error value is used.
 // If another goroutine concurrently requests the same target,
@@ -50,21 +48,13 @@ type outcome struct {
 // This function waits for all goroutines to complete.
 // The return value may be an accumulation of multiple errors
 // produced with [errors.Join].
-//
-// The runner is added to the context with [WithRunner]
-// and can be retrieved with [GetRunner].
-// Calls to [Run]
-// will use it instead of [DefaultRunner]
-// by finding it in the context.
-func (r *Runner) Run(ctx context.Context, targets ...Target) error {
+func (con *Controller) Run(ctx context.Context, targets ...Target) error {
 	if len(targets) == 0 {
 		return nil
 	}
 
-	ctx = WithRunner(ctx, r)
-
-	atomic.AddInt32(&r.depth, 1)
-	defer atomic.AddInt32(&r.depth, -1)
+	con.incDepth()
+	defer con.decDepth()
 
 	var (
 		verbose = GetVerbose(ctx)
@@ -84,13 +74,13 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 		go func() {
 			defer wg.Done()
 
-			r.mu.Lock()
-			o, ok := r.ran[addr]
+			con.mu.Lock()
+			o, ok := con.ran[addr]
 			if !ok {
 				o = &outcome{g: newGate(false)}
-				r.ran[addr] = o
+				con.ran[addr] = o
 			}
-			r.mu.Unlock()
+			con.mu.Unlock()
 
 			if ok {
 				// This target was launched in a different goroutine.
@@ -101,11 +91,11 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 				// This target was not previously launched,
 				// so run it and then open its "outcome gate."
 				if verbose {
-					r.Indentf("Running %s", Describe(target))
+					con.Indentf("Running %s", con.Describe(target))
 				}
-				err := target.Execute(ctx)
+				err := target.Run(ctx, con)
 				if err != nil {
-					err = errors.Wrapf(err, "running %s", Describe(target))
+					err = errors.Wrapf(err, "running %s", con.Describe(target))
 				}
 				errs[i] = err
 				o.err = err
@@ -120,71 +110,37 @@ func (r *Runner) Run(ctx context.Context, targets ...Target) error {
 }
 
 // Indentf formats and prints its arguments
-// with leading indentation based on the nesting depth of the Runner.
-// The nesting depth increases with each call to Runner.Run
+// with leading indentation based on the nesting depth of the controller.
+// The nesting depth increases with each call to [Controller.Run]
 // and decreases at the end of the call.
 //
 // A newline is added to the end of the string if one is not already there.
-func (r *Runner) Indentf(format string, args ...any) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
+func (con *Controller) Indentf(format string, args ...any) {
 	if !strings.HasSuffix(format, "\n") {
 		format += "\n"
 	}
-	if depth := atomic.LoadInt32(&r.depth); depth > 0 {
+
+	con.mu.Lock()
+	depth := con.depth
+	con.mu.Unlock()
+
+	if depth > 0 {
 		fmt.Print(strings.Repeat("  ", int(depth)))
 	}
 	fmt.Printf(format, args...)
 }
 
-// DefaultRunner is a Runner used by default in Run.
-var DefaultRunner = NewRunner()
-
-// Run runs the given targets with a Runner.
-// If `ctx` contains a Runner
-// (e.g., because this call is nested inside a pending call to [Runner.Run]
-// and the context has been decorated using [WithRunner])
-// then it uses that Runner,
-// otherwise it uses [DefaultRunner].
-//
-// A given Runner will not run the same target more than once.
-// See [Runner.Run].
-func Run(ctx context.Context, targets ...Target) error {
-	runner := GetRunner(ctx)
-	if runner == nil {
-		runner = DefaultRunner
-	}
-	return runner.Run(ctx, targets...)
-}
-
-// Indentf calls Runner.Indent with the given format and args
-// if a Runner can be found in the given context.
-// If one cannot, then the formatted string is simply printed
-// (with a trailing newline added if needed).
-func Indentf(ctx context.Context, format string, args ...any) {
-	if runner := GetRunner(ctx); runner != nil {
-		runner.Indentf(format, args...)
-	} else {
-		if !strings.HasSuffix(format, "\n") {
-			format += "\n"
-		}
-		fmt.Printf(format, args...)
-	}
-}
-
 // IndentingCopier creates an [io.Writer] that copies its data to an underlying writer,
-// indenting each line according to the indentation depth of the [Runner] in the given context.
+// indenting each line according to the indentation depth of the controller.
 // After indentation,
 // each line additionally gets any prefix specified in `prefix`.
 //
 // The wrapper converts \r\n to \n, and bare \r to \n.
-func IndentingCopier(ctx context.Context, w io.Writer, prefix string) io.Writer {
-	runner := GetRunner(ctx)
-	if runner == nil {
-		runner = DefaultRunner
-	}
-	depth := atomic.LoadInt32(&runner.depth)
+// A \r at the very end of the input is silently dropped.
+func (con *Controller) IndentingCopier(w io.Writer, prefix string) io.Writer {
+	con.mu.Lock()
+	depth := con.depth
+	con.mu.Unlock()
 
 	return &indentingCopier{
 		w:      bufio.NewWriter(w),

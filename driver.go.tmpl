@@ -17,21 +17,6 @@ import (
 )
 
 func main() {
-	var err error
-
-	{{- range .Targets }}
-	_, err = fab.RegisterTarget("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }})
-	if err != nil {
-		fmt.Printf("Error registering target {{ .Name }}: %s\n", err)
-		os.Exit(1)
-	}
-	{{- end }}
-
-	if err = fab.ReadYAMLFile(); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		fmt.Printf("Error reading YAML file: %s\n", err)
-		os.Exit(1)
-	}
-
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
 		home, err := os.UserHomeDir()
@@ -44,11 +29,13 @@ func main() {
 
 	var (
 		fabdir  string
+		topdir  string
 		verbose bool
 		list    bool
 		force   bool
 	)
 	flag.StringVar(&fabdir, "fab", filepath.Join(cacheDir, "fab"), "directory containing driver binaries and hash DB")
+	flag.StringVar(&topdir, "top", "", "project's top directory")
 	flag.BoolVar(&verbose, "v", false, "run verbosely")
 	flag.BoolVar(&list, "list", false, "list available targets")
 	flag.BoolVar(&force, "f", false, "force rebuilding of targets")
@@ -57,6 +44,21 @@ func main() {
 	ctx := context.Background()
 	ctx = fab.WithVerbose(ctx, verbose)
 	ctx = fab.WithForce(ctx, force)
+
+	con := fab.NewController(topdir)
+
+	{{- range .Targets }}
+	_, err = con.RegisterTarget("{{ .Name }}", {{ .Doc }}, subpkg.{{ .Name }})
+	if err != nil {
+		fmt.Printf("Error registering target {{ .Name }}: %s\n", err)
+		os.Exit(1)
+	}
+	{{- end }}
+
+	if err = con.ReadYAMLFile(""); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		fmt.Printf("Error reading YAML file: %s\n", err)
+		os.Exit(1)
+	}
 
 	db, err := fab.OpenHashDB(ctx, fabdir)
 	if err != nil {
@@ -72,17 +74,16 @@ func main() {
 	}
 
 	if list {
-		fab.ListTargets()
+		con.ListTargets()
 		return
 	}
 
-	targets, err := fab.ParseArgs(args)
+	targets, err := con.ParseArgs(args)
 	if err != nil {
 		fatalf("Parsing args: %s", err)
 	}
 
-	runner := fab.NewRunner()
-	if err := runner.Run(ctx, targets...); err != nil {
+	if err := con.Run(ctx, targets...); err != nil {
 		fatalf("Error: %s", err)
 	}
 }

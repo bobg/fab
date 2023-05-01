@@ -10,20 +10,20 @@ func TestDeps(t *testing.T) {
 	var mu sync.Mutex // protects ran1, ran2, and ranpost during Run
 	var ran1, ran2, ranpost bool
 
-	pre1 := F(func(_ context.Context) error {
+	pre1 := F(func(context.Context, *Controller) error {
 		mu.Lock()
 		ran1 = true
 		mu.Unlock()
 		return nil
 	})
-	pre2 := F(func(_ context.Context) error {
+	pre2 := F(func(context.Context, *Controller) error {
 		mu.Lock()
 		ran2 = true
 		mu.Unlock()
 		return nil
 	})
 
-	post := F(func(_ context.Context) error {
+	post := F(func(context.Context, *Controller) error {
 		mu.Lock()
 		defer mu.Unlock()
 		if !ran1 || !ran2 {
@@ -33,7 +33,9 @@ func TestDeps(t *testing.T) {
 		return nil
 	})
 
-	err := Run(context.Background(), Deps(post, pre1, pre2))
+	con := NewController("")
+
+	err := con.Run(context.Background(), Deps(post, pre1, pre2))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -23,8 +23,8 @@ func TestClean(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r := NewRunner()
-	if err = r.Run(context.Background(), Clean(tmpname, "/tmp/i-hope-i-am-a-file-that-does-not-exist")); err != nil {
+	con := NewController("")
+	if err = con.Run(context.Background(), Clean(tmpname, "/tmp/i-hope-i-am-a-file-that-does-not-exist")); err != nil {
 		t.Fatal(err)
 	}
 

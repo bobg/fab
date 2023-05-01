@@ -35,13 +35,18 @@ func TestFileChaining(t *testing.T) {
 	aToB := fileCopyTarget(aFile, bFile)
 	bToC := fileCopyTarget(bFile, cFile)
 
-	// These registrations make things clearer in verbose mode.
-	if _, err = RegisterTarget("aToB", "", aToB); err != nil {
-		t.Fatal(err)
+	newController := func() *Controller {
+		con := NewController("")
+		// These registrations make things clearer in verbose mode.
+		if _, err = con.RegisterTarget("AB", "", aToB); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = con.RegisterTarget("BC", "", bToC); err != nil {
+			t.Fatal(err)
+		}
+		return con
 	}
-	if _, err = RegisterTarget("bToC", "", bToC); err != nil {
-		t.Fatal(err)
-	}
+	con := newController()
 
 	ctx := context.Background()
 
@@ -49,9 +54,7 @@ func TestFileChaining(t *testing.T) {
 	ctx = WithHashDB(ctx, db)
 	ctx = WithVerbose(ctx, testing.Verbose())
 
-	runner := NewRunner()
-
-	if err = runner.Run(ctx, bToC); err != nil {
+	if err = con.Run(ctx, bToC); err != nil {
 		t.Fatal(err)
 	}
 
@@ -73,9 +76,9 @@ func TestFileChaining(t *testing.T) {
 		t.Errorf("bTime %s is later than cTime %s, should be earlier", bTime, cTime)
 	}
 
-	runner = NewRunner()
+	con = newController()
 
-	if err = runner.Run(ctx, aToB); err != nil {
+	if err = con.Run(ctx, aToB); err != nil {
 		t.Fatal(err)
 	}
 	info, err = os.Stat(bFile)
@@ -86,9 +89,9 @@ func TestFileChaining(t *testing.T) {
 		t.Errorf("bTime has changed to %s, should still be %s", info.ModTime(), bTime)
 	}
 
-	runner = NewRunner()
+	con = newController()
 
-	if err = runner.Run(ctx, bToC); err != nil {
+	if err = con.Run(ctx, bToC); err != nil {
 		t.Fatal(err)
 	}
 	info, err = os.Stat(cFile)
@@ -109,9 +112,9 @@ func TestFileChaining(t *testing.T) {
 	}
 	aTime = info.ModTime()
 
-	runner = NewRunner()
+	con = newController()
 
-	if err = runner.Run(ctx, bToC); err != nil {
+	if err = con.Run(ctx, bToC); err != nil {
 		t.Fatal(err)
 	}
 

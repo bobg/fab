@@ -36,9 +36,8 @@ func TestMain(t *testing.T) {
 	}
 
 	m := Main{
-		Pkgdir: filepath.Join(compiledir, "pkg"),
 		Fabdir: fabdir,
-		Chdir:  tmpdir,
+		Topdir: compiledir,
 		Args:   []string{"Noop"},
 
 		// The following are here mainly to improve test coverage.

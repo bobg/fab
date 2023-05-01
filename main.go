@@ -23,15 +23,12 @@ import (
 
 // Main is the structure whose Run methods implements the main logic of the fab command.
 type Main struct {
-	// Pkgdir is where to find the user's build-rules Go package, e.g. "_fab".
-	Pkgdir string
-
 	// Fabdir is where to find the user's hash DB and compiled binaries, e.g. $HOME/.cache/fab.
 	Fabdir string
 
-	// Chdir sets the current directory for running the driver.
-	// In driverless mode it causes a Chdir to the named directory.
-	Chdir string
+	// Topdir is the directory containing a _fab subdir or top-level fab.yaml file.
+	// If this is not specified, it will be computed by traversing upward from the current directory.
+	Topdir string
 
 	// Verbose tells whether to run the driver in verbose mode
 	// (by supplying the -v command-line flag).
@@ -49,7 +46,8 @@ type Main struct {
 }
 
 // Run executes the main logic of the fab command.
-// A driver binary with a name matching m.Pkgdir is sought in m.Fabdir.
+// A driver binary with a name matching the Go package path of the _fab subdir
+// is sought in m.Fabdir.
 // If it does not exist,
 // or if its corresponding dirhash is wrong
 // (i.e., out of date with respect to the user's code),
@@ -58,8 +56,22 @@ type Main struct {
 // It is then invoked with the command-line arguments indicated by the fields of m.
 // Typically this will include one or more target names,
 // in which case the driver will execute the associated rules
-// as defined by the code in m.Pkgdir.
-func (m Main) Run(ctx context.Context) error {
+// as defined by the code in _fab
+// and by any fab.yaml files.
+//
+// If there is no _fab directory,
+// Run operates in "driverless" mode,
+// in which target definitions are found in fab.yaml files only.
+func (m *Main) Run(ctx context.Context) error {
+	if m.Topdir == "" {
+		var err error
+
+		m.Topdir, err = TopDir(".")
+		if err != nil {
+			return errors.Wrap(err, "finding project's top directory")
+		}
+	}
+
 	driver, err := m.getDriver(ctx, false)
 	if errors.Is(err, errNoDriver) {
 		return m.driverless(ctx)
@@ -68,7 +80,7 @@ func (m Main) Run(ctx context.Context) error {
 		return errors.Wrap(err, "ensuring driver is up to date")
 	}
 
-	args := []string{"-fab", m.Fabdir}
+	args := []string{"-fab", m.Fabdir, "-top", m.Topdir}
 	if m.Verbose {
 		args = append(args, "-v")
 	}
@@ -81,7 +93,7 @@ func (m Main) Run(ctx context.Context) error {
 	args = append(args, m.Args...)
 
 	cmd := exec.CommandContext(ctx, driver, args...)
-	cmd.Dir = m.Chdir
+	cmd.Dir = m.Topdir // xxx is this right?
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	err = cmd.Run()
 	return errors.Wrapf(err, "running %s %s", driver, strings.Join(args, " "))
@@ -89,23 +101,19 @@ func (m Main) Run(ctx context.Context) error {
 
 var errNoDriver = errors.New("no driver")
 
-func (m Main) driverless(ctx context.Context) error {
+func (m *Main) driverless(ctx context.Context) error {
 	if m.Verbose {
 		fmt.Println("Running in driverless mode")
 	}
 
-	if m.Chdir != "" {
-		if err := os.Chdir(m.Chdir); err != nil {
-			return errors.Wrapf(err, "changing to directory %s", m.Chdir)
-		}
-	}
+	con := NewController(m.Topdir)
 
-	if err := ReadYAMLFile(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err := con.ReadYAMLFile(""); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return errors.Wrap(err, "reading YAML file")
 	}
 
 	if m.List {
-		ListTargets()
+		con.ListTargets()
 		return nil
 	}
 
@@ -119,23 +127,22 @@ func (m Main) driverless(ctx context.Context) error {
 	defer db.Close()
 	ctx = WithHashDB(ctx, db)
 
-	targets, err := ParseArgs(m.Args)
+	targets, err := con.ParseArgs(m.Args)
 	if err != nil {
 		return errors.Wrap(err, "parsing args")
 	}
 
-	runner := NewRunner()
-	return runner.Run(ctx, targets...)
+	return con.Run(ctx, targets...)
 }
 
 var bolRegex = regexp.MustCompile("^")
 
 // ListTargets outputs a formatted list of the targets in the registry and their docstrings.
-func ListTargets() {
-	names := RegistryNames()
+func (con *Controller) ListTargets() {
+	names := con.RegistryNames()
 	for _, name := range names {
 		fmt.Println(name)
-		if _, d := RegistryTarget(name); d != "" {
+		if _, d := con.RegistryTarget(name); d != "" {
 			d = bolRegex.ReplaceAllString(d, "    ")
 			fmt.Println(d)
 		}
@@ -162,7 +169,7 @@ func OpenHashDB(ctx context.Context, dir string) (*sqlite.DB, error) {
 // The two cases are distinguished by whether there is a second argument
 // and whether it begins with a hyphen.
 // (That's the ArgTarget case.)
-func ParseArgs(args []string) ([]Target, error) {
+func (con *Controller) ParseArgs(args []string) ([]Target, error) {
 	var (
 		targets []Target
 		unknown []string
@@ -170,14 +177,14 @@ func ParseArgs(args []string) ([]Target, error) {
 
 	if len(args) > 1 && args[1][0] == '-' {
 		// Just one target, and remaining args are arguments for that target.
-		if target, _ := RegistryTarget(args[0]); target != nil {
+		if target, _ := con.RegistryTarget(args[0]); target != nil {
 			targets = append(targets, ArgTarget(target, args[1:]...))
 		} else {
 			unknown = append(unknown, args[0])
 		}
 	} else {
 		for _, arg := range args {
-			if target, _ := RegistryTarget(arg); target != nil {
+			if target, _ := con.RegistryTarget(arg); target != nil {
 				targets = append(targets, target)
 			} else {
 				unknown = append(unknown, arg)
@@ -199,22 +206,23 @@ const fabVersionBasename = "fab-version.json"
 
 // TODO: Remove skipVersionCheck, which is here only to help an old test keep running.
 // Update the test instead.
-func (m Main) getDriver(ctx context.Context, skipVersionCheck bool) (_ string, err error) {
-	_, err = os.Stat(m.Pkgdir)
+func (m *Main) getDriver(ctx context.Context, skipVersionCheck bool) (_ string, err error) {
+	pkgdir := filepath.Join(m.Topdir, "_fab")
+	_, err = os.Stat(pkgdir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", errNoDriver
 	}
 	config := &packages.Config{
 		Mode:    LoadMode,
 		Context: ctx,
-		Dir:     m.Pkgdir,
+		Dir:     pkgdir,
 	}
 	pkgs, err := packages.Load(config, ".")
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", errNoDriver
 	}
 	if err != nil {
-		return "", errors.Wrapf(err, "loading %s", m.Pkgdir)
+		return "", errors.Wrapf(err, "loading %s", pkgdir)
 	}
 	if len(pkgs) == 0 {
 		return "", errNoDriver
@@ -223,7 +231,7 @@ func (m Main) getDriver(ctx context.Context, skipVersionCheck bool) (_ string, e
 		return "", fmt.Errorf(
 			"loaded %d packages in %s, want 1 %v",
 			len(pkgs),
-			m.Pkgdir,
+			pkgdir,
 			slices.Map(pkgs, func(p *packages.Package) string { return p.PkgPath }),
 		)
 	}
@@ -294,7 +302,7 @@ func (m Main) getDriver(ctx context.Context, skipVersionCheck bool) (_ string, e
 	}
 	newhash, err := dh.hash()
 	if err != nil {
-		return "", errors.Wrapf(err, "computing hash of directory %s", m.Pkgdir)
+		return "", errors.Wrapf(err, "computing hash of directory %s", pkgdir)
 	}
 
 	if !compile {
@@ -341,7 +349,7 @@ func (m Main) getDriver(ctx context.Context, skipVersionCheck bool) (_ string, e
 	return driver, nil
 }
 
-func (m Main) checkVersion(versionfile string) (bool, *debug.BuildInfo, error) {
+func (m *Main) checkVersion(versionfile string) (bool, *debug.BuildInfo, error) {
 	newInfo, ok := debug.ReadBuildInfo()
 	if !ok {
 		if m.Verbose {

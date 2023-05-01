@@ -11,7 +11,9 @@ func TestAll(t *testing.T) {
 	var mu sync.Mutex // protects ran1 and ran2 during Run
 	var ran1, ran2 bool
 
-	t1 := F(func(_ context.Context) error {
+	con := NewController("")
+
+	t1 := F(func(context.Context, *Controller) error {
 		mu.Lock()
 		defer mu.Unlock()
 		if ran1 {
@@ -20,7 +22,7 @@ func TestAll(t *testing.T) {
 		ran1 = true
 		return nil
 	})
-	t2 := F(func(_ context.Context) error {
+	t2 := F(func(context.Context, *Controller) error {
 		mu.Lock()
 		defer mu.Unlock()
 		if ran2 {
@@ -30,7 +32,7 @@ func TestAll(t *testing.T) {
 		return nil
 	})
 	a := All(t1, t2)
-	err := Run(context.Background(), a)
+	err := con.Run(context.Background(), a)
 	if err != nil {
 		t.Fatal(err)
 	}

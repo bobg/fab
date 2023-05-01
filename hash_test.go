@@ -44,8 +44,8 @@ func TestHashTarget(t *testing.T) {
 		t.Helper()
 
 		return func(t *testing.T) {
-			r := NewRunner()
-			err = r.Run(ctx, fc)
+			con := NewController("")
+			err = con.Run(ctx, fc)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -29,9 +29,9 @@ type all struct {
 
 var _ Target = &all{}
 
-// Run implements Target.Execute.
-func (a *all) Execute(ctx context.Context) error {
-	return Run(ctx, a.Targets...)
+// Run implements Target.Run.
+func (a *all) Run(ctx context.Context, con *Controller) error {
+	return con.Run(ctx, a.Targets...)
 }
 
 // Desc implements Target.Desc.
@@ -39,12 +39,12 @@ func (*all) Desc() string {
 	return "All"
 }
 
-func allDecoder(node *yaml.Node) (Target, error) {
+func allDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.SequenceNode {
 		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
 	}
 	targets, err := slices.Mapx(node.Content, func(idx int, n *yaml.Node) (Target, error) {
-		target, err := YAMLTarget(n)
+		target, err := con.YAMLTarget(n, dir)
 		return target, errors.Wrapf(err, "child %d", idx)
 	})
 	if err != nil {

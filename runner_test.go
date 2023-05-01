@@ -11,7 +11,7 @@ import (
 func TestRunTarget(t *testing.T) {
 	var (
 		ctx     = context.Background()
-		r       = NewRunner()
+		con     = NewController("")
 		ct      = &countTarget{}
 		target  = Files(ct, nil, []string{"/dev/null"})
 		targets []Target
@@ -23,7 +23,7 @@ func TestRunTarget(t *testing.T) {
 
 	ctx = WithVerbose(ctx, testing.Verbose())
 
-	err := r.Run(ctx, targets...)
+	err := con.Run(ctx, targets...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,8 +34,8 @@ func TestRunTarget(t *testing.T) {
 	db := memHashDB{s: set.New[string]()}
 	ctx = WithHashDB(ctx, &db)
 
-	r = NewRunner()
-	err = r.Run(ctx, targets...)
+	con = NewController("")
+	err = con.Run(ctx, targets...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,8 +43,8 @@ func TestRunTarget(t *testing.T) {
 		t.Errorf("got %d, want 2", ct.count)
 	}
 
-	r = NewRunner()
-	err = r.Run(ctx, targets...)
+	con = NewController("")
+	err = con.Run(ctx, targets...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ type countTarget struct {
 	count uint32
 }
 
-func (ct *countTarget) Execute(_ context.Context) error {
+func (ct *countTarget) Run(context.Context, *Controller) error {
 	atomic.AddUint32(&ct.count, 1)
 	return nil
 }

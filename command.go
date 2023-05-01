@@ -13,7 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Command is a Target whose Execute function executes a command in a subprocess.
+// Command is a Target whose Run function executes a command in a subprocess.
 //
 // It is JSON-encodable
 // (and therefore usable as the subtarget in [Files]).
@@ -28,21 +28,26 @@ import (
 //   - Args, list of arguments for Cmd.
 //   - Stdin, the name of a file from which the command's standard input should be read,
 //     or the special string $stdin to mean read Fab's standard input.
-//   - Stdout, the name of a file to which the command's standard output should be written.
+//   - Stdout, the name of a file to which the command's standard output should be written,
+//     either absolute or relative to the directory in which the YAML file is found.
 //     The file is overwritten unless this is prefixed with >> which means append.
 //     This may also be one of these special strings:
 //     $stdout (copy the command's output to Fab's standard output);
 //     $stderr (copy the command's output to Fab's standard error);
 //     $indent (indent the command's output with [IndentingCopier] and copy it to Fab's standard output);
+//     $verbose (like $indent, but produce output only when fab is running in verbose mode [with the -v flag]);
 //     $discard (discard the command's output).
-//   - Stderr, the name of a file to which the command's standard error should be written.
+//   - Stderr, the name of a file to which the command's standard error should be written,
+//     either absolute or relative to the directory in which the YAML file is found.
 //     The file is overwritten unless this is prefixed with >> which means append.
 //     This may also be one of these special strings:
 //     $stdout (copy the command's error output to Fab's standard error);
 //     $stderr (copy the command's error output to Fab's standard error);
 //     $indent (indent the command's error output with [IndentingCopier] and copy it to Fab's standard error);
+//     $verbose (like $indent, but produce output only when fab is running in verbose mode [with the -v flag]);
 //     $discard (discard the command's error output).
-//   - Dir, the directory in which the command should run.
+//   - Dir, the directory in which the command should run,
+//     either absolute or relative to the directory in which the YAML file is found.
 //   - Env, a list of VAR=VALUE strings to add to the command's environment.
 type Command struct {
 	// Shell is the command to run,
@@ -99,22 +104,24 @@ type Command struct {
 	Stderr io.Writer `json:"-"`
 
 	// StdoutFn lets you defer assigning a value to Stdout
-	// until Execute is invoked,
-	// at which time its context object is passed to this function to produce the [io.Writer] to use.
+	// until Run is invoked,
+	// at which time this function is called with the context and the [Controller]
+	// to produce the [io.Writer] to use.
 	// If the writer produced by this function is also an [io.Closer],
-	// its Close method will be called before Execute exits.
+	// its Close method will be called before Run exits.
 	//
 	// Stdout, StdoutFile, and StdoutFn are all mutually exclusive.
-	StdoutFn func(context.Context) io.Writer `json:"-"`
+	StdoutFn func(context.Context, *Controller) io.Writer `json:"-"`
 
 	// StderrFn lets you defer assigning a value to Stderr
-	// until Execute is invoked,
-	// at which time its context object is passed to this function to produce the [io.Writer] to use.
+	// until Run is invoked,
+	// at which time this function is called with the context and the [Controller]
+	// to produce the [io.Writer] to use.
 	// If the writer produced by this function is also an [io.Closer],
-	// its Close method will be called before Execute exits.
+	// its Close method will be called before Run exits.
 	//
 	// Stderr, StderrFile, and StderrFn are all mutually exclusive.
-	StderrFn func(context.Context) io.Writer `json:"-"`
+	StderrFn func(context.Context, *Controller) io.Writer `json:"-"`
 
 	// StdoutFile is the name of a file to which the command's standard output should go.
 	// When the command runs,
@@ -147,7 +154,6 @@ type Command struct {
 	StdinFile string `json:"stdin_file,omitempty"`
 
 	// Dir is the directory in which to run the command.
-	// The default is the value of GetDir(ctx) when the Execute method is called.
 	Dir string `json:"dir,omitempty"`
 
 	// Env is a list of VAR=VALUE strings to add to the environment when the command runs.
@@ -164,8 +170,8 @@ func Shellf(format string, args ...any) *Command {
 	}
 }
 
-// Execute implements Target.Execute.
-func (c *Command) Execute(ctx context.Context) (err error) {
+// Run implements Target.Run.
+func (c *Command) Run(ctx context.Context, con *Controller) (err error) {
 	var (
 		cmdname = c.Cmd
 		args    = c.Args
@@ -251,40 +257,42 @@ func (c *Command) Execute(ctx context.Context) (err error) {
 	}
 
 	if cmd.Stdout == nil && c.StdoutFn != nil {
-		w := c.StdoutFn(ctx)
-		if closer, ok := w.(io.Closer); ok {
-			defer func() {
-				closeErr := closer.Close()
-				if err == nil {
-					err = errors.Wrap(closeErr, "closing stdout")
-				}
-			}()
+		if w := c.StdoutFn(ctx, con); w != nil {
+			if closer, ok := w.(io.Closer); ok {
+				defer func() {
+					closeErr := closer.Close()
+					if err == nil {
+						err = errors.Wrap(closeErr, "closing stdout")
+					}
+				}()
+			}
+			cmd.Stdout = w
 		}
-		cmd.Stdout = w
 	}
 	if cmd.Stderr == nil && c.StderrFn != nil {
-		w := c.StderrFn(ctx)
-		if closer, ok := w.(io.Closer); ok {
-			defer func() {
-				closeErr := closer.Close()
-				if err == nil {
-					err = errors.Wrap(closeErr, "closing stderr")
-				}
-			}()
+		if w := c.StderrFn(ctx, con); w != nil {
+			if closer, ok := w.(io.Closer); ok {
+				defer func() {
+					closeErr := closer.Close()
+					if err == nil {
+						err = errors.Wrap(closeErr, "closing stderr")
+					}
+				}()
+			}
+			cmd.Stderr = w
 		}
-		cmd.Stderr = w
 	}
 
 	var buf bytes.Buffer
 
 	if GetVerbose(ctx) {
 		if cmd.Stdout == nil {
-			cmd.Stdout = IndentingCopier(ctx, os.Stdout, "    ")
+			cmd.Stdout = con.IndentingCopier(os.Stdout, "    ")
 		}
 		if cmd.Stderr == nil {
-			cmd.Stderr = IndentingCopier(ctx, os.Stderr, "    ")
+			cmd.Stderr = con.IndentingCopier(os.Stderr, "    ")
 		}
-		Indentf(ctx, "  Running command %s", cmd)
+		con.Indentf("  Running command %s", cmd)
 	} else {
 		if cmd.Stdout == nil {
 			cmd.Stdout = &buf
@@ -319,7 +327,7 @@ func (*Command) Desc() string {
 	return "Command"
 }
 
-// CommandErr is a type of error that may be returned from command.Execute.
+// CommandErr is a type of error that may be returned from command.Run.
 // If the command's Stdout or Stderr field was nil,
 // then that output from the subprocess is in CommandErr.Output
 // and the underlying error is in CommandErr.Err.
@@ -338,7 +346,7 @@ func (e CommandErr) Unwrap() error {
 	return e.Err
 }
 
-func commandDecoder(node *yaml.Node) (Target, error) {
+func commandDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.MappingNode)
 	}
@@ -370,7 +378,7 @@ func commandDecoder(node *yaml.Node) (Target, error) {
 		Shell: c.Shell,
 		Cmd:   c.Cmd,
 		Args:  args,
-		Dir:   c.Dir,
+		Dir:   con.JoinPath(dir, c.Dir),
 		Env:   env,
 	}
 
@@ -389,12 +397,23 @@ func commandDecoder(node *yaml.Node) (Target, error) {
 		result.Stdout = io.Discard
 
 	case "$indent":
-		result.StdoutFn = func(ctx context.Context) io.Writer {
-			return IndentingCopier(ctx, os.Stdout, "    ")
+		result.StdoutFn = func(_ context.Context, con *Controller) io.Writer {
+			return con.IndentingCopier(os.Stdout, "    ")
 		}
 
+	case "$verbose":
+		result.StdoutFn = func(ctx context.Context, con *Controller) io.Writer {
+			if GetVerbose(ctx) {
+				return con.IndentingCopier(os.Stdout, "    ")
+			}
+			return nil
+		}
+
+	case "":
+		// do nothing
+
 	default:
-		result.StdoutFile = c.Stdout
+		result.StdoutFile = con.JoinPath(dir, c.Stdout)
 	}
 
 	switch c.Stderr {
@@ -408,12 +427,23 @@ func commandDecoder(node *yaml.Node) (Target, error) {
 		result.Stderr = io.Discard
 
 	case "$indent":
-		result.StderrFn = func(ctx context.Context) io.Writer {
-			return IndentingCopier(ctx, os.Stderr, "    ")
+		result.StderrFn = func(_ context.Context, con *Controller) io.Writer {
+			return con.IndentingCopier(os.Stderr, "    ")
 		}
 
+	case "$verbose":
+		result.StderrFn = func(ctx context.Context, con *Controller) io.Writer {
+			if GetVerbose(ctx) {
+				return con.IndentingCopier(os.Stderr, "    ")
+			}
+			return nil
+		}
+
+	case "":
+		// do nothing
+
 	default:
-		result.StderrFile = c.Stderr
+		result.StderrFile = con.JoinPath(dir, c.Stderr)
 	}
 
 	return result, nil

@@ -5,7 +5,6 @@ import "context"
 type (
 	forceKeyType   struct{}
 	hashDBKeyType  struct{}
-	runnerKeyType  struct{}
 	verboseKeyType struct{}
 	argsKeyType    struct{}
 )
@@ -34,19 +33,6 @@ func WithHashDB(ctx context.Context, db HashDB) context.Context {
 func GetHashDB(ctx context.Context) HashDB {
 	db, _ := ctx.Value(hashDBKeyType{}).(HashDB)
 	return db
-}
-
-// WithRunner decorates a context with a [Runner].
-// Retrieve it with [GetRunner].
-func WithRunner(ctx context.Context, r *Runner) context.Context {
-	return context.WithValue(ctx, runnerKeyType{}, r)
-}
-
-// GetRunner returns the value of the Runner added to `ctx` with [WithRunner].
-// The default, if WithRunner was not used, is nil.
-func GetRunner(ctx context.Context) *Runner {
-	r, _ := ctx.Value(runnerKeyType{}).(*Runner)
-	return r
 }
 
 // WithVerbose decorates a context with the value of a "verbose" boolean.

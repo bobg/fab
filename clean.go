@@ -27,8 +27,8 @@ type clean struct {
 	Files []string
 }
 
-// Execute implements Target.Execute.
-func (c *clean) Execute(_ context.Context) error {
+// Run implements Target.Run.
+func (c *clean) Run(context.Context, *Controller) error {
 	for _, f := range c.Files {
 		err := os.Remove(f)
 		if errors.Is(err, fs.ErrNotExist) {
@@ -46,11 +46,11 @@ func (*clean) Desc() string {
 	return "Clean"
 }
 
-func cleanDecoder(node *yaml.Node) (Target, error) {
+func cleanDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.SequenceNode {
 		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
 	}
-	files, err := YAMLStringListFromNodes(node.Content)
+	files, err := con.YAMLFileListFromNodes(node.Content, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error in Clean node")
 	}
