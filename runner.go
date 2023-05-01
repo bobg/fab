@@ -33,12 +33,12 @@ func (con *Controller) decDepth() {
 
 // Run runs the given targets, skipping any that have already run.
 //
-// A Runner remembers which targets it has already run
+// A controller remembers which targets it has already run
 // (whether in this call or any previous call to Run).
 //
 // The targets are executed concurrently.
 // A separate goroutine is created for each one passed to Run.
-// If the Runner has never yet run the target,
+// If the controller has never yet run the target,
 // it does so, and caches the result (error or no error).
 // If the target did already run, the cached error value is used.
 // If another goroutine concurrently requests the same target,
@@ -48,12 +48,6 @@ func (con *Controller) decDepth() {
 // This function waits for all goroutines to complete.
 // The return value may be an accumulation of multiple errors
 // produced with [errors.Join].
-//
-// The runner is added to the context with [WithRunner]
-// and can be retrieved with [GetRunner].
-// Calls to [Run]
-// will use it instead of [DefaultRunner]
-// by finding it in the context.
 func (con *Controller) Run(ctx context.Context, targets ...Target) error {
 	if len(targets) == 0 {
 		return nil
@@ -116,8 +110,8 @@ func (con *Controller) Run(ctx context.Context, targets ...Target) error {
 }
 
 // Indentf formats and prints its arguments
-// with leading indentation based on the nesting depth of the Runner.
-// The nesting depth increases with each call to Runner.Run
+// with leading indentation based on the nesting depth of the controller.
+// The nesting depth increases with each call to [Controller.Run]
 // and decreases at the end of the call.
 //
 // A newline is added to the end of the string if one is not already there.
@@ -137,11 +131,12 @@ func (con *Controller) Indentf(format string, args ...any) {
 }
 
 // IndentingCopier creates an [io.Writer] that copies its data to an underlying writer,
-// indenting each line according to the indentation depth of the [Runner] in the given context.
+// indenting each line according to the indentation depth of the controller.
 // After indentation,
 // each line additionally gets any prefix specified in `prefix`.
 //
 // The wrapper converts \r\n to \n, and bare \r to \n.
+// A \r at the very end of the input is silently dropped.
 func (con *Controller) IndentingCopier(w io.Writer, prefix string) io.Writer {
 	con.mu.Lock()
 	depth := con.depth
