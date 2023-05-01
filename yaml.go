@@ -330,6 +330,8 @@ func YAMLStringListFromNodes(nodes []*yaml.Node) ([]string, error) {
 	return result, nil
 }
 
+// YAMLFileList parses a list of filenames from a YAML node in a given directory
+// by processing the output of [YAMLStringList] through [Controller.AbsPath].
 func (con *Controller) YAMLFileList(node *yaml.Node, dir string) ([]string, error) {
 	strs, err := YAMLStringList(node)
 	if err != nil {
@@ -338,6 +340,8 @@ func (con *Controller) YAMLFileList(node *yaml.Node, dir string) ([]string, erro
 	return slices.Mapx(strs, func(_ int, s string) (string, error) { return con.AbsPath(s, dir) })
 }
 
+// YAMLFileListFromNodes parses a list of filenames from a slice of YAML nodes in a given directory
+// by processing the output of [YAMLStringListFromNodes] through [Controller.AbsPath].
 func (con *Controller) YAMLFileListFromNodes(nodes []*yaml.Node, dir string) ([]string, error) {
 	strs, err := YAMLStringListFromNodes(nodes)
 	if err != nil {

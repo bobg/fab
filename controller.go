@@ -25,6 +25,10 @@ type Controller struct {
 	targetsByAddr map[uintptr]targetRegistryTuple
 }
 
+// NewController creates a new [Controller]
+// for the project with the given top-level directory.
+//
+// The top directory is where a _fab subdirectory and/or a fab.yaml file is expected.
 func NewController(topdir string) *Controller {
 	return &Controller{
 		topdir:        topdir,
