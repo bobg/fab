@@ -51,7 +51,7 @@ func Proto(inputs, outputs, includes, otherOpts []string) (fab.Target, error) {
 	return fab.Files(&fab.Command{Cmd: "protoc", Args: args}, alldepsSlice, outputs), nil
 }
 
-func protoDecoder(_ *fab.Controller, node *yaml.Node, dir string) (fab.Target, error) {
+func protoDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target, error) {
 	var p struct {
 		Inputs   yaml.Node `yaml:"Inputs"`
 		Outputs  yaml.Node `yaml:"Outputs"`
@@ -62,17 +62,17 @@ func protoDecoder(_ *fab.Controller, node *yaml.Node, dir string) (fab.Target, e
 		return nil, errors.Wrap(err, "YAML error decoding proto.Proto node")
 	}
 
-	inputs, err := fab.YAMLFileList(&p.Inputs, dir)
+	inputs, err := con.YAMLFileList(&p.Inputs, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing protoc input files")
 	}
 
-	outputs, err := fab.YAMLFileList(&p.Outputs, dir)
+	outputs, err := con.YAMLFileList(&p.Outputs, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing protoc output files")
 	}
 
-	includes, err := fab.YAMLFileList(&p.Includes, dir)
+	includes, err := con.YAMLFileList(&p.Includes, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing protoc include list")
 	}

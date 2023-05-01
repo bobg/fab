@@ -74,7 +74,7 @@ func (*declsType) Desc() string {
 	return "ts.Decls"
 }
 
-func declsDecoder(_ *fab.Controller, node *yaml.Node, dir string) (fab.Target, error) {
+func declsDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target, error) {
 	var d struct {
 		Dir    string `yaml:"Dir"`
 		Type   string `yaml:"Type"`
@@ -85,7 +85,17 @@ func declsDecoder(_ *fab.Controller, node *yaml.Node, dir string) (fab.Target, e
 		return nil, errors.Wrap(err, "YAML error decoding ts.Decls node")
 	}
 
-	return Decls(fab.Qualify(d.Dir, dir), d.Type, d.Prefix, fab.Qualify(d.Out, dir))
+	qdir, err := con.RelPath(d.Dir, dir)
+	if err != nil {
+		return nil, errors.Wrapf(err, "getting relative path for directory %s in %s", d.Dir, dir)
+	}
+
+	qout, err := con.RelPath(d.Out, dir)
+	if err != nil {
+		return nil, errors.Wrapf(err, "getting relative path for output file %s in %s", d.Out, dir)
+	}
+
+	return Decls(qdir, d.Type, d.Prefix, qout)
 }
 
 func init() {

@@ -1,6 +1,7 @@
 package fab
 
 import (
+	"path/filepath"
 	"sync"
 )
 
@@ -32,4 +33,19 @@ func NewController(topdir string) *Controller {
 		targetsByName: make(map[string]targetRegistryTuple),
 		targetsByAddr: make(map[uintptr]targetRegistryTuple),
 	}
+}
+
+func (con *Controller) RelPath(path, dir string) (string, error) {
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path), nil
+	}
+	return filepath.Rel(con.topdir, filepath.Join(dir, path))
+}
+
+func (con *Controller) AbsPath(path, dir string) (string, error) {
+	rel, err := con.RelPath(path, dir)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(con.topdir, rel), nil
 }

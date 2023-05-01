@@ -340,7 +340,7 @@ func (e CommandErr) Unwrap() error {
 	return e.Err
 }
 
-func commandDecoder(_ *Controller, node *yaml.Node, dir string) (Target, error) {
+func commandDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.MappingNode)
 	}
@@ -368,11 +368,16 @@ func commandDecoder(_ *Controller, node *yaml.Node, dir string) (Target, error) 
 		return nil, errors.Wrap(err, "YAML error decoding Command.Env")
 	}
 
+	rundir, err := con.AbsPath(c.Dir, dir)
+	if err != nil {
+		return nil, errors.Wrap(err, "qualifying run directory for Command target")
+	}
+
 	result := &Command{
 		Shell: c.Shell,
 		Cmd:   c.Cmd,
 		Args:  args,
-		Dir:   c.Dir, // xxx default to dir?
+		Dir:   rundir,
 		Env:   env,
 	}
 
@@ -396,7 +401,11 @@ func commandDecoder(_ *Controller, node *yaml.Node, dir string) (Target, error) 
 		}
 
 	default:
-		result.StdoutFile = Qualify(c.Stdout, dir)
+		stdoutfile, err := con.RelPath(c.Stdout, dir)
+		if err != nil {
+			return nil, errors.Wrapf(err, "getting relative name for %s in %s", c.Stdout, dir)
+		}
+		result.StdoutFile = stdoutfile
 	}
 
 	switch c.Stderr {
@@ -415,7 +424,11 @@ func commandDecoder(_ *Controller, node *yaml.Node, dir string) (Target, error) 
 		}
 
 	default:
-		result.StderrFile = Qualify(c.Stderr, dir)
+		stderrfile, err := con.RelPath(c.Stderr, dir)
+		if err != nil {
+			return nil, errors.Wrapf(err, "getting relative name for %s in %s", c.Stderr, dir)
+		}
+		result.StderrFile = stderrfile
 	}
 
 	return result, nil

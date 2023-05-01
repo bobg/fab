@@ -49,26 +49,29 @@ func (con *Controller) YAMLTarget(node *yaml.Node, dir string) (Target, error) {
 	tag := normalizeTag(node.Tag)
 
 	if tag == "" && node.Kind == yaml.ScalarNode {
-		qualifiedName := filepath.Join(dir, node.Value)
-		if tdir := filepath.Dir(qualifiedName); tdir != "." {
-			found, _ := con.RegistryTarget(qualifiedName)
+		qname, err := con.RelPath(node.Value, dir)
+		if err != nil {
+			return nil, errors.Wrapf(err, "getting relative name for target %s in %s", node.Value, dir)
+		}
+		if tdir := filepath.Dir(qname); tdir != "." {
+			found, _ := con.RegistryTarget(qname)
 			if found != nil {
 				return found, nil
 			}
 
 			if err := con.ReadYAMLFile(tdir); err != nil {
-				return nil, errors.Wrapf(err, "resolving target %s", qualifiedName)
+				return nil, errors.Wrapf(err, "resolving target %s", qname)
 			}
 
-			found, _ = con.RegistryTarget(qualifiedName)
+			found, _ = con.RegistryTarget(qname)
 			if found != nil {
 				return found, nil
 			}
 
-			return nil, fmt.Errorf("cannot resolve target %s", qualifiedName)
+			return nil, fmt.Errorf("cannot resolve target %s", qname)
 		}
 
-		return &deferredResolutionTarget{Name: qualifiedName}, nil
+		return &deferredResolutionTarget{Name: qname}, nil
 	}
 
 	if tag == "" {
@@ -205,10 +208,15 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 		// The following was previously inside a "if target is not a deferredResolutionTarget" block,
 		// but I think that was wrong.
 		// Or maybe I'm wrong now...
-		qualifiedName := filepath.Join(dir, name)
-		_, err = con.RegisterTarget(qualifiedName, doc, target)
+
+		qname, err := con.RelPath(name, dir)
 		if err != nil {
-			return errors.Wrapf(err, "registering target %s", qualifiedName)
+			return errors.Wrapf(err, "getting relative name for %s in %s", name, dir)
+		}
+
+		_, err = con.RegisterTarget(qname, doc, target)
+		if err != nil {
+			return errors.Wrapf(err, "registering target %s", qname)
 		}
 	}
 
@@ -222,13 +230,15 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 //
 // The specified directory should be relative to the project's top level.
 func (con *Controller) ReadYAMLFile(dir string) error {
+	dir = filepath.Join(con.topdir, dir)
 	f, err := openFabYAML(dir)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	return con.ReadYAML(f, dir)
+	err = con.ReadYAML(f, dir)
+	return errors.Wrapf(err, "reading YAML file in %s", dir)
 }
 
 func openFabYAML(dir string) (*os.File, error) {
@@ -320,20 +330,20 @@ func YAMLStringListFromNodes(nodes []*yaml.Node) ([]string, error) {
 	return result, nil
 }
 
-func YAMLFileList(node *yaml.Node, dir string) ([]string, error) {
+func (con *Controller) YAMLFileList(node *yaml.Node, dir string) ([]string, error) {
 	strs, err := YAMLStringList(node)
 	if err != nil {
 		return nil, err
 	}
-	return slices.Map(strs, func(s string) string { return Qualify(s, dir) }), nil
+	return slices.Mapx(strs, func(_ int, s string) (string, error) { return con.RelPath(s, dir) })
 }
 
-func YAMLFileListFromNodes(nodes []*yaml.Node, dir string) ([]string, error) {
+func (con *Controller) YAMLFileListFromNodes(nodes []*yaml.Node, dir string) ([]string, error) {
 	strs, err := YAMLStringListFromNodes(nodes)
 	if err != nil {
 		return nil, err
 	}
-	return slices.Map(strs, func(s string) string { return Qualify(s, dir) }), nil
+	return slices.Mapx(strs, func(_ int, s string) (string, error) { return con.RelPath(s, dir) })
 }
 
 func normalizeTag(tag string) string {
@@ -341,11 +351,4 @@ func normalizeTag(tag string) string {
 		return ""
 	}
 	return strings.TrimPrefix(tag, "!")
-}
-
-func Qualify(path, dir string) string {
-	if filepath.IsAbs(path) {
-		return filepath.Clean(path)
-	}
-	return filepath.Join(dir, path)
 }

@@ -1,0 +1,11 @@
+# This is the top-level fab.yaml.
+
+A: !Command
+  Shell: echo A
+  Stdout: a
+
+B: foo/C
+
+E: !Command
+  Shell: echo E
+  Stdout: e

@@ -46,11 +46,11 @@ func (*clean) Desc() string {
 	return "Clean"
 }
 
-func cleanDecoder(_ *Controller, node *yaml.Node, dir string) (Target, error) {
+func cleanDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.SequenceNode {
 		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
 	}
-	files, err := YAMLFileListFromNodes(node.Content, dir)
+	files, err := con.YAMLFileListFromNodes(node.Content, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error in Clean node")
 	}

@@ -1,0 +1,7 @@
+_dir: foo
+
+C: !Command
+  Shell: echo C
+  Stdout: c
+
+D: ../E

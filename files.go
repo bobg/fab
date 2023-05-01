@@ -242,12 +242,12 @@ func filesDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) 
 		return nil, errors.Wrap(err, "YAML error in Target child of Files node")
 	}
 
-	in, err := YAMLFileList(&yfiles.In, dir)
+	in, err := con.YAMLFileList(&yfiles.In, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error in Files.In node")
 	}
 
-	out, err := YAMLFileList(&yfiles.Out, dir)
+	out, err := con.YAMLFileList(&yfiles.Out, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error in Files.Out node")
 	}
