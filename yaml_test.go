@@ -51,7 +51,7 @@ func TestYAML(t *testing.T) {
 	}
 
 	gotBar, gotBarDoc := con.RegistryTarget("Bar")
-	wantBar := &Command{Shell: "echo How do you do", Stdout: os.Stdout}
+	wantBar := &Command{Shell: "echo How do you do", Stdout: os.Stdout, Dir: "."}
 	const wantBarDoc = "Bar doesn't do much."
 	if !reflect.DeepEqual(gotBar, wantBar) {
 		t.Errorf("mismatch for Bar; got:\n%s\nwant:\n%s", spew.Sdump(gotBar), spew.Sdump(wantBar))
@@ -105,7 +105,7 @@ func TestYAML(t *testing.T) {
 
 	gotZ, gotZDoc := con.RegistryTarget("Z")
 	wantZ := Files(
-		Shellf("go build -o output ./..."),
+		&Command{Shell: "go build -o output ./...", Dir: "."},
 		[]string{"p.go", "q.go", "r.go"},
 		[]string{"output"},
 	)

@@ -400,8 +400,11 @@ func commandDecoder(con *Controller, node *yaml.Node, dir string) (Target, error
 			return con.IndentingCopier(os.Stdout, "    ")
 		}
 
+	case "":
+		// do nothing
+
 	default:
-		stdoutfile, err := con.RelPath(c.Stdout, dir)
+		stdoutfile, err := con.AbsPath(c.Stdout, dir)
 		if err != nil {
 			return nil, errors.Wrapf(err, "getting relative name for %s in %s", c.Stdout, dir)
 		}
@@ -423,8 +426,11 @@ func commandDecoder(con *Controller, node *yaml.Node, dir string) (Target, error
 			return con.IndentingCopier(os.Stderr, "    ")
 		}
 
+	case "":
+		// do nothing
+
 	default:
-		stderrfile, err := con.RelPath(c.Stderr, dir)
+		stderrfile, err := con.AbsPath(c.Stderr, dir)
 		if err != nil {
 			return nil, errors.Wrapf(err, "getting relative name for %s in %s", c.Stderr, dir)
 		}

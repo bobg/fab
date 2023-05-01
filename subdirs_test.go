@@ -17,7 +17,7 @@ func TestSubdirs(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 
-	snaps := cupaloy.New(cupaloy.SnapshotSubdirectory("_testdata/subdirs.snaps"))
+	snaps := cupaloy.New(cupaloy.SnapshotSubdirectory("_testdata/subdirs/output"))
 
 	if err = copy.Copy("_testdata/subdirs/input", tmpdir); err != nil {
 		t.Fatal(err)

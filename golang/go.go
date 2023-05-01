@@ -66,12 +66,12 @@ func binaryDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target
 		return nil, errors.Wrap(err, "YAML error decoding go.Binary.Flags")
 	}
 
-	qdir, err := con.RelPath(b.Dir, dir)
+	qdir, err := con.AbsPath(b.Dir, dir)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting relative path for directory %s in %s", b.Dir, dir)
 	}
 
-	qout, err := con.RelPath(b.Out, dir)
+	qout, err := con.AbsPath(b.Out, dir)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting relative path for output file %s in %s", b.Out, dir)
 	}

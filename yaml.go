@@ -335,7 +335,7 @@ func (con *Controller) YAMLFileList(node *yaml.Node, dir string) ([]string, erro
 	if err != nil {
 		return nil, err
 	}
-	return slices.Mapx(strs, func(_ int, s string) (string, error) { return con.RelPath(s, dir) })
+	return slices.Mapx(strs, func(_ int, s string) (string, error) { return con.AbsPath(s, dir) })
 }
 
 func (con *Controller) YAMLFileListFromNodes(nodes []*yaml.Node, dir string) ([]string, error) {
@@ -343,7 +343,7 @@ func (con *Controller) YAMLFileListFromNodes(nodes []*yaml.Node, dir string) ([]
 	if err != nil {
 		return nil, err
 	}
-	return slices.Mapx(strs, func(_ int, s string) (string, error) { return con.RelPath(s, dir) })
+	return slices.Mapx(strs, func(_ int, s string) (string, error) { return con.AbsPath(s, dir) })
 }
 
 func normalizeTag(tag string) string {

@@ -85,12 +85,12 @@ func declsDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target,
 		return nil, errors.Wrap(err, "YAML error decoding ts.Decls node")
 	}
 
-	qdir, err := con.RelPath(d.Dir, dir)
+	qdir, err := con.AbsPath(d.Dir, dir)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting relative path for directory %s in %s", d.Dir, dir)
 	}
 
-	qout, err := con.RelPath(d.Out, dir)
+	qout, err := con.AbsPath(d.Out, dir)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting relative path for output file %s in %s", d.Out, dir)
 	}
