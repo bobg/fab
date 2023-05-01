@@ -23,9 +23,6 @@ import (
 
 // Main is the structure whose Run methods implements the main logic of the fab command.
 type Main struct {
-	// Pkgdir is where to find the user's build-rules Go package, e.g. "_fab".
-	Pkgdir string
-
 	// Fabdir is where to find the user's hash DB and compiled binaries, e.g. $HOME/.cache/fab.
 	Fabdir string
 
@@ -49,7 +46,8 @@ type Main struct {
 }
 
 // Run executes the main logic of the fab command.
-// A driver binary with a name matching m.Pkgdir is sought in m.Fabdir.
+// A driver binary with a name matching the Go package path of the _fab subdir
+// is sought in m.Fabdir.
 // If it does not exist,
 // or if its corresponding dirhash is wrong
 // (i.e., out of date with respect to the user's code),
@@ -58,17 +56,27 @@ type Main struct {
 // It is then invoked with the command-line arguments indicated by the fields of m.
 // Typically this will include one or more target names,
 // in which case the driver will execute the associated rules
-// as defined by the code in m.Pkgdir.
+// as defined by the code in _fab
+// and by any fab.yaml files.
+//
+// If there is no _fab directory,
+// Run operates in "driverless" mode,
+// in which target definitions are found in fab.yaml files only.
 func (m Main) Run(ctx context.Context) error {
-	driver, err := m.getDriver(ctx, false)
+	topdir, err := TopDir(m.Chdir)
+	if err != nil {
+		return errors.Wrap(err, "finding project's top directory")
+	}
+
+	driver, err := m.getDriver(ctx, topdir, false)
 	if errors.Is(err, errNoDriver) {
-		return m.driverless(ctx)
+		return m.driverless(ctx, topdir)
 	}
 	if err != nil {
 		return errors.Wrap(err, "ensuring driver is up to date")
 	}
 
-	args := []string{"-fab", m.Fabdir}
+	args := []string{"-fab", m.Fabdir, "-top", topdir}
 	if m.Verbose {
 		args = append(args, "-v")
 	}
@@ -89,7 +97,7 @@ func (m Main) Run(ctx context.Context) error {
 
 var errNoDriver = errors.New("no driver")
 
-func (m Main) driverless(ctx context.Context) error {
+func (m Main) driverless(ctx context.Context, topdir string) error {
 	if m.Verbose {
 		fmt.Println("Running in driverless mode")
 	}
@@ -100,12 +108,7 @@ func (m Main) driverless(ctx context.Context) error {
 		}
 	}
 
-	topDir, err := TopDir("")
-	if err != nil {
-		return errors.Wrap(err, "finding project's top directory")
-	}
-
-	con := NewController(topDir)
+	con := NewController(topdir)
 
 	if err := con.ReadYAMLFile(""); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return errors.Wrap(err, "reading YAML file")
@@ -205,22 +208,23 @@ const fabVersionBasename = "fab-version.json"
 
 // TODO: Remove skipVersionCheck, which is here only to help an old test keep running.
 // Update the test instead.
-func (m Main) getDriver(ctx context.Context, skipVersionCheck bool) (_ string, err error) {
-	_, err = os.Stat(m.Pkgdir)
+func (m Main) getDriver(ctx context.Context, topdir string, skipVersionCheck bool) (_ string, err error) {
+	pkgdir := filepath.Join(topdir, "_fab")
+	_, err = os.Stat(pkgdir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", errNoDriver
 	}
 	config := &packages.Config{
 		Mode:    LoadMode,
 		Context: ctx,
-		Dir:     m.Pkgdir,
+		Dir:     pkgdir,
 	}
 	pkgs, err := packages.Load(config, ".")
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", errNoDriver
 	}
 	if err != nil {
-		return "", errors.Wrapf(err, "loading %s", m.Pkgdir)
+		return "", errors.Wrapf(err, "loading %s", pkgdir)
 	}
 	if len(pkgs) == 0 {
 		return "", errNoDriver
@@ -229,7 +233,7 @@ func (m Main) getDriver(ctx context.Context, skipVersionCheck bool) (_ string, e
 		return "", fmt.Errorf(
 			"loaded %d packages in %s, want 1 %v",
 			len(pkgs),
-			m.Pkgdir,
+			pkgdir,
 			slices.Map(pkgs, func(p *packages.Package) string { return p.PkgPath }),
 		)
 	}
@@ -300,7 +304,7 @@ func (m Main) getDriver(ctx context.Context, skipVersionCheck bool) (_ string, e
 	}
 	newhash, err := dh.hash()
 	if err != nil {
-		return "", errors.Wrapf(err, "computing hash of directory %s", m.Pkgdir)
+		return "", errors.Wrapf(err, "computing hash of directory %s", pkgdir)
 	}
 
 	if !compile {

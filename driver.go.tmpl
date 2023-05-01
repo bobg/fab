@@ -17,11 +17,33 @@ import (
 )
 
 func main() {
-	topdir, err := fab.TopDir("")
+	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		fmt.Printf("Error finding project's top directory: %s\n", err)
-		os.Exit(1)
+		home, err := os.UserHomeDir()
+		if err != nil {
+			fmt.Printf("Error getting home dir: %s\n", err)
+			os.Exit(1)
+		}
+		cacheDir = filepath.Join(home, ".cache")
 	}
+
+	var (
+		fabdir  string
+		topdir  string
+		verbose bool
+		list    bool
+		force   bool
+	)
+	flag.StringVar(&fabdir, "fab", filepath.Join(cacheDir, "fab"), "directory containing driver binaries and hash DB")
+	flag.StringVar(&topdir, "top", "", "project's top directory")
+	flag.BoolVar(&verbose, "v", false, "run verbosely")
+	flag.BoolVar(&list, "list", false, "list available targets")
+	flag.BoolVar(&force, "f", false, "force rebuilding of targets")
+	flag.Parse()
+
+	ctx := context.Background()
+	ctx = fab.WithVerbose(ctx, verbose)
+	ctx = fab.WithForce(ctx, force)
 
 	con := fab.NewController(topdir)
 
@@ -37,32 +59,6 @@ func main() {
 		fmt.Printf("Error reading YAML file: %s\n", err)
 		os.Exit(1)
 	}
-
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			fmt.Printf("Error getting home dir: %s\n", err)
-			os.Exit(1)
-		}
-		cacheDir = filepath.Join(home, ".cache")
-	}
-
-	var (
-		fabdir  string
-		verbose bool
-		list    bool
-		force   bool
-	)
-	flag.StringVar(&fabdir, "fab", filepath.Join(cacheDir, "fab"), "directory containing driver binaries and hash DB")
-	flag.BoolVar(&verbose, "v", false, "run verbosely")
-	flag.BoolVar(&list, "list", false, "list available targets")
-	flag.BoolVar(&force, "f", false, "force rebuilding of targets")
-	flag.Parse()
-
-	ctx := context.Background()
-	ctx = fab.WithVerbose(ctx, verbose)
-	ctx = fab.WithForce(ctx, force)
 
 	db, err := fab.OpenHashDB(ctx, fabdir)
 	if err != nil {

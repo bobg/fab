@@ -1,13 +1,10 @@
 package fab
 
 import (
-	"io/fs"
-	"os"
 	"sync"
 )
 
 type Controller struct {
-	fsys   fs.FS
 	topdir string
 
 	mu sync.Mutex // protects the remaining fields
@@ -28,12 +25,7 @@ type Controller struct {
 }
 
 func NewController(topdir string) *Controller {
-	return NewControllerFS(os.DirFS("/"), topdir)
-}
-
-func NewControllerFS(fsys fs.FS, topdir string) *Controller {
 	return &Controller{
-		fsys:          fsys,
 		topdir:        topdir,
 		ran:           make(map[uintptr]*outcome),
 		files:         make(map[string]*files),

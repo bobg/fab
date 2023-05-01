@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -221,26 +222,21 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 //
 // The specified directory should be relative to the project's top level.
 func (con *Controller) ReadYAMLFile(dir string) error {
-	// https://pkg.go.dev/os#DirFS assures us that the result of os.DirFS implements StatFS.
-	rc, err := con.openFabYAML(dir)
+	f, err := openFabYAML(dir)
 	if err != nil {
 		return err
 	}
-	defer rc.Close()
+	defer f.Close()
 
-	return con.ReadYAML(rc, dir)
+	return con.ReadYAML(f, dir)
 }
 
-func (con *Controller) openFabYAML(dir string) (io.ReadCloser, error) {
-	return openFabYAMLFS(con.fsys, dir)
-}
-
-func openFabYAMLFS(fsys fs.FS, dir string) (io.ReadCloser, error) {
+func openFabYAML(dir string) (*os.File, error) {
 	filename := filepath.Join(dir, "fab.yaml")
-	f, err := fsys.Open(filename)
+	f, err := os.Open(filename)
 	if errors.Is(err, fs.ErrNotExist) {
 		filename = filepath.Join(dir, "fab.yml")
-		f, err = fsys.Open(filename)
+		f, err = os.Open(filename)
 	}
 	return f, err
 }

@@ -1,9 +1,11 @@
 package fab
 
 import (
-	"io/fs"
 	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/otiai10/copy"
 )
 
 func TestTopDir(t *testing.T) {
@@ -38,12 +40,20 @@ func TestTopDir(t *testing.T) {
 		want: "case5",
 	}}
 
-	// https://pkg.go.dev/os#DirFS assures us that the result of os.DirFS implements StatFS.
-	fsys := os.DirFS("_testdata/topdir").(fs.StatFS)
+	tmpdir, err := os.MkdirTemp("", "fab")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpdir)
+
+	if err = copy.Copy("_testdata/topdir", tmpdir); err != nil {
+		t.Fatal(err)
+	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := topDir(fsys, tc.dir)
+			fullpath := filepath.Join(tmpdir, tc.dir)
+			got, err := TopDir(fullpath)
 			if err != nil {
 				if !tc.wantErr {
 					t.Fatal(err)
@@ -52,7 +62,12 @@ func TestTopDir(t *testing.T) {
 				t.Fatal("got no error but wanted one")
 			}
 
-			if got != tc.want {
+			rel, err := filepath.Rel(tmpdir, got)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if rel != tc.want {
 				t.Errorf("got %s, want %s", got, tc.want)
 			}
 		})

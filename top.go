@@ -27,13 +27,8 @@ func TopDir(dir string) (string, error) {
 		return "", errors.Wrap(err, "making relative path absolute")
 	}
 
-	// https://pkg.go.dev/os#DirFS assures us that the result of os.DirFS implements StatFS.
-	return topDir(os.DirFS("/").(fs.StatFS), dir)
-}
-
-func topDir(fsys fs.StatFS, dir string) (string, error) {
 	for {
-		info, err := fsys.Stat(filepath.Join(dir, "_fab"))
+		info, err := os.Stat(filepath.Join(dir, "_fab"))
 		if err == nil && info.IsDir() {
 			return dir, nil
 		}
@@ -41,7 +36,7 @@ func topDir(fsys fs.StatFS, dir string) (string, error) {
 			return "", errors.Wrapf(err, "statting %s/_fab", dir)
 		}
 
-		result, err := topDirHelper(fsys, dir)
+		result, err := topDirHelper(dir)
 		if err != nil {
 			return "", err
 		}
@@ -57,8 +52,8 @@ func topDir(fsys fs.StatFS, dir string) (string, error) {
 	}
 }
 
-func topDirHelper(fsys fs.FS, dir string) (string, error) {
-	rc, err := openFabYAMLFS(fsys, dir)
+func topDirHelper(dir string) (string, error) {
+	rc, err := openFabYAML(dir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", nil
 	}

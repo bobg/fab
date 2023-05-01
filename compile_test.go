@@ -13,22 +13,22 @@ import (
 )
 
 func TestCompile(t *testing.T) {
-	tbCompile(t, func(tmpdir, pkgdir string) {
+	tbCompile(t, func(tmpdir string) {
 		var (
-			fabdir  = filepath.Join(tmpdir, "fab")
-			rulesgo = filepath.Join(pkgdir, "rules.go")
+			fabdir     = filepath.Join(tmpdir, "fab")
+			compiledir = filepath.Join(tmpdir, "compile")
+			pkgdir     = filepath.Join(compiledir, "_fab")
+			rulesgo    = filepath.Join(pkgdir, "rules.go")
 		)
 
 		m := Main{
-			Pkgdir:  pkgdir,
 			Fabdir:  fabdir,
-			Chdir:   tmpdir,
 			Verbose: testing.Verbose(),
 		}
 
 		ctx := context.Background()
 
-		driver, err := m.getDriver(ctx, true)
+		driver, err := m.getDriver(ctx, compiledir, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -52,7 +52,7 @@ func TestCompile(t *testing.T) {
 		// is no better than one second).
 		time.Sleep(time.Second)
 
-		driver, err = m.getDriver(ctx, true)
+		driver, err = m.getDriver(ctx, compiledir, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -74,7 +74,7 @@ func TestCompile(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		driver, err = m.getDriver(ctx, true)
+		driver, err = m.getDriver(ctx, compiledir, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -96,7 +96,9 @@ func TestCompile(t *testing.T) {
 }
 
 func BenchmarkCompile(b *testing.B) {
-	tbCompile(b, func(_, pkgdir string) {
+	tbCompile(b, func(tmpdir string) {
+		pkgdir := filepath.Join(tmpdir, "compile/_fab")
+
 		tmpfile, err := os.CreateTemp("", "fab")
 		if err != nil {
 			b.Fatal(err)
@@ -120,12 +122,12 @@ func BenchmarkCompile(b *testing.B) {
 }
 
 // Test or benchmark the compiler.
-func tbCompile(tb testing.TB, f func(tmpdir, pkgdir string)) {
+func tbCompile(tb testing.TB, f func(tmpdir string)) {
 	tmpdir, err := os.MkdirTemp("", "fab")
 	if err != nil {
 		tb.Fatal(err)
 	}
-	defer os.RemoveAll(tmpdir)
+	// xxx defer os.RemoveAll(tmpdir)
 
 	if err = populateFabDir(tmpdir); err != nil {
 		tb.Fatal(err)
@@ -137,7 +139,5 @@ func tbCompile(tb testing.TB, f func(tmpdir, pkgdir string)) {
 		tb.Fatal(err)
 	}
 
-	pkgdir := filepath.Join(compiledir, "pkg")
-
-	f(tmpdir, pkgdir)
+	f(tmpdir)
 }
