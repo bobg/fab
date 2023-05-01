@@ -127,7 +127,7 @@ func tbCompile(tb testing.TB, f func(tmpdir string)) {
 	if err != nil {
 		tb.Fatal(err)
 	}
-	// xxx defer os.RemoveAll(tmpdir)
+	defer os.RemoveAll(tmpdir)
 
 	if err = populateFabDir(tmpdir); err != nil {
 		tb.Fatal(err)
