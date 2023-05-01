@@ -15,11 +15,6 @@ type Controller struct {
 	// Records targets that have run or are running.
 	ran map[uintptr]*outcome
 
-	// Maps output files from Files targets
-	// to the targets that create them.
-	// Keys are filenames relative to topdir.
-	files map[string]*files
-
 	// Keys are names related to topdir.
 	targetsByName map[string]targetRegistryTuple
 
@@ -34,7 +29,6 @@ func NewController(topdir string) *Controller {
 	return &Controller{
 		topdir:        topdir,
 		ran:           make(map[uintptr]*outcome),
-		files:         make(map[string]*files),
 		targetsByName: make(map[string]targetRegistryTuple),
 		targetsByAddr: make(map[uintptr]targetRegistryTuple),
 	}
