@@ -357,6 +357,13 @@ func YAMLStringListFromNodes(nodes []*yaml.Node) ([]string, error) {
 	return result, nil
 }
 
+// YAMLFileList constructs a slice of filenames from a YAML node.
+// It does this by calling [YAMLStringList]
+// and passing the result through [Controller.JoinPath],
+// joining each string with the given directory.
+// In this way,
+// the files are interpreted as either absolute
+// or relative to `dir`.
 func (con *Controller) YAMLFileList(node *yaml.Node, dir string) ([]string, error) {
 	strs, err := YAMLStringList(node)
 	if err != nil {
@@ -365,6 +372,13 @@ func (con *Controller) YAMLFileList(node *yaml.Node, dir string) ([]string, erro
 	return slices.Map(strs, func(s string) string { return con.JoinPath(dir, s) }), nil
 }
 
+// YAMLFileListFromNodes constructs a slice of filenames from a slice of YAML nodes.
+// It does this by calling [YAMLStringListFromNodes]
+// and passing the result through [Controller.JoinPath],
+// joining each string with the given directory.
+// In this way,
+// the files are interpreted as either absolute
+// or relative to `dir`.
 func (con *Controller) YAMLFileListFromNodes(nodes []*yaml.Node, dir string) ([]string, error) {
 	strs, err := YAMLStringListFromNodes(nodes)
 	if err != nil {

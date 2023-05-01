@@ -26,9 +26,9 @@ type Main struct {
 	// Fabdir is where to find the user's hash DB and compiled binaries, e.g. $HOME/.cache/fab.
 	Fabdir string
 
-	// Chdir sets the current directory for running the driver.
-	// In driverless mode it causes a Chdir to the named directory.
-	Chdir string
+	// Topdir is the directory containing a _fab subdir or top-level fab.yaml file.
+	// If this is not specified, it will be computed by traversing upward from the current directory.
+	Topdir string
 
 	// Verbose tells whether to run the driver in verbose mode
 	// (by supplying the -v command-line flag).
@@ -62,21 +62,25 @@ type Main struct {
 // If there is no _fab directory,
 // Run operates in "driverless" mode,
 // in which target definitions are found in fab.yaml files only.
-func (m Main) Run(ctx context.Context) error {
-	topdir, err := TopDir(m.Chdir)
-	if err != nil {
-		return errors.Wrap(err, "finding project's top directory")
+func (m *Main) Run(ctx context.Context) error {
+	if m.Topdir == "" {
+		var err error
+
+		m.Topdir, err = TopDir(".")
+		if err != nil {
+			return errors.Wrap(err, "finding project's top directory")
+		}
 	}
 
-	driver, err := m.getDriver(ctx, topdir, false)
+	driver, err := m.getDriver(ctx, false)
 	if errors.Is(err, errNoDriver) {
-		return m.driverless(ctx, topdir)
+		return m.driverless(ctx)
 	}
 	if err != nil {
 		return errors.Wrap(err, "ensuring driver is up to date")
 	}
 
-	args := []string{"-fab", m.Fabdir, "-top", topdir}
+	args := []string{"-fab", m.Fabdir, "-top", m.Topdir}
 	if m.Verbose {
 		args = append(args, "-v")
 	}
@@ -89,7 +93,7 @@ func (m Main) Run(ctx context.Context) error {
 	args = append(args, m.Args...)
 
 	cmd := exec.CommandContext(ctx, driver, args...)
-	cmd.Dir = m.Chdir
+	cmd.Dir = m.Topdir // xxx is this right?
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	err = cmd.Run()
 	return errors.Wrapf(err, "running %s %s", driver, strings.Join(args, " "))
@@ -97,18 +101,12 @@ func (m Main) Run(ctx context.Context) error {
 
 var errNoDriver = errors.New("no driver")
 
-func (m Main) driverless(ctx context.Context, topdir string) error {
+func (m *Main) driverless(ctx context.Context) error {
 	if m.Verbose {
 		fmt.Println("Running in driverless mode")
 	}
 
-	if m.Chdir != "" {
-		if err := os.Chdir(m.Chdir); err != nil {
-			return errors.Wrapf(err, "changing to directory %s", m.Chdir)
-		}
-	}
-
-	con := NewController(topdir)
+	con := NewController(m.Topdir)
 
 	if err := con.ReadYAMLFile(""); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return errors.Wrap(err, "reading YAML file")
@@ -208,8 +206,8 @@ const fabVersionBasename = "fab-version.json"
 
 // TODO: Remove skipVersionCheck, which is here only to help an old test keep running.
 // Update the test instead.
-func (m Main) getDriver(ctx context.Context, topdir string, skipVersionCheck bool) (_ string, err error) {
-	pkgdir := filepath.Join(topdir, "_fab")
+func (m *Main) getDriver(ctx context.Context, skipVersionCheck bool) (_ string, err error) {
+	pkgdir := filepath.Join(m.Topdir, "_fab")
 	_, err = os.Stat(pkgdir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", errNoDriver
@@ -351,7 +349,7 @@ func (m Main) getDriver(ctx context.Context, topdir string, skipVersionCheck boo
 	return driver, nil
 }
 
-func (m Main) checkVersion(versionfile string) (bool, *debug.BuildInfo, error) {
+func (m *Main) checkVersion(versionfile string) (bool, *debug.BuildInfo, error) {
 	newInfo, ok := debug.ReadBuildInfo()
 	if !ok {
 		if m.Verbose {

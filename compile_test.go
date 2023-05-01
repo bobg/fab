@@ -24,11 +24,12 @@ func TestCompile(t *testing.T) {
 		m := Main{
 			Fabdir:  fabdir,
 			Verbose: testing.Verbose(),
+			Topdir:  compiledir,
 		}
 
 		ctx := context.Background()
 
-		driver, err := m.getDriver(ctx, compiledir, true)
+		driver, err := m.getDriver(ctx, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -52,7 +53,7 @@ func TestCompile(t *testing.T) {
 		// is no better than one second).
 		time.Sleep(time.Second)
 
-		driver, err = m.getDriver(ctx, compiledir, true)
+		driver, err = m.getDriver(ctx, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -74,7 +75,7 @@ func TestCompile(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		driver, err = m.getDriver(ctx, compiledir, true)
+		driver, err = m.getDriver(ctx, true)
 		if err != nil {
 			t.Fatal(err)
 		}

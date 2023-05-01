@@ -5,6 +5,13 @@ import (
 	"sync"
 )
 
+// Controller is in charge of registering and running targets.
+// It keeps track of targets that are presently running or have previously run.
+// It will not run the same target more than once.
+// The second and subsequent request to run a given target
+// will used the cached outcome
+// (error or no error)
+// of the first run.
 type Controller struct {
 	topdir string // absolute, or relative to the current directory
 
@@ -24,7 +31,7 @@ type Controller struct {
 // NewController creates a new [Controller]
 // for the project with the given top-level directory.
 //
-// The top directory is where a _fab subdirectory and/or a fab.yaml file is expected.
+// The top directory is where a _fab subdirectory and/or a top-level fab.yaml file is expected.
 func NewController(topdir string) *Controller {
 	return &Controller{
 		topdir:        topdir,

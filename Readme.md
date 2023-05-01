@@ -5,7 +5,7 @@
 [![Tests](https://github.com/bobg/fab/actions/workflows/go.yml/badge.svg)](https://github.com/bobg/fab/actions/workflows/go.yml)
 [![Coverage Status](https://coveralls.io/repos/github/bobg/fab/badge.svg?branch=main)](https://coveralls.io/github/bobg/fab?branch=main)
 
-This is fab,
+This is Fab,
 a system for orchestrating software builds.
 It’s like [Make](https://en.wikipedia.org/wiki/Make_(software)),
 except that you express build rules and dependencies as [Go](https://go.dev/) code.
@@ -32,7 +32,7 @@ go install github.com/bobg/fab/cmd/fab@latest
 To define build targets in your software project,
 write Go code in a `_fab` subdirectory
 and/or write a `fab.yaml` file.
-(See [Targets](#Targets) below.)
+See [Targets](#Targets) below for how to do this.
 
 To build targets in your software project,
 run

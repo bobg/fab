@@ -37,7 +37,7 @@ func TestMain(t *testing.T) {
 
 	m := Main{
 		Fabdir: fabdir,
-		Chdir:  compiledir,
+		Topdir: compiledir,
 		Args:   []string{"Noop"},
 
 		// The following are here mainly to improve test coverage.
