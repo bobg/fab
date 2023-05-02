@@ -1,6 +1,7 @@
 package golang
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -8,9 +9,50 @@ import (
 	"testing"
 
 	"github.com/bobg/go-generics/v2/slices"
+	"github.com/otiai10/copy"
+
+	"github.com/bobg/fab"
 )
 
-func TestGo(t *testing.T) {
+func TestBinary(t *testing.T) {
+	tmpdir, err := os.MkdirTemp("", "fab")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpdir)
+
+	var (
+		ctx       = context.Background()
+		fabdir    = filepath.Join(tmpdir, "fab")
+		binarydir = filepath.Join(tmpdir, "binary")
+		outfile   = filepath.Join(tmpdir, "out")
+	)
+
+	db, err := fab.OpenHashDB(ctx, fabdir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	ctx = fab.WithHashDB(ctx, db)
+	ctx = fab.WithVerbose(ctx, testing.Verbose())
+
+	if err = copy.Copy("_testdata/binary", binarydir); err != nil {
+		t.Fatal(err)
+	}
+
+	targ, err := Binary(binarydir, outfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	con := fab.NewController("")
+
+	if err = con.Run(ctx, targ); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDeps(t *testing.T) {
 	want := []string{
 		"../all.go",
 		"../all_test.go",
