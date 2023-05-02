@@ -272,6 +272,11 @@ it’s possible that your `.go` code will contain only `import` statements like 
 and not define any targets or types,
 which is fine.
 
+Note than any imports in Go code in the `_fab` subdirectory
+must be reflected in the dependencies in the top-level `go.mod` and `go.sum` files
+(even if this isn’t a Go project!).
+TODO: add documentation about this use case.
+
 ## Defining new target types
 
 You can define new target types in Go code in the `_fab` subdirectory
