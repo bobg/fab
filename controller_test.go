@@ -1,8 +1,12 @@
 package fab
 
 import (
+	"bytes"
 	"fmt"
+	"reflect"
 	"testing"
+
+	"github.com/bradleyjkemp/cupaloy/v2"
 )
 
 func TestJoinPath(t *testing.T) {
@@ -35,4 +39,52 @@ func TestJoinPath(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseArgs(t *testing.T) {
+	con := NewController("")
+	t1, err := con.RegisterTarget("t1", "", &countTarget{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t2, err := con.RegisterTarget("t2", "", &countTarget{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got1, err := con.ParseArgs([]string{"t1", "t2"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want1 := []Target{t1, t2}
+	if !reflect.DeepEqual(got1, want1) {
+		t.Error("mismatch")
+	}
+
+	got2, err := con.ParseArgs([]string{"t1", "-foo", "bar"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want2 := []Target{ArgTarget(t1, "-foo", "bar")}
+	if !reflect.DeepEqual(got2, want2) {
+		t.Error("mismatch")
+	}
+}
+
+func TestListTargets(t *testing.T) {
+	con := NewController("")
+	_, err := con.RegisterTarget("t1", "This is t1.", &countTarget{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = con.RegisterTarget("t2", "And this is t2.", &countTarget{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	buf := new(bytes.Buffer)
+	con.ListTargets(buf)
+
+	snaps := cupaloy.New(cupaloy.SnapshotSubdirectory("_testdata"))
+	snaps.SnapshotT(t, buf.String())
 }

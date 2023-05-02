@@ -113,7 +113,7 @@ func (m *Main) driverless(ctx context.Context) error {
 	}
 
 	if m.List {
-		con.ListTargets()
+		con.ListTargets(os.Stdout)
 		return nil
 	}
 
@@ -137,18 +137,6 @@ func (m *Main) driverless(ctx context.Context) error {
 
 var bolRegex = regexp.MustCompile("^")
 
-// ListTargets outputs a formatted list of the targets in the registry and their docstrings.
-func (con *Controller) ListTargets() {
-	names := con.RegistryNames()
-	for _, name := range names {
-		fmt.Println(name)
-		if _, d := con.RegistryTarget(name); d != "" {
-			d = bolRegex.ReplaceAllString(d, "    ")
-			fmt.Println(d)
-		}
-	}
-}
-
 // OpenHashDB ensures the given directory exists and opens (or creates) the hash DB there.
 // Callers must make sure to call Close on the returned DB when finished with it.
 func OpenHashDB(ctx context.Context, dir string) (*sqlite.DB, error) {
@@ -158,48 +146,6 @@ func OpenHashDB(ctx context.Context, dir string) (*sqlite.DB, error) {
 	dbfile := filepath.Join(dir, "hash.db")
 	db, err := sqlite.Open(ctx, dbfile, sqlite.Keep(30*24*time.Hour)) // keep db entries for 30 days
 	return db, errors.Wrapf(err, "opening file %s", dbfile)
-}
-
-// ParseArgs parses the remaining arguments on a fab command line,
-// after option flags.
-// They are either a list of target names in the registry,
-// in which case those targets are returned;
-// or a single registry target followed by option flags for that,
-// in which case the target is wrapped up in an [ArgTarget] with its options.
-// The two cases are distinguished by whether there is a second argument
-// and whether it begins with a hyphen.
-// (That's the ArgTarget case.)
-func (con *Controller) ParseArgs(args []string) ([]Target, error) {
-	var (
-		targets []Target
-		unknown []string
-	)
-
-	if len(args) > 1 && args[1][0] == '-' {
-		// Just one target, and remaining args are arguments for that target.
-		if target, _ := con.RegistryTarget(args[0]); target != nil {
-			targets = append(targets, ArgTarget(target, args[1:]...))
-		} else {
-			unknown = append(unknown, args[0])
-		}
-	} else {
-		for _, arg := range args {
-			if target, _ := con.RegistryTarget(arg); target != nil {
-				targets = append(targets, target)
-			} else {
-				unknown = append(unknown, arg)
-			}
-		}
-	}
-
-	switch len(unknown) {
-	case 0:
-		return targets, nil
-	case 1:
-		return nil, fmt.Errorf("unknown target %s", unknown[0])
-	default:
-		return nil, fmt.Errorf("unknown targets: %s", strings.Join(unknown, " "))
-	}
 }
 
 const fabVersionBasename = "fab-version.json"
