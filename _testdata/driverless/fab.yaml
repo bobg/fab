@@ -1,0 +1,3 @@
+Noop: !Command
+  Shell: echo hello
+  Stdout: $stdout

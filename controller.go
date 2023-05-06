@@ -1,7 +1,10 @@
 package fab
 
 import (
+	"fmt"
+	"io"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -65,4 +68,58 @@ func (con *Controller) JoinPath(elts ...string) string {
 // RelPath returns the relative path to `path` from con's top directory.
 func (con *Controller) RelPath(path string) (string, error) {
 	return filepath.Rel(con.topdir, path)
+}
+
+// ParseArgs parses the remaining arguments on a fab command line,
+// after option flags.
+// They are either a list of target names in the registry,
+// in which case those targets are returned;
+// or a single registry target followed by option flags for that,
+// in which case the target is wrapped up in an [ArgTarget] with its options.
+// The two cases are distinguished by whether there is a second argument
+// and whether it begins with a hyphen.
+// (That's the ArgTarget case.)
+func (con *Controller) ParseArgs(args []string) ([]Target, error) {
+	var (
+		targets []Target
+		unknown []string
+	)
+
+	if len(args) > 1 && args[1][0] == '-' {
+		// Just one target, and remaining args are arguments for that target.
+		if target, _ := con.RegistryTarget(args[0]); target != nil {
+			targets = append(targets, ArgTarget(target, args[1:]...))
+		} else {
+			unknown = append(unknown, args[0])
+		}
+	} else {
+		for _, arg := range args {
+			if target, _ := con.RegistryTarget(arg); target != nil {
+				targets = append(targets, target)
+			} else {
+				unknown = append(unknown, arg)
+			}
+		}
+	}
+
+	switch len(unknown) {
+	case 0:
+		return targets, nil
+	case 1:
+		return nil, fmt.Errorf("unknown target %s", unknown[0])
+	default:
+		return nil, fmt.Errorf("unknown targets: %s", strings.Join(unknown, " "))
+	}
+}
+
+// ListTargets outputs a formatted list of the targets in the registry and their docstrings.
+func (con *Controller) ListTargets(w io.Writer) {
+	names := con.RegistryNames()
+	for _, name := range names {
+		fmt.Fprintln(w, name)
+		if _, d := con.RegistryTarget(name); d != "" {
+			d = bolRegex.ReplaceAllString(d, "    ")
+			fmt.Fprintln(w, d)
+		}
+	}
 }

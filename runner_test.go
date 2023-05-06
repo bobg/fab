@@ -1,11 +1,15 @@
 package fab
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"os"
 	"sync/atomic"
 	"testing"
 
 	"github.com/bobg/go-generics/v2/set"
+	"github.com/bradleyjkemp/cupaloy/v2"
 )
 
 func TestRunTarget(t *testing.T) {
@@ -77,4 +81,38 @@ func (m *memHashDB) Has(_ context.Context, h []byte) (bool, error) {
 func (m *memHashDB) Add(_ context.Context, h []byte) error {
 	m.s.Add(string(h))
 	return nil
+}
+
+func TestIndentingCopier(t *testing.T) {
+	b, err := os.ReadFile("_testdata/indenting_copier.input")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(b)
+
+	var (
+		con = NewController("")
+		buf = new(bytes.Buffer)
+		w   = con.IndentingCopier(buf, "> ")
+	)
+
+	fmt.Fprint(w, text)
+
+	con.incDepth()
+	w = con.IndentingCopier(buf, "> ")
+
+	fmt.Fprint(w, text)
+
+	con.incDepth()
+	w = con.IndentingCopier(buf, "> ")
+
+	fmt.Fprint(w, text)
+
+	con.decDepth()
+	w = con.IndentingCopier(buf, "> ")
+
+	fmt.Fprint(w, text)
+
+	snaps := cupaloy.New(cupaloy.SnapshotSubdirectory("_testdata"))
+	snaps.SnapshotT(t, buf.String())
 }

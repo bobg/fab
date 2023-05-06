@@ -8,11 +8,14 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"sync"
 
 	"github.com/bobg/errors"
+	"github.com/bobg/go-generics/v2/maps"
+	"github.com/bobg/go-generics/v2/slices"
 	json "github.com/gibson042/canonicaljson-go"
 	"gopkg.in/yaml.v3"
 )
@@ -188,23 +191,64 @@ func (ft *files) runPrereqs(ctx context.Context, con *Controller) error {
 
 // Returns [filename, hash, filename, hash, ...],
 // with filenames sorted.
-func fileHashes(files []string) ([]string, error) {
-	sorted := make([]string, len(files))
-	copy(sorted, files)
-	sort.Strings(sorted)
+// Input is a list of file or directory names.
+func fileHashes(items []string) ([]string, error) {
+	hashes := make(map[string]string)
 
-	result := make([]string, 0, 2*len(files))
-	for _, file := range sorted {
-		h, err := hashFile(file)
-		if errors.Is(err, fs.ErrNotExist) {
-			h = ""
-		} else if err != nil {
-			return nil, errors.Wrapf(err, "computing hash of %s", file)
-		}
-		result = append(result, file, h)
+	if err := fileHashesHelper(items, hashes); err != nil {
+		return nil, err
+	}
+
+	keys := maps.Keys(hashes)
+	sort.Strings(keys)
+
+	result := make([]string, 0, 2*len(keys))
+	for _, key := range keys {
+		result = append(result, key, hashes[key])
 	}
 
 	return result, nil
+}
+
+func fileHashesHelper(items []string, hashes map[string]string) error {
+	for _, item := range items {
+		if err := fileHashesItemHelper(item, hashes); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func fileHashesItemHelper(item string, hashes map[string]string) error {
+	if _, ok := hashes[item]; ok {
+		// Already computed.
+		// (There can be duplicates or overlaps in the input.)
+		return nil
+	}
+
+	info, err := os.Stat(item)
+	if errors.Is(err, fs.ErrNotExist) {
+		hashes[item] = ""
+		return nil
+	}
+
+	if info.IsDir() {
+		entries, err := os.ReadDir(item)
+		if err != nil {
+			return errors.Wrapf(err, "reading directory %s", item)
+		}
+		subitems := slices.Map(entries, func(s os.DirEntry) string { return filepath.Join(item, s.Name()) })
+		return fileHashesHelper(subitems, hashes)
+	}
+
+	h, err := hashFile(item)
+	if err != nil {
+		return errors.Wrapf(err, "hashing file %s", item)
+	}
+	hashes[item] = h
+
+	return nil
 }
 
 func hashFile(path string) (string, error) {

@@ -48,4 +48,35 @@ func TestMain(t *testing.T) {
 	if err = m.Run(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+
+	m.Force = false
+
+	// A second Run will exercise more of getDriver.
+	if err = m.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	// For some reason a third Run is needed to exercise checkVersion.
+	// TODO: figure out why.
+	if err = m.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDriverless(t *testing.T) {
+	tmpdir, err := os.MkdirTemp("", "fab")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpdir)
+
+	m := Main{
+		Fabdir: tmpdir,
+		Topdir: "_testdata/driverless",
+		Args:   []string{"Noop"},
+	}
+
+	if err := m.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 }
