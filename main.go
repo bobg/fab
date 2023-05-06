@@ -41,6 +41,9 @@ type Main struct {
 	// Force tells whether to force recompilation of the driver before running it.
 	Force bool
 
+	// DryRun tells whether to run targets in "dry run" mode - i.e., with state-changing operations (like file creation and updating) suppressed.
+	DryRun bool
+
 	// Args contains the additional command-line arguments to pass to the driver, e.g. target names.
 	Args []string
 }
@@ -90,10 +93,13 @@ func (m *Main) Run(ctx context.Context) error {
 	if m.Force {
 		args = append(args, "-f")
 	}
+	if m.DryRun {
+		args = append(args, "-n")
+	}
 	args = append(args, m.Args...)
 
 	cmd := exec.CommandContext(ctx, driver, args...)
-	cmd.Dir = m.Topdir // xxx is this right?
+	cmd.Dir = m.Topdir
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	err = cmd.Run()
 	return errors.Wrapf(err, "running %s %s", driver, strings.Join(args, " "))
@@ -119,6 +125,7 @@ func (m *Main) driverless(ctx context.Context) error {
 
 	ctx = WithVerbose(ctx, m.Verbose)
 	ctx = WithForce(ctx, m.Force)
+	ctx = WithDryRun(ctx, m.DryRun)
 
 	db, err := OpenHashDB(ctx, m.Fabdir)
 	if err != nil {

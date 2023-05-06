@@ -17,6 +17,9 @@ import (
 // which introduces a sequence.
 // The elements of the sequence are interpreted by [YAMLStringListFromNodes]
 // to produce the list of files for the target.
+//
+// When [GetDryRun] is true,
+// Clean will not remove any files.
 func Clean(files ...string) Target {
 	return &clean{
 		Files: files,
@@ -28,7 +31,10 @@ type clean struct {
 }
 
 // Run implements Target.Run.
-func (c *clean) Run(context.Context, *Controller) error {
+func (c *clean) Run(ctx context.Context, _ *Controller) error {
+	if GetDryRun(ctx) {
+		return nil
+	}
 	for _, f := range c.Files {
 		err := os.Remove(f)
 		if errors.Is(err, fs.ErrNotExist) {

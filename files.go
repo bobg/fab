@@ -51,6 +51,9 @@ var (
 // See the Deps function in the golang subpackage
 // for an example of a function that can compute such a list for a Go package.
 //
+// When [GetDryRun] is true,
+// checking and updating of the hash DB is skipped.
+//
 // A Files target may be specified in YAML using the !Files tag,
 // which introduces a mapping whose fields are:
 //
@@ -104,7 +107,7 @@ func (ft *files) Run(ctx context.Context, con *Controller) error {
 
 	db := GetHashDB(ctx)
 
-	if db != nil && !GetForce(ctx) {
+	if db != nil && !GetForce(ctx) && !GetDryRun(ctx) {
 		h, err := ft.computeHash(ctx, con)
 		if err != nil {
 			return errors.Wrap(err, "computing hash before running subtarget")
@@ -125,7 +128,7 @@ func (ft *files) Run(ctx context.Context, con *Controller) error {
 		return errors.Wrap(err, "running subtarget")
 	}
 
-	if db == nil {
+	if db == nil || GetDryRun(ctx) {
 		return nil
 	}
 

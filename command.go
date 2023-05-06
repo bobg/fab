@@ -188,6 +188,13 @@ func (c *Command) Run(ctx context.Context, con *Controller) (err error) {
 	cmd.Dir = c.Dir
 	cmd.Env = append(os.Environ(), c.Env...)
 
+	if GetDryRun(ctx) {
+		if GetVerbose(ctx) {
+			con.Indentf("  Would run command %s", cmd)
+		}
+		return nil
+	}
+
 	cmd.Stdout, cmd.Stderr = c.Stdout, c.Stderr
 
 	var (

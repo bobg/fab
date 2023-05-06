@@ -33,17 +33,20 @@ func main() {
 		verbose bool
 		list    bool
 		force   bool
+		dryrun  bool
 	)
 	flag.StringVar(&fabdir, "fab", filepath.Join(cacheDir, "fab"), "directory containing driver binaries and hash DB")
 	flag.StringVar(&topdir, "top", "", "project's top directory")
 	flag.BoolVar(&verbose, "v", false, "run verbosely")
 	flag.BoolVar(&list, "list", false, "list available targets")
 	flag.BoolVar(&force, "f", false, "force rebuilding of targets")
+	flag.BoolVar(&dryrun, "n", false, "dry run mode")
 	flag.Parse()
 
 	ctx := context.Background()
 	ctx = fab.WithVerbose(ctx, verbose)
 	ctx = fab.WithForce(ctx, force)
+	ctx = fab.WithDryRun(ctx, dryrun)
 
 	con := fab.NewController(topdir)
 

@@ -3,11 +3,25 @@ package fab
 import "context"
 
 type (
+	dryrunKeyType  struct{}
 	forceKeyType   struct{}
 	hashDBKeyType  struct{}
 	verboseKeyType struct{}
 	argsKeyType    struct{}
 )
+
+// WithDryRun decorates a context with the value of a "dryrun" boolean.
+// Retrieve it with [GetDryRun].
+func WithDryRun(ctx context.Context, dryrun bool) context.Context {
+	return context.WithValue(ctx, dryrunKeyType{}, dryrun)
+}
+
+// GetDryRun returns the value of the dryrun boolean added to `ctx` with [WithDryRun].
+// The default, if WithDryRun was not used, is false.
+func GetDryRun(ctx context.Context) bool {
+	val, _ := ctx.Value(dryrunKeyType{}).(bool)
+	return val
+}
 
 // WithForce decorates a context with the value of a "force" boolean.
 // Retrieve it with [GetForce].
