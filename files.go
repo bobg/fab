@@ -99,35 +99,34 @@ func (ft *files) Run(ctx context.Context, con *Controller) error {
 		return errors.Wrap(err, "in prerequisites")
 	}
 
-	if GetForce(ctx) {
-		return con.Run(ctx, ft.Target)
-	}
-
 	db := GetHashDB(ctx)
-	if db == nil {
-		return con.Run(ctx, ft.Target)
-	}
 
-	h, err := ft.computeHash(ctx, con)
-	if err != nil {
-		return errors.Wrap(err, "computing hash before running subtarget")
-	}
-	has, err := db.Has(ctx, h)
-	if err != nil {
-		return errors.Wrap(err, "checking hash db")
-	}
-	if has {
-		if GetVerbose(ctx) {
-			con.Indentf("%s is up to date", con.Describe(ft))
+	if db != nil && !GetForce(ctx) {
+		h, err := ft.computeHash(ctx, con)
+		if err != nil {
+			return errors.Wrap(err, "computing hash before running subtarget")
 		}
-		return nil
+		has, err := db.Has(ctx, h)
+		if err != nil {
+			return errors.Wrap(err, "checking hash db")
+		}
+		if has {
+			if GetVerbose(ctx) {
+				con.Indentf("%s is up to date", con.Describe(ft))
+			}
+			return nil
+		}
 	}
 
-	if err = con.Run(ctx, ft.Target); err != nil {
+	if err := con.Run(ctx, ft.Target); err != nil {
 		return errors.Wrap(err, "running subtarget")
 	}
 
-	h, err = ft.computeHash(ctx, con)
+	if db == nil {
+		return nil
+	}
+
+	h, err := ft.computeHash(ctx, con)
 	if err != nil {
 		return errors.Wrap(err, "computing hash after running subtarget")
 	}
