@@ -1,0 +1,4 @@
+Foo: !go.Binary
+  - a
+  - b
+  - c

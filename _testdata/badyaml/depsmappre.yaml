@@ -1,0 +1,5 @@
+Foo: !Deps
+  Pre: !Unknown
+    Shell: echo I should not work
+  Post: !Command
+    Shell: echo This is fine...

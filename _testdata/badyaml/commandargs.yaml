@@ -1,0 +1,7 @@
+Foo: !Command
+  Cmd: echo
+  Args:
+    W: I
+    X: should
+    Y: not
+    Z: work

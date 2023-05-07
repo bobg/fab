@@ -1,0 +1,6 @@
+Foo: !ArgTarget
+  - !Unknown
+    Shell: echo I should not work
+  - x
+  - y
+  - z

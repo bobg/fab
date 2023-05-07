@@ -1,0 +1,4 @@
+Foo: !Command
+  - x
+  - y
+  - z

@@ -1,0 +1,3 @@
+Foo: !All
+  X: !Command
+    Shell: echo I should not work

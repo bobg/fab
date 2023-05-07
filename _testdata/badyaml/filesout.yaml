@@ -1,0 +1,9 @@
+Foo: !Files
+  In: 
+    - a
+    - b
+    - c
+  Out:
+    X: Y
+  Target: !Command
+    Shell: echo This is fine...

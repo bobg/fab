@@ -1,0 +1,2 @@
+Foo: !Seq
+  X: Y

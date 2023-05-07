@@ -1,0 +1,6 @@
+Foo: !go.Binary
+  Dir:
+    X: Y
+  Out: outfile
+  Flags:
+    - -race

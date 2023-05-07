@@ -1,0 +1,4 @@
+Foo: !ts.Decls
+  - a
+  - b
+  - c

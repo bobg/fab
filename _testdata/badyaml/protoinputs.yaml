@@ -1,0 +1,12 @@
+Foo: !proto.Proto
+  Inputs:
+    X: Y
+  Outputs:
+    - out1
+    - out2
+  Includes:
+    - include1
+    - include2
+  Opts:
+    - opt1
+    - opt2

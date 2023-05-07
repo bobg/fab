@@ -1,0 +1,4 @@
+Foo: !proto.Proto
+  - a
+  - b
+  - c

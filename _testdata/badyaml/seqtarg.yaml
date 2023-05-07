@@ -1,0 +1,3 @@
+Foo: !Seq
+  - !Unknown
+    Shell: echo I should not work

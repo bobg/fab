@@ -1,0 +1,4 @@
+Foo: !Command
+  Shell: echo So far so good...
+  Dir: !Command
+    Shell: echo I should not work

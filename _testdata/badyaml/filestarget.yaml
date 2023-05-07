@@ -1,0 +1,11 @@
+Foo: !Files
+  In: 
+    - a
+    - b
+    - c
+  Out:
+    - d
+    - e
+    - f
+  Target: !Unknown
+    Shell: echo I should not work

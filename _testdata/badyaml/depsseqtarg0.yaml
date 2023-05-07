@@ -1,0 +1,5 @@
+Foo: !Deps
+  - !Unknown
+    Shell: echo I should not work
+  - !Command
+    Shell: echo This is fine...

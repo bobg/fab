@@ -3,7 +3,9 @@ package fab
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -145,5 +147,38 @@ func TestDeferredResolutionTarget(t *testing.T) {
 	}
 	if got := atomic.LoadUint32(&ctarg.count); got != 1 {
 		t.Errorf("got %d, want 1", got)
+	}
+}
+
+func TestBadYAML(t *testing.T) {
+	const badYAMLDir = "_testdata/badyaml"
+
+	entries, err := os.ReadDir(badYAMLDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".yaml") {
+			continue
+		}
+		basename := name[:len(name)-5]
+		t.Run(basename, func(t *testing.T) {
+			path := filepath.Join(badYAMLDir, name)
+			f, err := os.Open(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer f.Close()
+
+			con := NewController("")
+			err = con.ReadYAML(f, "")
+			if err == nil { // sic
+				t.Error("got no error but wanted one")
+			}
+		})
 	}
 }

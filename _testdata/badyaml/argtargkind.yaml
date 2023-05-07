@@ -1,0 +1,2 @@
+Foo: !ArgTarget
+  Shell: echo I should not work

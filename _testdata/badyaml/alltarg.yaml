@@ -1,0 +1,3 @@
+Foo: !All
+  - !Unknown
+    Shell: echo I should not work

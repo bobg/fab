@@ -1,0 +1,4 @@
+Foo: !Files
+  - a
+  - b
+  - c

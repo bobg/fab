@@ -1,0 +1,6 @@
+Foo: !go.Binary
+  Dir: cmd/binary
+  Out:
+    X: Y
+  Flags:
+    - -race
