@@ -30,7 +30,7 @@ import (
 //
 // Both Dir and Out are either absolute or relative to the directory containing the YAML file.
 func Decls(dir, typename, prefix, outfile string) (fab.Target, error) {
-	gopkg, err := golang.Deps(dir, false)
+	gopkg, err := golang.Deps(dir, false, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting deps for %s", dir)
 	}

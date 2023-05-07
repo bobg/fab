@@ -23,10 +23,17 @@ Check: !All
   - Test
 
 # Cover produces a test-coverage profile and opens it in a browser.
-Cover: !Seq
-  - !Command
-    Shell: go test -coverprofile cover.out ./...
-  - !Command
+Cover: !Deps
+  Pre:
+    - !Files
+      In: !go.Deps
+        Dir: cmd/fab
+        Recursive: true
+        Tests: true
+      Out: [cover.out]
+      Target: !Command
+        Shell: go test -coverprofile cover.out ./...
+  Post: !Command
     Shell: go tool cover -html cover.out
 
 # Clean removes build-target output.

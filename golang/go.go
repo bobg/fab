@@ -30,7 +30,7 @@ func Binary(dir, outfile string, flags ...string) (fab.Target, error) {
 		return nil, errors.Wrapf(err, "getting relative path from %s to %s", dir, outfile)
 	}
 
-	deps, err := Deps(dir, false)
+	deps, err := Deps(dir, false, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "computing dependencies")
 	}
@@ -75,10 +75,11 @@ func binaryDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target
 // It traverses package dependencies transitively,
 // but only within the original package's module.
 // The list is sorted for consistent, predictable results.
-func Deps(dir string, recursive bool) ([]string, error) {
+func Deps(dir string, recursive, tests bool) ([]string, error) {
 	config := &packages.Config{
-		Mode: packages.NeedName | packages.NeedFiles | packages.NeedEmbedFiles | packages.NeedEmbedPatterns | packages.NeedTypes | packages.NeedDeps | packages.NeedImports | packages.NeedModule,
-		Dir:  dir,
+		Mode:  packages.NeedName | packages.NeedFiles | packages.NeedEmbedFiles | packages.NeedEmbedPatterns | packages.NeedTypes | packages.NeedDeps | packages.NeedImports | packages.NeedModule,
+		Dir:   dir,
+		Tests: tests,
 	}
 
 	arg := "."
@@ -142,13 +143,14 @@ func depsDecoder(node *yaml.Node) ([]string, error) {
 	var gd struct {
 		Dir       string `yaml:"Dir"`
 		Recursive bool   `yaml:"Recursive"`
+		Tests     bool   `yaml:"Tests"`
 	}
 
 	if err := node.Decode(&gd); err != nil {
 		return nil, errors.Wrap(err, "YAML error decoding go.Deps")
 	}
 
-	return Deps(gd.Dir, gd.Recursive)
+	return Deps(gd.Dir, gd.Recursive, gd.Tests)
 }
 
 func init() {

@@ -108,7 +108,7 @@ func TestDeps(t *testing.T) {
 		"go_test.go",
 	}
 
-	got, err := Deps(".", false)
+	got, err := Deps(".", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
