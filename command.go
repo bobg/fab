@@ -404,17 +404,10 @@ func commandDecoder(con *Controller, node *yaml.Node, dir string) (Target, error
 		result.Stdout = io.Discard
 
 	case "$indent":
-		result.StdoutFn = func(_ context.Context, con *Controller) io.Writer {
-			return con.IndentingCopier(os.Stdout, "    ")
-		}
+		result.StdoutFn = deferredIndent(os.Stdout)
 
 	case "$verbose":
-		result.StdoutFn = func(ctx context.Context, con *Controller) io.Writer {
-			if GetVerbose(ctx) {
-				return con.IndentingCopier(os.Stdout, "    ")
-			}
-			return nil
-		}
+		result.StdoutFn = maybeIndent(os.Stdout)
 
 	case "":
 		// do nothing
@@ -434,17 +427,10 @@ func commandDecoder(con *Controller, node *yaml.Node, dir string) (Target, error
 		result.Stderr = io.Discard
 
 	case "$indent":
-		result.StderrFn = func(_ context.Context, con *Controller) io.Writer {
-			return con.IndentingCopier(os.Stderr, "    ")
-		}
+		result.StderrFn = deferredIndent(os.Stderr)
 
 	case "$verbose":
-		result.StderrFn = func(ctx context.Context, con *Controller) io.Writer {
-			if GetVerbose(ctx) {
-				return con.IndentingCopier(os.Stderr, "    ")
-			}
-			return nil
-		}
+		result.StderrFn = maybeIndent(os.Stderr)
 
 	case "":
 		// do nothing
@@ -454,6 +440,21 @@ func commandDecoder(con *Controller, node *yaml.Node, dir string) (Target, error
 	}
 
 	return result, nil
+}
+
+func deferredIndent(w io.Writer) func(context.Context, *Controller) io.Writer {
+	return func(_ context.Context, con *Controller) io.Writer {
+		return con.IndentingCopier(os.Stdout, "    ")
+	}
+}
+
+func maybeIndent(w io.Writer) func(context.Context, *Controller) io.Writer {
+	return func(ctx context.Context, con *Controller) io.Writer {
+		if GetVerbose(ctx) {
+			return con.IndentingCopier(w, "    ")
+		}
+		return nil
+	}
 }
 
 func init() {

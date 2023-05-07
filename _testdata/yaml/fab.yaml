@@ -6,7 +6,6 @@ Foo: !All
 # Bar doesn't do much.
 Bar: !Command
   Shell: echo How do you do
-  Stdout: $stdout
 
 # Baz does X after Y and Z.
 Baz: !Deps
@@ -47,3 +46,43 @@ W: !ArgTarget
   - X
   - foo
   - bar
+
+StdoutStdout: !Command
+  Shell: echo Hello
+  Stdout: $stdout
+
+StderrStdout: !Command
+  Shell: echo Hello
+  Stdout: $stderr
+
+DiscardStdout: !Command
+  Shell: echo Hello
+  Stdout: $discard
+
+VerboseStdout: !Command
+  Shell: echo Hello
+  Stdout: $verbose
+
+IndentStdout: !Command
+  Shell: echo Hello
+  Stdout: $indent
+
+StdoutStderr: !Command
+  Shell: echo Hello
+  Stderr: $stdout
+
+StderrStderr: !Command
+  Shell: echo Hello
+  Stderr: $stderr
+
+DiscardStderr: !Command
+  Shell: echo Hello
+  Stderr: $discard
+
+VerboseStderr: !Command
+  Shell: echo Hello
+  Stderr: $verbose
+
+IndentStderr: !Command
+  Shell: echo Hello
+  Stderr: $indent

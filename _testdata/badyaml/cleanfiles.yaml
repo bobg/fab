@@ -1,0 +1,3 @@
+Foo: !Clean
+  - !Command
+    Shell: echo I should not work

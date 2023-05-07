@@ -16,8 +16,8 @@ Lint: !Command
 Vet: !Command
   Shell: go vet ./...
 
-# Check runs all of Vet, Lint, and Test.
-Check: !All
+# Check runs Vet, Lint, and Test.
+Check: !Seq
   - Vet
   - Lint
   - Test
