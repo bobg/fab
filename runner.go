@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 
@@ -116,6 +117,10 @@ func (con *Controller) Run(ctx context.Context, targets ...Target) error {
 //
 // A newline is added to the end of the string if one is not already there.
 func (con *Controller) Indentf(format string, args ...any) {
+	con.indentf(os.Stdout, format, args...)
+}
+
+func (con *Controller) indentf(w io.Writer, format string, args ...any) {
 	if !strings.HasSuffix(format, "\n") {
 		format += "\n"
 	}
@@ -125,9 +130,9 @@ func (con *Controller) Indentf(format string, args ...any) {
 	con.mu.Unlock()
 
 	if depth > 0 {
-		fmt.Print(strings.Repeat("  ", int(depth)))
+		fmt.Fprint(w, strings.Repeat("  ", int(depth)))
 	}
-	fmt.Printf(format, args...)
+	fmt.Fprintf(w, format, args...)
 }
 
 // IndentingCopier creates an [io.Writer] that copies its data to an underlying writer,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/bobg/go-generics/v2/set"
@@ -143,4 +144,26 @@ func fileCopyTarget(from, to string) Target {
 		[]string{from},
 		[]string{to},
 	)
+}
+
+func TestFileHashes(t *testing.T) {
+	got, err := fileHashes([]string{
+		"_testdata/filehashes/file2",
+		"_testdata/filehashes/dir",
+		"_testdata/filehashes/file1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"_testdata/filehashes/dir/file3",
+		"60f0bc98ed8c6cd61b9124a0d03932ef9a35d483076860882f18a976",
+		"_testdata/filehashes/file1",
+		"55ad928246b8a22184d245a5966ea69fb4aa57103e835f994bd84457",
+		"_testdata/filehashes/file2",
+		"16cdf838123b47d4244b7d31efc0b8a17ba299bab0f1ba3d61f33b3c",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
 }

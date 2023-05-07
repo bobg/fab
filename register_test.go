@@ -33,3 +33,23 @@ func TestRegister(t *testing.T) {
 		t.Errorf(`got non-nil target for "foobie_bletch", want nil`)
 	}
 }
+
+func TestDescribe(t *testing.T) {
+	con := NewController("")
+
+	targ1 := &countTarget{}
+	if _, err := con.RegisterTarget("targ1", "", targ1); err != nil {
+		t.Fatal(err)
+	}
+
+	got := con.Describe(targ1)
+	if got != "targ1" {
+		t.Errorf("got %s, want targ1", got)
+	}
+
+	targ2 := &countTarget{}
+	got = con.Describe(targ2)
+	if got != "unnamed count" {
+		t.Errorf("got %s, want countTarget", got)
+	}
+}

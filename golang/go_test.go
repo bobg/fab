@@ -58,6 +58,7 @@ func TestDeps(t *testing.T) {
 		"../all_test.go",
 		"../argtarg.go",
 		"../argtarg_test.go",
+		"../badyaml_test.go",
 		"../clean.go",
 		"../clean_test.go",
 		"../command.go",

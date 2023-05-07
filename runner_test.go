@@ -116,3 +116,19 @@ func TestIndentingCopier(t *testing.T) {
 	snaps := cupaloy.New(cupaloy.SnapshotSubdirectory("_testdata"))
 	snaps.SnapshotT(t, buf.String())
 }
+
+func TestIndentf(t *testing.T) {
+	con := NewController("")
+	buf := new(bytes.Buffer)
+	con.indentf(buf, "foo")
+	if got := buf.String(); got != "foo\n" {
+		t.Errorf("got %s, want foo\\n", buf.String())
+	}
+	buf.Reset()
+
+	con.incDepth()
+	con.indentf(buf, "bar")
+	if got := buf.String(); got != "  bar\n" {
+		t.Errorf("got %s, want \"  bar\\n\"", buf.String())
+	}
+}

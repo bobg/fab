@@ -38,6 +38,14 @@ func TestTopDir(t *testing.T) {
 		name: "case6",
 		dir:  "case5/foo/bar", // sic
 		want: "case5",
+	}, {
+		name:    "case7",
+		dir:     "case5", // no topdir here or above
+		wantErr: true,
+	}, {
+		name:    "case8",
+		dir:     "case8/foo/bar", // does not exist
+		wantErr: true,
 	}}
 
 	tmpdir, err := os.MkdirTemp("", "fab")
@@ -58,7 +66,9 @@ func TestTopDir(t *testing.T) {
 				if !tc.wantErr {
 					t.Fatal(err)
 				}
-			} else if tc.wantErr {
+				return
+			}
+			if tc.wantErr {
 				t.Fatal("got no error but wanted one")
 			}
 
