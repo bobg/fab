@@ -68,3 +68,29 @@ func TestDeps(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 }
+
+func TestProtoYAML(t *testing.T) {
+	f, err := os.Open("testdata/proto.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	con := fab.NewController("")
+	if err = con.ReadYAML(f, "testdata"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := con.RegistryTarget("testdata/Foo")
+	want, err := Proto(
+		[]string{"testdata/foo.proto"},
+		[]string{"testdata/out1", "testdata/out2"},
+		[]string{"testdata/x"},
+		[]string{"opt1", "opt2"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+}

@@ -131,3 +131,25 @@ func TestDeps(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 }
+
+func TestGoYAML(t *testing.T) {
+	f, err := os.Open("_testdata/go.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	con := fab.NewController("")
+	if err = con.ReadYAML(f, "_testdata"); err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ := con.RegistryTarget("_testdata/Foo")
+	want, err := Binary("_testdata/binary", "_testdata/b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+}

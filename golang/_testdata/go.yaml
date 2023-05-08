@@ -1,0 +1,5 @@
+_dir: _testdata
+
+Foo: !go.Binary
+  Dir: binary
+  Out: b
