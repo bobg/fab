@@ -50,7 +50,7 @@ func (*argTarget) Desc() string {
 
 func argTargetDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.SequenceNode {
-		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
+		return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.SequenceNode}
 	}
 	if len(node.Content) == 0 {
 		return nil, fmt.Errorf("no child nodes")

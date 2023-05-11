@@ -86,3 +86,11 @@ VerboseStderr: !Command
 IndentStderr: !Command
   Shell: echo Hello
   Stderr: $indent
+
+MultiCommand: !Command
+  Shell:
+    - echo Wang
+    - echo Chung
+  Dir: x
+  Stdout: foo
+  Stderr: bar

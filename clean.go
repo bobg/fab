@@ -2,7 +2,6 @@ package fab
 
 import (
 	"context"
-	"fmt"
 	"io/fs"
 	"os"
 
@@ -54,7 +53,7 @@ func (*clean) Desc() string {
 
 func cleanDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.SequenceNode {
-		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
+		return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.SequenceNode}
 	}
 	files, err := con.YAMLFileListFromNodes(node.Content, dir)
 	if err != nil {

@@ -86,7 +86,7 @@ func depsDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 		return Deps(target, depTargets...), nil
 
 	default:
-		return nil, fmt.Errorf("got node kind %v, want %v or %v", node.Kind, yaml.SequenceNode, yaml.MappingNode)
+		return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.SequenceNode | yaml.MappingNode}
 	}
 }
 

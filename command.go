@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/bobg/errors"
+	"github.com/bobg/go-generics/v2/slices"
 	"gopkg.in/yaml.v3"
 )
 
@@ -49,6 +50,19 @@ import (
 //   - Dir, the directory in which the command should run,
 //     either absolute or relative to the directory in which the YAML file is found.
 //   - Env, a list of VAR=VALUE strings to add to the command's environment.
+//
+// As a special case,
+// a !Command whose shell is a list instead of a single string
+// will produce a [Seq] of Commands,
+// one for each of the Shell strings.
+// The Commands in the Seq are otherwise identical,
+// with one further special case:
+// if Stdout and/or Stderr refers to a file,
+// then the second and subsequent Commands in the Seq
+// will always append to the file rather than overwrite it,
+// even without the >> prefix.
+// (If you really do want some command in the sequence to overwrite a file,
+// you can always add >FILE to the Shell string.)
 type Command struct {
 	// Shell is the command to run,
 	// as a single string with command name and arguments together.
@@ -355,19 +369,10 @@ func (e CommandErr) Unwrap() error {
 
 func commandDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.MappingNode {
-		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.MappingNode)
+		return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.MappingNode}
 	}
 
-	var c struct {
-		Shell  string    `yaml:"Shell"`
-		Cmd    string    `yaml:"Cmd"`
-		Args   yaml.Node `yaml:"Args"`
-		Stdin  string    `yaml:"Stdin"`
-		Stdout string    `yaml:"Stdout"`
-		Stderr string    `yaml:"Stderr"`
-		Dir    string    `yaml:"Dir"`
-		Env    yaml.Node `yaml:"Env"`
-	}
+	var c commandYAML
 	if err := node.Decode(&c); err != nil {
 		return nil, errors.Wrap(err, "YAML error decoding Command")
 	}
@@ -381,8 +386,57 @@ func commandDecoder(con *Controller, node *yaml.Node, dir string) (Target, error
 		return nil, errors.Wrap(err, "YAML error decoding Command.Env")
 	}
 
+	if c.Cmd == "" {
+		strs, err := YAMLStringList(&c.Shell)
+
+		var e BadYAMLNodeKindError
+		switch {
+		case errors.As(err, &e):
+			// Do nothing (fall through below)
+
+		case err != nil:
+			return nil, errors.Wrap(err, "decoding Command.Shell as a string list")
+
+		default:
+			// Special case: Shell is a list of strings.
+			// Make this a Seq of identical-except-for-the-shell-string Commands.
+
+			targets, err := slices.Mapx(strs, func(idx int, str string) (Target, error) {
+				return c.toTarget(con, str, dir, args, env, idx > 0), nil
+			})
+			return Seq(targets...), err
+		}
+	}
+
+	var shell string
+	switch c.Shell.Kind {
+	case 0:
+		// Do nothing
+
+	case yaml.ScalarNode:
+		shell = c.Shell.Value
+
+	default:
+		return nil, errors.Wrap(BadYAMLNodeKindError{Got: c.Shell.Kind, Want: yaml.ScalarNode}, "in Command.Shell node")
+	}
+
+	return c.toTarget(con, shell, dir, args, env, false), nil
+}
+
+type commandYAML struct {
+	Shell  yaml.Node `yaml:"Shell"`
+	Cmd    string    `yaml:"Cmd"`
+	Args   yaml.Node `yaml:"Args"`
+	Stdin  string    `yaml:"Stdin"`
+	Stdout string    `yaml:"Stdout"`
+	Stderr string    `yaml:"Stderr"`
+	Dir    string    `yaml:"Dir"`
+	Env    yaml.Node `yaml:"Env"`
+}
+
+func (c commandYAML) toTarget(con *Controller, shell, dir string, args, env []string, forceAppend bool) Target {
 	result := &Command{
-		Shell: c.Shell,
+		Shell: shell,
 		Cmd:   c.Cmd,
 		Args:  args,
 		Dir:   con.JoinPath(dir, c.Dir),
@@ -414,6 +468,9 @@ func commandDecoder(con *Controller, node *yaml.Node, dir string) (Target, error
 
 	default:
 		result.StdoutFile = con.JoinPath(dir, c.Stdout)
+		if forceAppend && !strings.HasPrefix(result.StdoutFile, ">>") {
+			result.StdoutFile = ">>" + result.StdoutFile
+		}
 	}
 
 	switch c.Stderr {
@@ -437,9 +494,12 @@ func commandDecoder(con *Controller, node *yaml.Node, dir string) (Target, error
 
 	default:
 		result.StderrFile = con.JoinPath(dir, c.Stderr)
+		if forceAppend && !strings.HasPrefix(result.StdoutFile, ">>") {
+			result.StdoutFile = ">>" + result.StdoutFile
+		}
 	}
 
-	return result, nil
+	return result
 }
 
 func deferredIndent(w io.Writer) func(context.Context, *Controller) io.Writer {

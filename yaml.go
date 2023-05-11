@@ -171,7 +171,7 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 	}
 
 	if doc.Kind != yaml.DocumentNode {
-		return fmt.Errorf("got top-level node kind %v, want %v", doc.Kind, yaml.DocumentNode)
+		return errors.Wrap(BadYAMLNodeKindError{Got: doc.Kind, Want: yaml.DocumentNode}, "at top level")
 	}
 	if len(doc.Content) != 1 {
 		return fmt.Errorf("got %d children of top-level node, want 1", len(doc.Content))
@@ -179,7 +179,7 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 
 	m := doc.Content[0]
 	if m.Kind != yaml.MappingNode {
-		return fmt.Errorf("got second-level node kind %v, want %v", m.Kind, yaml.MappingNode)
+		return errors.Wrap(BadYAMLNodeKindError{Got: m.Kind, Want: yaml.MappingNode}, "at document second level")
 	}
 
 	if len(m.Content)%2 != 0 {
@@ -191,7 +191,7 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 	for i := 0; i < len(m.Content); i += 2 {
 		nameNode := m.Content[i]
 		if nameNode.Kind != yaml.ScalarNode {
-			return fmt.Errorf("got name-node kind %v for entry %d, want %v", nameNode.Kind, i, yaml.ScalarNode)
+			return errors.Wrapf(BadYAMLNodeKindError{Got: nameNode.Kind, Want: yaml.ScalarNode}, "in entry %d", i)
 		}
 
 		var (
@@ -305,17 +305,35 @@ func YAMLStringList(node *yaml.Node) ([]string, error) {
 		yamlStringListRegistryMu.Unlock()
 
 		if !ok {
-			return nil, fmt.Errorf("unknown YAML string-list type %s", tag)
+			return nil, UnknownStringListTagError{Tag: tag}
 		}
 
 		return fn(node)
 	}
 
 	if node.Kind != yaml.SequenceNode {
-		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.SequenceNode)
+		return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.SequenceNode}
 	}
 
 	return YAMLStringListFromNodes(node.Content)
+}
+
+// UnknownStringListTagError is the type of error returned by YAMLStringList when it encounters an unknown node tag.
+type UnknownStringListTagError struct {
+	Tag string
+}
+
+func (e UnknownStringListTagError) Error() string {
+	return fmt.Sprintf("unknown YAML string-list type %s", e.Tag)
+}
+
+// BadYAMLNodeKindError is the type of error returned by various functions when the kind of a YAML node does not match expectations.
+type BadYAMLNodeKindError struct {
+	Got, Want yaml.Kind
+}
+
+func (e BadYAMLNodeKindError) Error() string {
+	return fmt.Sprintf("got node kind %v, want %v", e.Got, e.Want)
 }
 
 // YAMLStringListFromNodes constructs a slice of strings from a slice of YAML nodes.
@@ -336,7 +354,7 @@ func YAMLStringListFromNodes(nodes []*yaml.Node) ([]string, error) {
 		}
 
 		if tag == "" {
-			return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.ScalarNode)
+			return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.ScalarNode}
 		}
 
 		yamlStringListRegistryMu.Lock()

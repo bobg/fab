@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -271,7 +270,7 @@ func hashFile(path string) (string, error) {
 
 func filesDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.MappingNode {
-		return nil, fmt.Errorf("got node kind %v, want %v", node.Kind, yaml.MappingNode)
+		return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.MappingNode}
 	}
 
 	var yfiles struct {

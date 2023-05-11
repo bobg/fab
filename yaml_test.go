@@ -36,6 +36,7 @@ func TestYAML(t *testing.T) {
 		"Foo",
 		"IndentStderr",
 		"IndentStdout",
+		"MultiCommand",
 		"StderrStderr",
 		"StderrStdout",
 		"StdoutStderr",
@@ -222,6 +223,16 @@ func TestYAML(t *testing.T) {
 		got, _ := con.RegistryTarget("VerboseStdout")
 		want := &Command{Shell: "echo Hello", StdoutFn: maybeIndent(os.Stdout)}
 		if !commandsEqual(got, want) {
+			t.Errorf("mismatch, got:\n%s\nwant:\n%s", spew.Sdump(got), spew.Sdump(want))
+		}
+	})
+	t.Run("MultiCommand", func(t *testing.T) {
+		got, _ := con.RegistryTarget("MultiCommand")
+		want := Seq(
+			&Command{Shell: "echo Wang", Dir: "x", StdoutFile: "foo", StderrFile: "bar"},
+			&Command{Shell: "echo Chung", Dir: "x", StdoutFile: ">>foo", StderrFile: ">>bar"},
+		)
+		if !reflect.DeepEqual(got, want) {
 			t.Errorf("mismatch, got:\n%s\nwant:\n%s", spew.Sdump(got), spew.Sdump(want))
 		}
 	})
