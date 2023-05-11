@@ -1,7 +1,6 @@
 # Build builds the fab binary.
 Build: !go.Binary
   Dir: cmd/fab
-  Out: fab
 
 # Test runs "go test" with the race detector enabled, plus coverage reporting.
 Test: !Command
@@ -24,19 +23,21 @@ Check: !Seq
 
 # Cover produces a test-coverage profile and opens it in a browser.
 Cover: !Deps
-  Pre:
-    - !Files
-      In: !go.Deps
-        Dir: cmd/fab
-        Recursive: true
-        Tests: true
-      Out: [cover.out]
-      Target: !Command
-        Shell: go test -coverprofile cover.out ./...
+  Pre: [CoverOut]
   Post: !Command
     Shell: go tool cover -html cover.out
 
+# CoverOut produces cover.out by running "go test -coverprofile".
+CoverOut: !Files
+  In: !go.Deps
+    Dir: cmd/fab
+    Recursive: true
+    Tests: true
+  Out: [cover.out]
+  Target: !Command
+    Shell: go test -coverprofile cover.out ./...
+  Autoclean: true
+
 # Clean removes build-target output.
 Clean: !Clean
-  - fab
-  - cover.out
+  - !Autoclean

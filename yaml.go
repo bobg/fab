@@ -362,7 +362,7 @@ func YAMLStringListFromNodes(nodes []*yaml.Node) ([]string, error) {
 		yamlStringListRegistryMu.Unlock()
 
 		if !ok {
-			return nil, fmt.Errorf("unknown YAML string-list type %s", tag)
+			return nil, UnknownStringListTagError{Tag: tag}
 		}
 
 		strs, err := fn(node)

@@ -20,6 +20,9 @@ import (
 // It is JSON-encodable
 // (and therefore usable as the subtarget in [fab.Files]).
 //
+// Decls is written in terms of [fab.Files].
+// Any [fab.FilesOpt] options are passed to it.
+//
 // A Decls target may be specified in YAML using the tag !ts.Decls,
 // which introduces a mapping whose fields are:
 //
@@ -29,7 +32,7 @@ import (
 //   - Out: the output file
 //
 // Both Dir and Out are either absolute or relative to the directory containing the YAML file.
-func Decls(dir, typename, prefix, outfile string) (fab.Target, error) {
+func Decls(dir, typename, prefix, outfile string, filesOpts ...fab.FilesOpt) (fab.Target, error) {
 	gopkg, err := golang.Deps(dir, false, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting deps for %s", dir)
