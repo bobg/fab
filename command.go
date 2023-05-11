@@ -494,8 +494,8 @@ func (c commandYAML) toTarget(con *Controller, shell, dir string, args, env []st
 
 	default:
 		result.StderrFile = con.JoinPath(dir, c.Stderr)
-		if forceAppend && !strings.HasPrefix(result.StdoutFile, ">>") {
-			result.StdoutFile = ">>" + result.StdoutFile
+		if forceAppend && !strings.HasPrefix(result.StderrFile, ">>") {
+			result.StderrFile = ">>" + result.StderrFile
 		}
 	}
 
