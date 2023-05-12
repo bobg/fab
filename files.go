@@ -74,15 +74,11 @@ var (
 // which runs the given `go build` command
 // to update the output file `thingify`
 // when any files depended on by the Go package in `cmd` change.
-func Files(target Target, in, out []string, opts ...FilesOpt) Target {
+func Files(target Target, in, out []string) Target {
 	result := &files{
 		Target: target,
 		In:     in,
 		Out:    out,
-	}
-
-	for _, opt := range opts {
-		opt(result)
 	}
 
 	fileRegistryMu.Lock()
@@ -195,16 +191,6 @@ func (ft *files) runPrereqs(ctx context.Context, con *Controller) error {
 	return con.Run(ctx, prereqs...)
 }
 
-type FilesOpt func(*files)
-
-func Autoclean(auto bool) FilesOpt {
-	return func(f *files) {
-		if auto {
-			AutocleanAdd(f.Out)
-		}
-	}
-}
-
 // Returns [filename, hash, filename, hash, ...],
 // with filenames sorted.
 // Input is a list of file or directory names.
@@ -288,10 +274,9 @@ func filesDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) 
 	}
 
 	var yfiles struct {
-		In        yaml.Node `yaml:"In"`
-		Out       yaml.Node `yaml:"Out"`
-		Target    yaml.Node `yaml:"Target"`
-		Autoclean bool      `yaml:"Autoclean"`
+		In     yaml.Node `yaml:"In"`
+		Out    yaml.Node `yaml:"Out"`
+		Target yaml.Node `yaml:"Target"`
 	}
 	if err := node.Decode(&yfiles); err != nil {
 		return nil, errors.Wrap(err, "YAML error in Files node")
@@ -312,7 +297,7 @@ func filesDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) 
 		return nil, errors.Wrap(err, "YAML error in Files.Out node")
 	}
 
-	return Files(target, in, out, Autoclean(yfiles.Autoclean)), nil
+	return Files(target, in, out), nil
 }
 
 func init() {

@@ -18,9 +18,6 @@ import (
 // it defaults to the last path element of dir.
 // Additional command-line arguments for `go build` can be specified with `flags`.
 //
-// Binary is implemented in terms of [fab.Files].
-// The output file is automatically selected for "autocleaning."
-//
 // A Binary target may be specified in YAML using the tag !go.Binary,
 // which introduces a mapping whose fields are:
 //
@@ -51,7 +48,7 @@ func Binary(dir, outfile string, flags ...string) (fab.Target, error) {
 		Cmd:  "go",
 		Args: args,
 	}
-	return fab.Files(c, deps, []string{outfile}, fab.Autoclean(true)), nil
+	return fab.Files(c, deps, []string{outfile}), nil
 }
 
 // MustBinary is the same as [Binary] but panics on error.
