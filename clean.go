@@ -10,7 +10,7 @@ import (
 )
 
 // Clean is a Target that deletes the files named in Files when it runs.
-// Files that don't exist are silently ignored.
+// Files that already don't exist are silently ignored.
 //
 // A Clean target may be specified in YAML using the tag !Clean,
 // which introduces a sequence.
@@ -30,9 +30,15 @@ type clean struct {
 }
 
 // Run implements Target.Run.
-func (c *clean) Run(ctx context.Context, _ *Controller) error {
+func (c *clean) Run(ctx context.Context, con *Controller) error {
 	if GetDryRun(ctx) {
+		if GetVerbose(ctx) {
+			con.Indentf("  would remove %v", c.Files)
+		}
 		return nil
+	}
+	if GetVerbose(ctx) {
+		con.Indentf("  removing %v", c.Files)
 	}
 	for _, f := range c.Files {
 		err := os.Remove(f)

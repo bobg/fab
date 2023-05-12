@@ -23,7 +23,7 @@ import (
 // includes is a list of directories in which to find .proto files;
 // otherOpts are options (other than -I / --proto_path options) for the protoc command line.
 // Typically otherOpts includes at least "--foo_out=DIR" for some target language foo.
-// This function uses [Deps] to find the dependencies of the input files.
+// This function uses [fab.Deps] to find the dependencies of the input files.
 //
 // A Proto target may be specified in YAML using the !proto.Proto tag,
 // which introduces a mapping whose fields are:

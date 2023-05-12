@@ -14,6 +14,8 @@ import (
 
 // Binary is a target describing how to compile a Go binary whose main package is in `dir`.
 // The resulting binary gets written to `outfile`.
+// If outfile is empty,
+// it defaults to the last path element of dir.
 // Additional command-line arguments for `go build` can be specified with `flags`.
 //
 // A Binary target may be specified in YAML using the tag !go.Binary,
@@ -24,7 +26,13 @@ import (
 //   - Flags: a sequence of additional command-line flags for `go build`
 //
 // Both Dir and Out are either absolute or relative to the directory containing the YAML file.
+// If Out is unspecified,
+// it defaults to the last path element of Dir.
 func Binary(dir, outfile string, flags ...string) (fab.Target, error) {
+	if outfile == "" {
+		outfile = filepath.Base(dir)
+	}
+
 	relOutfile, err := filepath.Rel(dir, outfile)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting relative path from %s to %s", dir, outfile)
@@ -63,12 +71,17 @@ func binaryDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target
 		return nil, errors.Wrap(err, "YAML error decoding go.Binary")
 	}
 
+	out := b.Out
+	if out == "" {
+		out = filepath.Base(b.Dir)
+	}
+
 	flags, err := fab.YAMLStringList(&b.Flags)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error decoding go.Binary.Flags")
 	}
 
-	return Binary(con.JoinPath(dir, b.Dir), con.JoinPath(dir, b.Out), flags...)
+	return Binary(con.JoinPath(dir, b.Dir), con.JoinPath(dir, out), flags...)
 }
 
 // Deps produces the list of files involved in building the Go package in the given directory.
