@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
-	"sync"
 
 	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v2/maps"
@@ -19,10 +18,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var (
-	fileRegistryMu sync.Mutex
-	fileRegistry   = make(map[string]*files)
-)
+var filesRegistry = newRegistry[*files]()
 
 // Files creates a target that contains a list of input files
 // and a list of expected output files.
@@ -81,11 +77,9 @@ func Files(target Target, in, out []string) Target {
 		Out:    out,
 	}
 
-	fileRegistryMu.Lock()
 	for _, o := range out {
-		fileRegistry[o] = result
+		filesRegistry.add(o, result)
 	}
-	fileRegistryMu.Unlock()
 
 	return result
 }
@@ -177,13 +171,11 @@ func (ft *files) computeHash(ctx context.Context, con *Controller) ([]byte, erro
 func (ft *files) runPrereqs(ctx context.Context, con *Controller) error {
 	var prereqs []Target
 
-	fileRegistryMu.Lock()
 	for _, in := range ft.In {
-		if target, ok := fileRegistry[in]; ok {
+		if target, ok := filesRegistry.lookup(in); ok {
 			prereqs = append(prereqs, target)
 		}
 	}
-	fileRegistryMu.Unlock()
 
 	if len(prereqs) == 0 {
 		return nil
