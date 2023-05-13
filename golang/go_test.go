@@ -89,6 +89,7 @@ func TestDeps(t *testing.T) {
 		"../proto/proto_test.go",
 		"../register.go",
 		"../register_test.go",
+		"../registry.go",
 		"../runner.go",
 		"../runner_test.go",
 		"../seq.go",
