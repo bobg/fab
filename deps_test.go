@@ -7,6 +7,8 @@ import (
 )
 
 func TestDeps(t *testing.T) {
+	t.Parallel()
+
 	var mu sync.Mutex // protects ran1, ran2, and ranpost during Run
 	var ran1, ran2, ranpost bool
 

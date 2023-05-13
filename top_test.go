@@ -9,6 +9,8 @@ import (
 )
 
 func TestTopDir(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		name    string
 		dir     string // A pathname relative to _testdata/topdir.
@@ -46,6 +48,10 @@ func TestTopDir(t *testing.T) {
 		name:    "case8",
 		dir:     "case8/foo/bar", // does not exist
 		wantErr: true,
+	}, {
+		name: "case9",
+		dir:  "case9/subdir1",
+		want: "case9",
 	}}
 
 	tmpdir, err := os.MkdirTemp("", "fab")

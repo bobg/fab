@@ -8,6 +8,8 @@ import (
 )
 
 func TestAll(t *testing.T) {
+	t.Parallel()
+
 	var mu sync.Mutex // protects ran1 and ran2 during Run
 	var ran1, ran2 bool
 

@@ -13,6 +13,8 @@ import (
 )
 
 func TestCompile(t *testing.T) {
+	t.Parallel()
+
 	tbCompile(t, func(tmpdir string) {
 		var (
 			fabdir     = filepath.Join(tmpdir, "fab")

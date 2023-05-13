@@ -12,6 +12,8 @@ import (
 )
 
 func TestYAML(t *testing.T) {
+	t.Parallel()
+
 	spew.Config.DisableMethods = true
 
 	f, err := os.Open("_testdata/yaml/fab.yaml")
@@ -53,6 +55,8 @@ func TestYAML(t *testing.T) {
 	}
 
 	t.Run("Foo", func(t *testing.T) {
+		t.Parallel()
+
 		gotFoo, gotFooDoc := con.RegistryTarget("Foo")
 		wantFoo := All(&deferredResolutionTarget{Name: "Bar"}, &deferredResolutionTarget{Name: "Baz"})
 		const wantFooDoc = "Foo does Bar and Baz."
@@ -65,6 +69,8 @@ func TestYAML(t *testing.T) {
 	})
 
 	t.Run("Bar", func(t *testing.T) {
+		t.Parallel()
+
 		gotBar, gotBarDoc := con.RegistryTarget("Bar")
 		wantBar := &Command{Shell: "echo How do you do"}
 		const wantBarDoc = "Bar doesn't do much."
@@ -83,6 +89,8 @@ func TestYAML(t *testing.T) {
 	)
 
 	t.Run("Baz", func(t *testing.T) {
+		t.Parallel()
+
 		gotBaz, gotBazDoc := con.RegistryTarget("Baz")
 		const wantBazDoc = "Baz does X after Y and Z."
 		if !reflect.DeepEqual(gotBaz, wantBaz) {
@@ -94,6 +102,8 @@ func TestYAML(t *testing.T) {
 	})
 
 	t.Run("Baz2", func(t *testing.T) {
+		t.Parallel()
+
 		gotBaz2, _ := con.RegistryTarget("Baz2")
 		if !reflect.DeepEqual(gotBaz2, wantBaz) { // sic
 			t.Errorf("mismatch for Baz2; got:\n%s\nwant:\n%s", spew.Sdump(gotBaz2), spew.Sdump(wantBaz))
@@ -101,6 +111,8 @@ func TestYAML(t *testing.T) {
 	})
 
 	t.Run("X", func(t *testing.T) {
+		t.Parallel()
+
 		gotX, gotXDoc := con.RegistryTarget("X")
 		wantX := Seq(
 			&deferredResolutionTarget{Name: "A"},
@@ -117,6 +129,8 @@ func TestYAML(t *testing.T) {
 	})
 
 	t.Run("Y", func(t *testing.T) {
+		t.Parallel()
+
 		gotY, gotYDoc := con.RegistryTarget("Y")
 		wantY := &Clean{Files: []string{"file1", "file2"}}
 		const wantYDoc = "Y cleans."
@@ -129,6 +143,8 @@ func TestYAML(t *testing.T) {
 	})
 
 	t.Run("Z", func(t *testing.T) {
+		t.Parallel()
+
 		gotZ, gotZDoc := con.RegistryTarget("Z")
 		wantZ := Files(
 			&Command{Shell: "go build -o output ./..."},
@@ -145,6 +161,8 @@ func TestYAML(t *testing.T) {
 	})
 
 	t.Run("W", func(t *testing.T) {
+		t.Parallel()
+
 		gotW, gotWDoc := con.RegistryTarget("W")
 		wantW := ArgTarget(&deferredResolutionTarget{Name: "X"}, "foo", "bar")
 		const wantWDoc = "W tests ArgTarget (passing args foo and bar to X)."
@@ -157,6 +175,8 @@ func TestYAML(t *testing.T) {
 	})
 
 	t.Run("DiscardStderr", func(t *testing.T) {
+		t.Parallel()
+
 		got, _ := con.RegistryTarget("DiscardStderr")
 		want := &Command{Shell: "echo Hello", Stderr: io.Discard}
 		if !commandsEqual(got, want) {
@@ -164,6 +184,8 @@ func TestYAML(t *testing.T) {
 		}
 	})
 	t.Run("DiscardStdout", func(t *testing.T) {
+		t.Parallel()
+
 		got, _ := con.RegistryTarget("DiscardStdout")
 		want := &Command{Shell: "echo Hello", Stdout: io.Discard}
 		if !commandsEqual(got, want) {
@@ -171,6 +193,8 @@ func TestYAML(t *testing.T) {
 		}
 	})
 	t.Run("IndentStderr", func(t *testing.T) {
+		t.Parallel()
+
 		got, _ := con.RegistryTarget("IndentStderr")
 		want := &Command{Shell: "echo Hello", StderrFn: deferredIndent(os.Stderr)}
 		if !commandsEqual(got, want) {
@@ -178,6 +202,8 @@ func TestYAML(t *testing.T) {
 		}
 	})
 	t.Run("IndentStdout", func(t *testing.T) {
+		t.Parallel()
+
 		got, _ := con.RegistryTarget("IndentStdout")
 		want := &Command{Shell: "echo Hello", StdoutFn: deferredIndent(os.Stdout)}
 		if !commandsEqual(got, want) {
@@ -185,6 +211,8 @@ func TestYAML(t *testing.T) {
 		}
 	})
 	t.Run("StderrStderr", func(t *testing.T) {
+		t.Parallel()
+
 		got, _ := con.RegistryTarget("StderrStderr")
 		want := &Command{Shell: "echo Hello", Stderr: os.Stderr}
 		if !commandsEqual(got, want) {
@@ -192,6 +220,8 @@ func TestYAML(t *testing.T) {
 		}
 	})
 	t.Run("StderrStdout", func(t *testing.T) {
+		t.Parallel()
+
 		got, _ := con.RegistryTarget("StderrStdout")
 		want := &Command{Shell: "echo Hello", Stdout: os.Stderr}
 		if !commandsEqual(got, want) {
@@ -199,6 +229,8 @@ func TestYAML(t *testing.T) {
 		}
 	})
 	t.Run("StdoutStderr", func(t *testing.T) {
+		t.Parallel()
+
 		got, _ := con.RegistryTarget("StdoutStderr")
 		want := &Command{Shell: "echo Hello", Stderr: os.Stdout}
 		if !commandsEqual(got, want) {
@@ -206,6 +238,8 @@ func TestYAML(t *testing.T) {
 		}
 	})
 	t.Run("StdoutStdout", func(t *testing.T) {
+		t.Parallel()
+
 		got, _ := con.RegistryTarget("StdoutStdout")
 		want := &Command{Shell: "echo Hello", Stdout: os.Stdout}
 		if !commandsEqual(got, want) {
@@ -213,6 +247,8 @@ func TestYAML(t *testing.T) {
 		}
 	})
 	t.Run("VerboseStderr", func(t *testing.T) {
+		t.Parallel()
+
 		got, _ := con.RegistryTarget("VerboseStderr")
 		want := &Command{Shell: "echo Hello", StderrFn: maybeIndent(os.Stderr)}
 		if !commandsEqual(got, want) {
@@ -220,6 +256,8 @@ func TestYAML(t *testing.T) {
 		}
 	})
 	t.Run("VerboseStdout", func(t *testing.T) {
+		t.Parallel()
+
 		got, _ := con.RegistryTarget("VerboseStdout")
 		want := &Command{Shell: "echo Hello", StdoutFn: maybeIndent(os.Stdout)}
 		if !commandsEqual(got, want) {
@@ -227,6 +265,8 @@ func TestYAML(t *testing.T) {
 		}
 	})
 	t.Run("MultiCommand", func(t *testing.T) {
+		t.Parallel()
+
 		got, _ := con.RegistryTarget("MultiCommand")
 		want := Seq(
 			&Command{Shell: "echo Wang", Dir: "x", StdoutFile: "foo", StderrFile: "bar"},
@@ -239,6 +279,8 @@ func TestYAML(t *testing.T) {
 }
 
 func TestDeferredResolutionTarget(t *testing.T) {
+	t.Parallel()
+
 	var (
 		dtarg = &deferredResolutionTarget{Name: "c"}
 		ctarg = &countTarget{}

@@ -7,6 +7,8 @@ import (
 )
 
 func TestArgTarget(t *testing.T) {
+	t.Parallel()
+
 	args := []string{"one", "two", "three"}
 
 	f := F(func(ctx context.Context, _ *Controller) error {

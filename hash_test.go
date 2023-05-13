@@ -13,6 +13,8 @@ import (
 )
 
 func TestHashTarget(t *testing.T) {
+	t.Parallel()
+
 	dir, err := os.MkdirTemp("", "fab")
 	if err != nil {
 		t.Fatal(err)

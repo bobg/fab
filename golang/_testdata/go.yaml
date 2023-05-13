@@ -3,3 +3,11 @@ _dir: _testdata
 Foo: !go.Binary
   Dir: binary
   Out: b
+
+Bar: !Files
+  In: !go.Deps
+    Dir: .
+  Out: [bar]
+  Target: !Command
+    Shell: echo bar
+    Stdout: bar

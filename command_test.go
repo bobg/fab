@@ -12,6 +12,8 @@ import (
 )
 
 func TestCommand(t *testing.T) {
+	t.Parallel()
+
 	tmpdir, err := os.MkdirTemp("", "fab")
 	if err != nil {
 		t.Fatal(err)

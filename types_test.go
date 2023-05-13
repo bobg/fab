@@ -8,6 +8,8 @@ import (
 )
 
 func TestImplementsTarget(t *testing.T) {
+	t.Parallel()
+
 	config := &packages.Config{
 		Mode: packages.NeedName | packages.NeedTypes | packages.NeedDeps,
 	}

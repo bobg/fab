@@ -10,6 +10,8 @@ import (
 )
 
 func TestMain(t *testing.T) {
+	t.Parallel()
+
 	tmpdir, err := os.MkdirTemp("", "fab")
 	if err != nil {
 		t.Fatal(err)
@@ -64,6 +66,8 @@ func TestMain(t *testing.T) {
 }
 
 func TestDriverless(t *testing.T) {
+	t.Parallel()
+
 	tmpdir, err := os.MkdirTemp("", "fab")
 	if err != nil {
 		t.Fatal(err)

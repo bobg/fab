@@ -11,6 +11,8 @@ import (
 )
 
 func TestDB(t *testing.T) {
+	t.Parallel()
+
 	tmpfile, err := os.CreateTemp("", "fab")
 	if err != nil {
 		t.Fatal(err)
@@ -63,6 +65,8 @@ func TestDB(t *testing.T) {
 }
 
 func TestDBKeep(t *testing.T) {
+	t.Parallel()
+
 	tmpfile, err := os.CreateTemp("", "fab")
 	if err != nil {
 		t.Fatal(err)

@@ -10,6 +10,8 @@ import (
 )
 
 func TestJoinPath(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		inp  []string
 		want string
@@ -32,7 +34,11 @@ func TestJoinPath(t *testing.T) {
 	con := &Controller{topdir: "TOP"}
 
 	for i, tc := range cases {
+		i, tc := i, tc // Go loop var pitfall
+
 		t.Run(fmt.Sprintf("case_%02d", i+1), func(t *testing.T) {
+			t.Parallel()
+
 			got := con.JoinPath(tc.inp...)
 			if got != tc.want {
 				t.Errorf("got %s, want %s", got, tc.want)
@@ -42,6 +48,8 @@ func TestJoinPath(t *testing.T) {
 }
 
 func TestParseArgs(t *testing.T) {
+	t.Parallel()
+
 	con := NewController("")
 	t1, err := con.RegisterTarget("t1", "", &countTarget{})
 	if err != nil {
@@ -72,6 +80,8 @@ func TestParseArgs(t *testing.T) {
 }
 
 func TestListTargets(t *testing.T) {
+	t.Parallel()
+
 	con := NewController("")
 	_, err := con.RegisterTarget("t1", "This is t1.", &countTarget{})
 	if err != nil {

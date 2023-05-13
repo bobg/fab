@@ -11,6 +11,8 @@ import (
 )
 
 func TestSubdirs(t *testing.T) {
+	t.Parallel()
+
 	tmpdir, err := os.MkdirTemp("", "fab")
 	if err != nil {
 		t.Fatal(err)

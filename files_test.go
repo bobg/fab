@@ -11,6 +11,8 @@ import (
 )
 
 func TestFileChaining(t *testing.T) {
+	t.Parallel()
+
 	tmpdir, err := os.MkdirTemp("", "fab")
 	if err != nil {
 		t.Fatal(err)
@@ -147,6 +149,8 @@ func fileCopyTarget(from, to string) Target {
 }
 
 func TestFileHashes(t *testing.T) {
+	t.Parallel()
+
 	got, err := fileHashes([]string{
 		"_testdata/filehashes/file2",
 		"_testdata/filehashes/dir",

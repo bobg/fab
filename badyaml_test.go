@@ -13,6 +13,8 @@ import (
 )
 
 func TestBadYAML(t *testing.T) {
+	t.Parallel()
+
 	const badYAMLDir = "_testdata/badyaml"
 
 	entries, err := os.ReadDir(badYAMLDir)

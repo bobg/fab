@@ -6,6 +6,8 @@ import (
 )
 
 func TestWithForce(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	got := GetForce(ctx)
 	if got {
@@ -24,6 +26,8 @@ func TestWithForce(t *testing.T) {
 }
 
 func TestWithVerbose(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	got := GetVerbose(ctx)
 	if got {

@@ -13,6 +13,8 @@ import (
 )
 
 func TestProto(t *testing.T) {
+	t.Parallel()
+
 	tmpdir, err := os.MkdirTemp("", "fab")
 	if err != nil {
 		t.Fatal(err)
@@ -54,6 +56,8 @@ func TestProto(t *testing.T) {
 }
 
 func TestDeps(t *testing.T) {
+	t.Parallel()
+
 	want := []string{
 		"testdata/foo.proto",
 		"testdata/x/bar.proto",
@@ -70,6 +74,8 @@ func TestDeps(t *testing.T) {
 }
 
 func TestProtoYAML(t *testing.T) {
+	t.Parallel()
+
 	f, err := os.Open("testdata/proto.yaml")
 	if err != nil {
 		t.Fatal(err)

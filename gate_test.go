@@ -3,6 +3,8 @@ package fab
 import "testing"
 
 func TestGate(t *testing.T) {
+	t.Parallel()
+
 	opened := false
 
 	g := newGate(false)

@@ -12,6 +12,8 @@ import (
 )
 
 func TestClean(t *testing.T) {
+	t.Parallel()
+
 	tmpfile, err := os.CreateTemp("", "fab")
 	if err != nil {
 		t.Fatal(err)
@@ -47,6 +49,8 @@ func TestClean(t *testing.T) {
 }
 
 func TestAutoclean(t *testing.T) {
+	t.Parallel()
+
 	tmpdir, err := os.MkdirTemp("", "fab")
 	if err != nil {
 		t.Fatal(err)

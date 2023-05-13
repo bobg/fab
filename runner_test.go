@@ -13,6 +13,8 @@ import (
 )
 
 func TestRunTarget(t *testing.T) {
+	t.Parallel()
+
 	var (
 		ctx     = context.Background()
 		con     = NewController("")
@@ -84,6 +86,8 @@ func (m *memHashDB) Add(_ context.Context, h []byte) error {
 }
 
 func TestIndentingCopier(t *testing.T) {
+	t.Parallel()
+
 	b, err := os.ReadFile("_testdata/indenting_copier.input")
 	if err != nil {
 		t.Fatal(err)
@@ -118,6 +122,8 @@ func TestIndentingCopier(t *testing.T) {
 }
 
 func TestIndentf(t *testing.T) {
+	t.Parallel()
+
 	con := NewController("")
 	buf := new(bytes.Buffer)
 	con.indentf(buf, "foo")
