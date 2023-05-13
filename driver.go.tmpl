@@ -63,7 +63,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := fab.OpenHashDB(ctx, fabdir)
+	db, err := fab.OpenHashDB(fabdir)
 	if err != nil {
 		fatalf("Error opening hash DB: %s", err)
 	}

@@ -12,7 +12,7 @@ import (
 
 var targetMethods = make(map[string]reflect.Method)
 
-// nullTarget is here so we can get reflection info about Target
+// nullTarget is here so we can get reflection info about Target.
 type nullTarget struct{}
 
 var _ Target = nullTarget{}

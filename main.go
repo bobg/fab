@@ -127,7 +127,7 @@ func (m *Main) driverless(ctx context.Context) error {
 	ctx = WithForce(ctx, m.Force)
 	ctx = WithDryRun(ctx, m.DryRun)
 
-	db, err := OpenHashDB(ctx, m.Fabdir)
+	db, err := OpenHashDB(m.Fabdir)
 	if err != nil {
 		return errors.Wrap(err, "opening hash db")
 	}
@@ -146,12 +146,12 @@ var bolRegex = regexp.MustCompile("^")
 
 // OpenHashDB ensures the given directory exists and opens (or creates) the hash DB there.
 // Callers must make sure to call Close on the returned DB when finished with it.
-func OpenHashDB(ctx context.Context, dir string) (*sqlite.DB, error) {
+func OpenHashDB(dir string) (*sqlite.DB, error) {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, errors.Wrapf(err, "creating directory %s", dir)
 	}
 	dbfile := filepath.Join(dir, "hash.db")
-	db, err := sqlite.Open(ctx, dbfile, sqlite.Keep(30*24*time.Hour)) // keep db entries for 30 days
+	db, err := sqlite.Open(dbfile, sqlite.Keep(30*24*time.Hour)) // keep db entries for 30 days
 	return db, errors.Wrapf(err, "opening file %s", dbfile)
 }
 

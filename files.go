@@ -110,7 +110,7 @@ func (ft *files) Run(ctx context.Context, con *Controller) error {
 	db := GetHashDB(ctx)
 
 	if db != nil && !GetForce(ctx) && !GetDryRun(ctx) {
-		h, err := ft.computeHash(ctx, con)
+		h, err := ft.computeHash(con)
 		if err != nil {
 			return errors.Wrap(err, "computing hash before running subtarget")
 		}
@@ -134,7 +134,7 @@ func (ft *files) Run(ctx context.Context, con *Controller) error {
 		return nil
 	}
 
-	h, err := ft.computeHash(ctx, con)
+	h, err := ft.computeHash(con)
 	if err != nil {
 		return errors.Wrap(err, "computing hash after running subtarget")
 	}
@@ -147,7 +147,7 @@ func (*files) Desc() string {
 	return "Files"
 }
 
-func (ft *files) computeHash(ctx context.Context, con *Controller) ([]byte, error) {
+func (ft *files) computeHash(con *Controller) ([]byte, error) {
 	inHashes, err := fileHashes(ft.In)
 	if err != nil {
 		return nil, errors.Wrapf(err, "computing input hash(es) for %s", con.Describe(ft))

@@ -258,16 +258,19 @@ func (c *Command) Run(ctx context.Context, con *Controller) (err error) {
 	}
 
 	if stderrFile != "" {
-		if stdoutFile == stderrFile {
+		switch {
+		case stdoutFile == stderrFile:
 			cmd.Stderr = cmd.Stdout
-		} else if stderrAppend {
+
+		case stderrAppend:
 			f, err := os.OpenFile(stderrFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 			if err != nil {
 				return errors.Wrapf(err, "opening %s for appending", stderrFile)
 			}
 			defer f.Close()
 			cmd.Stderr = f
-		} else {
+
+		default:
 			f, err := os.Create(stderrFile)
 			if err != nil {
 				return errors.Wrapf(err, "opening %s for writing", stderrFile)
@@ -504,7 +507,7 @@ func (c commandYAML) toTarget(con *Controller, shell, dir string, args, env []st
 
 func deferredIndent(w io.Writer) func(context.Context, *Controller) io.Writer {
 	return func(_ context.Context, con *Controller) io.Writer {
-		return con.IndentingCopier(os.Stdout, "    ")
+		return con.IndentingCopier(w, "    ")
 	}
 }
 
