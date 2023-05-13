@@ -20,7 +20,7 @@ func TestDB(t *testing.T) {
 
 	ctx := context.Background()
 
-	db, err := Open(ctx, tmpfile.Name())
+	db, err := Open(tmpfile.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestDBKeep(t *testing.T) {
 		clk = clock.NewMock()
 	)
 
-	db, err := Open(ctx, tmpfile.Name(), Keep(time.Hour), WithClock(clk), UpdateOnAccess(false))
+	db, err := Open(tmpfile.Name(), Keep(time.Hour), WithClock(clk), UpdateOnAccess(false))
 	if err != nil {
 		t.Fatal(err)
 	}

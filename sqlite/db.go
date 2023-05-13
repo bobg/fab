@@ -28,7 +28,7 @@ var migrations embed.FS
 // Open opens the given file and returns it as a *DB.
 // The file is created if it doesn't already exist.
 // Callers should call Close when finished operating on the database.
-func Open(ctx context.Context, path string, opts ...Option) (*DB, error) {
+func Open(path string, opts ...Option) (*DB, error) {
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return nil, errors.Wrapf(err, "opening sqlite db %s", path)

@@ -4,43 +4,61 @@ import (
 	"context"
 	"io/fs"
 	"os"
+	"sort"
+	"sync"
 
 	"github.com/bobg/errors"
+	"github.com/bobg/go-generics/v2/set"
 	"gopkg.in/yaml.v3"
 )
 
 // Clean is a Target that deletes the files named in Files when it runs.
 // Files that already don't exist are silently ignored.
 //
-// A Clean target may be specified in YAML using the tag !Clean,
-// which introduces a sequence.
-// The elements of the sequence are interpreted by [YAMLStringListFromNodes]
-// to produce the list of files for the target.
+// If Autoclean is true,
+// files listed in the "autoclean registry" are also removed.
+// See [Autoclean] for more about this feature.
+//
+// A Clean target may be specified in YAML using the tag !Clean.
+// It may introduce a sequence,
+// in which case the elements are files to delete,
+// or a mapping with fields `Files`,
+// the files to delete,
+// and `Autoclean`,
+// a boolean for enabling the autoclean feature.
 //
 // When [GetDryRun] is true,
 // Clean will not remove any files.
-func Clean(files ...string) Target {
-	return &clean{
-		Files: files,
-	}
-}
-
-type clean struct {
-	Files []string
+type Clean struct {
+	Files     []string
+	Autoclean bool
 }
 
 // Run implements Target.Run.
-func (c *clean) Run(ctx context.Context, con *Controller) error {
+func (c *Clean) Run(ctx context.Context, con *Controller) error {
+	files := c.Files
+	if c.Autoclean {
+		autocleanMu.Lock()
+		autocleanFiles := autocleanRegistry.Slice()
+		files = append(files, autocleanFiles...)
+		autocleanMu.Unlock()
+	}
+	sort.Strings(files)
+
+	if len(files) == 0 {
+		return nil
+	}
+
 	if GetDryRun(ctx) {
 		if GetVerbose(ctx) {
-			con.Indentf("  would remove %v", c.Files)
+			con.Indentf("  would remove %v", files)
 		}
 		return nil
 	}
 	if GetVerbose(ctx) {
-		con.Indentf("  removing %v", c.Files)
+		con.Indentf("  removing %v", files)
 	}
-	for _, f := range c.Files {
+	for _, f := range files {
 		err := os.Remove(f)
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
@@ -53,19 +71,48 @@ func (c *clean) Run(ctx context.Context, con *Controller) error {
 }
 
 // Desc implements Target.Desc.
-func (*clean) Desc() string {
+func (*Clean) Desc() string {
 	return "Clean"
 }
 
+var (
+	autocleanMu       sync.Mutex
+	autocleanRegistry = set.New[string]()
+)
+
 func cleanDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
-	if node.Kind != yaml.SequenceNode {
-		return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.SequenceNode}
+	var (
+		files     []string
+		autoclean bool
+		err       error
+	)
+
+	switch node.Kind {
+	case yaml.MappingNode:
+		var yclean struct {
+			Files     yaml.Node `yaml:"Files"`
+			Autoclean bool      `yaml:"Autoclean"`
+		}
+		if err = node.Decode(&yclean); err != nil {
+			return nil, errors.Wrap(err, "YAML error in Clean node")
+		}
+		files, err = con.YAMLFileList(&yclean.Files, dir)
+		if err != nil {
+			return nil, errors.Wrap(err, "YAML error in Clean.Files node")
+		}
+		autoclean = yclean.Autoclean
+
+	case yaml.SequenceNode:
+		files, err = con.YAMLFileListFromNodes(node.Content, dir)
+		if err != nil {
+			return nil, errors.Wrap(err, "YAML error in Clean node children")
+		}
+
+	default:
+		return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.MappingNode | yaml.SequenceNode}
 	}
-	files, err := con.YAMLFileListFromNodes(node.Content, dir)
-	if err != nil {
-		return nil, errors.Wrap(err, "YAML error in Clean node")
-	}
-	return Clean(files...), nil
+
+	return &Clean{Files: files, Autoclean: autoclean}, nil
 }
 
 func init() {

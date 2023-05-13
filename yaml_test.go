@@ -118,7 +118,7 @@ func TestYAML(t *testing.T) {
 
 	t.Run("Y", func(t *testing.T) {
 		gotY, gotYDoc := con.RegistryTarget("Y")
-		wantY := Clean("file1", "file2")
+		wantY := &Clean{Files: []string{"file1", "file2"}}
 		const wantYDoc = "Y cleans."
 		if !reflect.DeepEqual(gotY, wantY) {
 			t.Errorf("mismatch for Y; got:\n%s\nwant:\n%s", spew.Sdump(gotY), spew.Sdump(wantY))

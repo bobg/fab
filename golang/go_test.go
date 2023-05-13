@@ -28,7 +28,7 @@ func TestBinary(t *testing.T) {
 		outfile   = filepath.Join(tmpdir, "out")
 	)
 
-	db, err := fab.OpenHashDB(ctx, fabdir)
+	db, err := fab.OpenHashDB(fabdir)
 	if err != nil {
 		t.Fatal(err)
 	}
