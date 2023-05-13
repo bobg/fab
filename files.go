@@ -32,8 +32,7 @@ var filesRegistry = newRegistry[*files]()
 // then the output files are up to date and running of this Files target can be skipped.
 //
 // The nested subtarget must be of a type that can be JSON-marshaled.
-// Note that this excludes [F],
-// among others.
+// Notably this excludes [F].
 //
 // When a Files target runs,
 // it checks to see whether any of its input files
@@ -45,6 +44,12 @@ var filesRegistry = newRegistry[*files]()
 // plus any transitive dependencies.
 // See the Deps function in the golang subpackage
 // for an example of a function that can compute such a list for a Go package.
+//
+// Passing Autoclean(true) as one of the options
+// causes the output files to be added to the "autoclean registry."
+// A [Clean] target may then choose to remove the files listed in that registry
+// (instead of, or in addition to, any explicitly listed files)
+// by setting its Autoclean field to true.
 //
 // When [GetDryRun] is true,
 // checking and updating of the hash DB is skipped.
@@ -70,11 +75,15 @@ var filesRegistry = newRegistry[*files]()
 // which runs the given `go build` command
 // to update the output file `thingify`
 // when any files depended on by the Go package in `cmd` change.
-func Files(target Target, in, out []string) Target {
+func Files(target Target, in, out []string, opts ...FilesOpt) Target {
 	result := &files{
 		Target: target,
 		In:     in,
 		Out:    out,
+	}
+
+	for _, opt := range opts {
+		opt(result)
 	}
 
 	for _, o := range out {
@@ -183,6 +192,26 @@ func (ft *files) runPrereqs(ctx context.Context, con *Controller) error {
 	return con.Run(ctx, prereqs...)
 }
 
+type FilesOpt func(*files)
+
+// Autoclean is an option for passing to [Files].
+// It causes the output files of the Files target to be added to the "autoclean registry."
+// A [Clean] target may then choose to remove the files listed in that registry
+// (instead of, or in addition to, any explicitly listed files)
+// by setting its Autoclean field to true.
+func Autoclean(autoclean bool) FilesOpt {
+	return func(f *files) {
+		if !autoclean {
+			return
+		}
+		autocleanMu.Lock()
+		for _, file := range f.Out {
+			autocleanRegistry.Add(file)
+		}
+		autocleanMu.Unlock()
+	}
+}
+
 // Returns [filename, hash, filename, hash, ...],
 // with filenames sorted.
 // Input is a list of file or directory names.
@@ -266,9 +295,10 @@ func filesDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) 
 	}
 
 	var yfiles struct {
-		In     yaml.Node `yaml:"In"`
-		Out    yaml.Node `yaml:"Out"`
-		Target yaml.Node `yaml:"Target"`
+		In        yaml.Node `yaml:"In"`
+		Out       yaml.Node `yaml:"Out"`
+		Target    yaml.Node `yaml:"Target"`
+		Autoclean bool      `yaml:"Autoclean"`
 	}
 	if err := node.Decode(&yfiles); err != nil {
 		return nil, errors.Wrap(err, "YAML error in Files node")
@@ -289,7 +319,7 @@ func filesDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) 
 		return nil, errors.Wrap(err, "YAML error in Files.Out node")
 	}
 
-	return Files(target, in, out), nil
+	return Files(target, in, out, Autoclean(yfiles.Autoclean)), nil
 }
 
 func init() {

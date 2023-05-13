@@ -21,9 +21,12 @@ import (
 // Inputs is a list of .proto input files;
 // outputs is a list of the expected output files;
 // includes is a list of directories in which to find .proto files;
-// otherOpts are options (other than -I / --proto_path options) for the protoc command line.
+// otherOpts are options (other than -I / --proto_path options) for the protoc command line;
+// and filesOpts are passed through to [fab.Files]
+// (which this target is implemented in terms of).
+//
 // Typically otherOpts includes at least "--foo_out=DIR" for some target language foo.
-// This function uses [fab.Deps] to find the dependencies of the input files.
+// This function uses [Deps] to find the dependencies of the input files.
 //
 // A Proto target may be specified in YAML using the !proto.Proto tag,
 // which introduces a mapping whose fields are:
@@ -32,7 +35,9 @@ import (
 //   - Outputs: the list of expected output files
 //   - Includes: the list of include directories
 //   - Opts: the list of "other options" (see above) to pass to the protoc command line
-func Proto(inputs, outputs, includes, otherOpts []string) (fab.Target, error) {
+//   - Autoclean: a boolean indicating whether the files listed in Outputs should be added to the "autoclean registry."
+//     See [fab.Autoclean] for more about this feature.
+func Proto(inputs, outputs, includes, otherOpts []string, filesOpts ...fab.FilesOpt) (fab.Target, error) {
 	alldeps := set.New[string](inputs...)
 	for _, inp := range inputs {
 		d, err := Deps(inp, includes)
@@ -48,15 +53,16 @@ func Proto(inputs, outputs, includes, otherOpts []string) (fab.Target, error) {
 	args := slices.Map(includes, func(inc string) string { return "-I" + inc })
 	args = append(args, otherOpts...)
 	args = append(args, inputs...)
-	return fab.Files(&fab.Command{Cmd: "protoc", Args: args}, alldepsSlice, outputs), nil
+	return fab.Files(&fab.Command{Cmd: "protoc", Args: args}, alldepsSlice, outputs, filesOpts...), nil
 }
 
 func protoDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target, error) {
 	var p struct {
-		Inputs   yaml.Node `yaml:"Inputs"`
-		Outputs  yaml.Node `yaml:"Outputs"`
-		Includes yaml.Node `yaml:"Includes"`
-		Opts     []string  `yaml:"Opts"`
+		Inputs    yaml.Node `yaml:"Inputs"`
+		Outputs   yaml.Node `yaml:"Outputs"`
+		Includes  yaml.Node `yaml:"Includes"`
+		Opts      []string  `yaml:"Opts"`
+		Autoclean bool      `yaml:"Autoclean"`
 	}
 	if err := node.Decode(&p); err != nil {
 		return nil, errors.Wrap(err, "YAML error decoding proto.Proto node")
@@ -77,7 +83,7 @@ func protoDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target,
 		return nil, errors.Wrap(err, "parsing protoc include list")
 	}
 
-	return Proto(inputs, outputs, includes, p.Opts)
+	return Proto(inputs, outputs, includes, p.Opts, fab.Autoclean(p.Autoclean))
 }
 
 func init() {
