@@ -1,11 +1,6 @@
 package fab
 
-import (
-	"sort"
-	"sync"
-
-	"github.com/bobg/go-generics/v2/maps"
-)
+import "sync"
 
 type registry[T any] struct {
 	mu    sync.Mutex
@@ -27,13 +22,4 @@ func (r *registry[T]) lookup(name string) (T, bool) {
 	val, ok := r.items[name]
 	r.mu.Unlock()
 	return val, ok
-}
-
-func (r *registry[T]) names() []string {
-	r.mu.Lock()
-	names := maps.Keys(r.items)
-	r.mu.Unlock()
-
-	sort.Strings(names)
-	return names
 }
