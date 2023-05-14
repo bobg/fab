@@ -71,6 +71,15 @@ func (con *Controller) Run(ctx context.Context, targets ...Target) error {
 
 		i, target := i, target // Go loop-var pitfall
 
+		if d, ok := target.(*deferredResolutionTarget); ok {
+			// Short-circuit here to avoid some confusing extra output in verbose mode.
+			target, err = d.resolve(con)
+			if err != nil {
+				errs[i] = err
+				continue
+			}
+		}
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
