@@ -29,6 +29,7 @@ func TestProto(t *testing.T) {
 		outfilecpp = filepath.Join(tmpdir, "foo2.pb.cc")
 		outfileh   = filepath.Join(tmpdir, "foo2.pb.h")
 	)
+	ctx = fab.WithVerbose(ctx, true)
 
 	p, err := Proto([]string{"testdata/foo2.proto"}, []string{outfilecpp, outfileh}, []string{"testdata"}, []string{"--cpp_out=" + tmpdir})
 	if err != nil {

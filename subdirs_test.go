@@ -31,6 +31,7 @@ func TestSubdirs(t *testing.T) {
 	}
 
 	ctx := context.Background()
+	ctx = WithVerbose(ctx, true)
 
 	t.Run("a", func(t *testing.T) {
 		a, _ := con.RegistryTarget("A")

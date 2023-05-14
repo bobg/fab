@@ -16,8 +16,12 @@ func TestRunTarget(t *testing.T) {
 	t.Parallel()
 
 	var (
-		ctx     = context.Background()
-		con     = NewController("")
+		con = NewController("")
+		ctx = context.Background()
+	)
+	ctx = WithVerbose(ctx, true)
+
+	var (
 		ct      = &countTarget{}
 		target  = Files(ct, nil, []string{"/dev/null"})
 		targets []Target
@@ -26,8 +30,6 @@ func TestRunTarget(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		targets = append(targets, target)
 	}
-
-	ctx = WithVerbose(ctx, testing.Verbose())
 
 	err := con.Run(ctx, targets...)
 	if err != nil {

@@ -26,14 +26,20 @@ func TestClean(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	con := NewController("")
 	clean := &Clean{
 		Files: []string{
 			tmpname,
 			"/tmp/i-hope-i-am-a-file-that-does-not-exist",
 		},
 	}
-	if err = con.Run(context.Background(), clean); err != nil {
+
+	var (
+		con = NewController("")
+		ctx = context.Background()
+	)
+	ctx = WithVerbose(ctx, true)
+
+	if err = con.Run(ctx, clean); err != nil {
 		t.Fatal(err)
 	}
 
@@ -68,8 +74,7 @@ func TestAutoclean(t *testing.T) {
 		con = NewController("")
 		ctx = context.Background()
 	)
-
-	ctx = WithVerbose(ctx, testing.Verbose())
+	ctx = WithVerbose(ctx, true)
 
 	if err = con.Run(ctx, files); err != nil {
 		t.Fatal(err)

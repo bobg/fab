@@ -52,10 +52,10 @@ func TestFileChaining(t *testing.T) {
 	con := newController()
 
 	ctx := context.Background()
+	ctx = WithVerbose(ctx, true)
 
 	db := memdb(set.New[string]())
 	ctx = WithHashDB(ctx, db)
-	ctx = WithVerbose(ctx, testing.Verbose())
 
 	if err = con.Run(ctx, bToC); err != nil {
 		t.Fatal(err)

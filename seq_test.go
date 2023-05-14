@@ -14,10 +14,9 @@ func TestSeq(t *testing.T) {
 	var (
 		mu         sync.Mutex // protects ran1 and ran2 during Run
 		ran1, ran2 bool
-
-		t1secondTimeErr = errors.New("t1 running a second time")
-		ctx             = context.Background()
 	)
+
+	t1secondTimeErr := errors.New("t1 running a second time")
 
 	t1 := F(func(context.Context, *Controller) error {
 		mu.Lock()
@@ -45,7 +44,11 @@ func TestSeq(t *testing.T) {
 	})
 	s := Seq(t1, t2)
 
-	con := NewController("")
+	var (
+		con = NewController("")
+		ctx = context.Background()
+	)
+	ctx = WithVerbose(ctx, true)
 
 	err := con.Run(ctx, s)
 	if err != nil {

@@ -47,20 +47,23 @@ func TestMain(t *testing.T) {
 		Force:   true,
 	}
 
-	if err = m.Run(context.Background()); err != nil {
+	ctx := context.Background()
+	ctx = WithVerbose(ctx, true)
+
+	if err = m.Run(ctx); err != nil {
 		t.Fatal(err)
 	}
 
 	m.Force = false
 
 	// A second Run will exercise more of getDriver.
-	if err = m.Run(context.Background()); err != nil {
+	if err = m.Run(ctx); err != nil {
 		t.Fatal(err)
 	}
 
 	// For some reason a third Run is needed to exercise checkVersion.
 	// TODO: figure out why.
-	if err = m.Run(context.Background()); err != nil {
+	if err = m.Run(ctx); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -80,7 +83,10 @@ func TestDriverless(t *testing.T) {
 		Args:   []string{"Noop"},
 	}
 
-	if err := m.Run(context.Background()); err != nil {
+	ctx := context.Background()
+	ctx = WithVerbose(ctx, true)
+
+	if err := m.Run(ctx); err != nil {
 		t.Fatal(err)
 	}
 }

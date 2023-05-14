@@ -39,7 +39,7 @@ func TestHashTarget(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	ctx = WithVerbose(ctx, testing.Verbose())
+	ctx = WithVerbose(ctx, true)
 
 	expect := ""
 	try := func(want bool) func(t *testing.T) {

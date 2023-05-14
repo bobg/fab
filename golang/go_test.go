@@ -29,6 +29,7 @@ func TestBinary(t *testing.T) {
 		binarydir = filepath.Join(tmpdir, "binary")
 		outfile   = filepath.Join(tmpdir, "out")
 	)
+	ctx = fab.WithVerbose(ctx, true)
 
 	db, err := fab.OpenHashDB(fabdir)
 	if err != nil {
@@ -36,7 +37,6 @@ func TestBinary(t *testing.T) {
 	}
 	defer db.Close()
 	ctx = fab.WithHashDB(ctx, db)
-	ctx = fab.WithVerbose(ctx, testing.Verbose())
 
 	if err = copy.Copy("_testdata/binary", binarydir); err != nil {
 		t.Fatal(err)
@@ -103,6 +103,7 @@ var testGoDeps = []string{
 	"../top.go",
 	"../top_test.go",
 	"../ts/tsdecls.go",
+	"../ts/tsdecls_test.go",
 	"../types.go",
 	"../types_test.go",
 	"../yaml.go",

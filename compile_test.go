@@ -30,6 +30,7 @@ func TestCompile(t *testing.T) {
 		}
 
 		ctx := context.Background()
+		ctx = WithVerbose(ctx, true)
 
 		driver, err := m.getDriver(ctx, true)
 		if err != nil {

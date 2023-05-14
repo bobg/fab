@@ -292,7 +292,10 @@ func TestDeferredResolutionTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = con.Run(context.Background(), dtarg); err != nil {
+	ctx := context.Background()
+	ctx = WithVerbose(ctx, true)
+
+	if err = con.Run(ctx, dtarg); err != nil {
 		t.Fatal(err)
 	}
 	if got := atomic.LoadUint32(&ctarg.count); got != 1 {

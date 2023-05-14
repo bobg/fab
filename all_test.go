@@ -10,8 +10,10 @@ import (
 func TestAll(t *testing.T) {
 	t.Parallel()
 
-	var mu sync.Mutex // protects ran1 and ran2 during Run
-	var ran1, ran2 bool
+	var (
+		mu         sync.Mutex // protects ran1 and ran2 during Run
+		ran1, ran2 bool
+	)
 
 	con := NewController("")
 
@@ -33,8 +35,13 @@ func TestAll(t *testing.T) {
 		ran2 = true
 		return nil
 	})
+
+	ctx := context.Background()
+	ctx = WithVerbose(ctx, true)
+
 	a := All(t1, t2)
-	err := con.Run(context.Background(), a)
+
+	err := con.Run(ctx, a)
 	if err != nil {
 		t.Fatal(err)
 	}

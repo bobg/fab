@@ -1,0 +1,6 @@
+Build: !ts.Decls
+  Dir: lib
+  Type: Server
+  Prefix: /s
+  Out: out.ts
+  Autoclean: true

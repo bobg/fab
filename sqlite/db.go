@@ -25,6 +25,18 @@ type DB struct {
 //go:embed migrations/*.sql
 var migrations embed.FS
 
+func init() {
+	// Placing these calls here avoids a data race when running parallel tests.
+	// TODO: Get rid of goose, which uses global state that may conflict with the caller's application.
+
+	goose.SetBaseFS(migrations)
+	goose.SetLogger(log.New(io.Discard, "", 0)) // Silence "no migrations to run" messages.
+
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		panic(err)
+	}
+}
+
 // Open opens the given file and returns it as a *DB.
 // The file is created if it doesn't already exist.
 // Callers should call Close when finished operating on the database.
@@ -34,12 +46,6 @@ func Open(path string, opts ...Option) (*DB, error) {
 		return nil, errors.Wrapf(err, "opening sqlite db %s", path)
 	}
 
-	goose.SetBaseFS(migrations)
-	goose.SetLogger(log.New(io.Discard, "", 0)) // Silence "no migrations to run" messages.
-
-	if err = goose.SetDialect("sqlite3"); err != nil {
-		return nil, errors.Wrap(err, "setting migration dialect")
-	}
 	if err = goose.Up(db, "migrations"); err != nil {
 		return nil, errors.Wrap(err, "executing db migrations")
 	}
