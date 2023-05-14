@@ -7,7 +7,7 @@ import (
 	"reflect"
 
 	"github.com/bobg/errors"
-	"github.com/bobg/go-generics/set"
+	"github.com/bobg/go-generics/v2/set"
 )
 
 var targetMethods = make(map[string]reflect.Method)

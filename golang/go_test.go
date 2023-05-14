@@ -97,7 +97,7 @@ var testGoDeps = []string{
 	"../seq_test.go",
 	"../sqlite/db.go",
 	"../sqlite/db_test.go",
-	"../sqlite/migrations/20220829093104_initial.sql",
+	"../sqlite/schema.sql",
 	"../subdirs_test.go",
 	"../target.go",
 	"../top.go",

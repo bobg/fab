@@ -12,7 +12,6 @@ require (
 	github.com/gibson042/canonicaljson-go v1.0.3
 	github.com/mattn/go-sqlite3 v1.14.15
 	github.com/otiai10/copy v1.7.0
-	github.com/pressly/goose/v3 v3.6.1
 	golang.org/x/mod v0.6.0
 	golang.org/x/tools v0.2.0
 	gopkg.in/yaml.v3 v3.0.1
