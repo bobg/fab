@@ -26,18 +26,28 @@ var filesRegistry = newRegistry[*files]()
 // whose Run method should produce or update the expected output files.
 //
 // When the Files target runs,
-// a hash is computed from the nested subtarget
-// and all the input and output files.
-// If none of those has changed since the last time the output files were built,
-// then the output files are up to date and running of this Files target can be skipped.
+// it does the following:
+//
+//   - It checks to see whether any of its input files
+//     are listed as output files in other Files targets.
+//     Other targets found in this way are run first,
+//     as prerequisites.
+//   - It then computes a hash from the nested subtarget
+//     and all the input and output files.
+//     If this hash is found in the “hash database”
+//     (obtained with [GetHashDB]),
+//     that means none of the files has changed
+//     since the last time the output files were built,
+//     so running of the subtarget can be skipped.
+//   - Otherwise the subtarget is run.
+//     The hash is then recomputed
+//     and added to the hash database,
+//     telling the next run of this target
+//     that this collection of input and output files
+//     can be considered up-to-date.
 //
 // The nested subtarget must be of a type that can be JSON-marshaled.
 // Notably this excludes [F].
-//
-// When a Files target runs,
-// it checks to see whether any of its input files
-// are listed as output files in other Files targets.
-// Other targets found in this way are [Run] first, as prerequisites.
 //
 // The list of input files should mention every file where a change should cause a rebuild.
 // Ideally this includes any files required by the nested subtarget
@@ -49,7 +59,13 @@ var filesRegistry = newRegistry[*files]()
 // causes the output files to be added to the "autoclean registry."
 // A [Clean] target may then choose to remove the files listed in that registry
 // (instead of, or in addition to, any explicitly listed files)
-// by setting its Autoclean field to true.
+// by setting _its_ Autoclean field to true.
+//
+// The list of input and output files may include directories too.
+// These are walked recursively for computing the hash described above.
+// Be careful when using directories in the output-file list
+// together with the Autoclean feature:
+// the entire directory tree will be deleted.
 //
 // When [GetDryRun] is true,
 // checking and updating of the hash DB is skipped.
@@ -58,8 +74,9 @@ var filesRegistry = newRegistry[*files]()
 // which introduces a mapping whose fields are:
 //
 //   - Target: the nested subtarget, or target name
-//   - In: the list of input files, interpreted with [YAMLStringList]
-//   - Out: the list of output files, interpreted with [YAMLStringList]
+//   - In: the list of input files, interpreted with [YAMLFilesList]
+//   - Out: the list of output files, interpreted with [YAMLFilesList]
+//   - Autoclean: a boolean
 //
 // Example:
 //
@@ -183,7 +200,9 @@ func (ft *files) runPrereqs(ctx context.Context, con *Controller) error {
 	for _, in := range ft.In {
 		if target, ok := filesRegistry.lookup(in); ok {
 			prereqs = append(prereqs, target)
+			continue
 		}
+		// xxx lookup in's parents
 	}
 
 	if len(prereqs) == 0 {
@@ -322,6 +341,29 @@ func filesDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) 
 	return Files(target, in, out, Autoclean(yfiles.Autoclean)), nil
 }
 
+func globDecoder(node *yaml.Node) ([]string, error) {
+	if node.Kind != yaml.SequenceNode {
+		return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.SequenceNode}
+	}
+
+	patterns, err := YAMLStringListFromNodes(node.Content)
+	if err != nil {
+		return nil, errors.Wrap(err, "in children of Glob node")
+	}
+
+	var result []string
+	for _, pattern := range patterns {
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			return nil, errors.Wrap(err, "in Glob pattern")
+		}
+		result = append(result, matches...)
+	}
+
+	return result, nil
+}
+
 func init() {
 	RegisterYAMLTarget("Files", filesDecoder)
+	RegisterYAMLStringList("Glob", globDecoder)
 }
