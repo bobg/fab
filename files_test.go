@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/bobg/go-generics/v2/set"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func TestFileChaining(t *testing.T) {
@@ -201,5 +202,26 @@ func TestFilesRegistry(t *testing.T) {
 				t.Errorf("got no hit but wanted one")
 			}
 		})
+	}
+}
+
+func TestGlob(t *testing.T) {
+	con := NewController("_testdata/glob")
+	if err := con.ReadYAMLFile(""); err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ := con.RegistryTarget("Doxating")
+	want := Files(
+		&Command{
+			Shell: "echo Hello",
+			Dir:   "_testdata/glob",
+		},
+		[]string{"x1", "x2", "y1", "y2"},
+		nil,
+	)
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got:\n%s\nwant:\n%s", spew.Sdump(got), spew.Sdump(want))
 	}
 }
