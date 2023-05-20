@@ -198,17 +198,30 @@ func (ft *files) runPrereqs(ctx context.Context, con *Controller) error {
 	var prereqs []Target
 
 	for _, in := range ft.In {
-		if target, ok := filesRegistry.lookup(in); ok {
+		if target := findInFilesRegistry(in); target != nil {
 			prereqs = append(prereqs, target)
-			continue
 		}
-		// xxx lookup in's parents
 	}
 
 	if len(prereqs) == 0 {
 		return nil
 	}
 	return con.Run(ctx, prereqs...)
+}
+
+func findInFilesRegistry(name string) Target {
+	for {
+		if target, ok := filesRegistry.lookup(name); ok {
+			return target
+		}
+
+		dir := filepath.Dir(name)
+		switch dir {
+		case "", ".", "/", name:
+			return nil
+		}
+		name = dir
+	}
 }
 
 type FilesOpt func(*files)
