@@ -359,7 +359,7 @@ func globDecoder(con *Controller, node *yaml.Node, dir string) ([]string, error)
 		return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.SequenceNode}
 	}
 
-	patterns, err := YAMLStringListFromNodes(con, node.Content, dir)
+	patterns, err := con.YAMLStringListFromNodes(node.Content, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "in children of Glob node")
 	}

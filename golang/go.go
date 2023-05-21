@@ -80,7 +80,7 @@ func binaryDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target
 		out = filepath.Base(b.Dir)
 	}
 
-	flags, err := fab.YAMLStringList(con, &b.Flags, dir)
+	flags, err := con.YAMLStringList(&b.Flags, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error decoding go.Binary.Flags")
 	}

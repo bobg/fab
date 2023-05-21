@@ -282,7 +282,7 @@ func RegisterYAMLStringList(name string, fn YAMLStringListFunc) {
 // Otherwise,
 // the node is expected to be a sequence,
 // and [YAMLStringListFromNodes] is called on its children.
-func YAMLStringList(con *Controller, node *yaml.Node, dir string) ([]string, error) {
+func (con *Controller) YAMLStringList(node *yaml.Node, dir string) ([]string, error) {
 	if node.Kind == 0 {
 		return nil, nil
 	}
@@ -301,7 +301,7 @@ func YAMLStringList(con *Controller, node *yaml.Node, dir string) ([]string, err
 		return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.SequenceNode}
 	}
 
-	return YAMLStringListFromNodes(con, node.Content, dir)
+	return con.YAMLStringListFromNodes(node.Content, dir)
 }
 
 // UnknownStringListTagError is the type of error returned by YAMLStringList when it encounters an unknown node tag.
@@ -328,7 +328,7 @@ func (e BadYAMLNodeKindError) Error() string {
 // or a tagged node,
 // in which case it is parsed with the corresponding YAML string-list registry function
 // and the output appended to the result slice.
-func YAMLStringListFromNodes(con *Controller, nodes []*yaml.Node, dir string) ([]string, error) {
+func (con *Controller) YAMLStringListFromNodes(nodes []*yaml.Node, dir string) ([]string, error) {
 	var result []string
 
 	for _, node := range nodes {
@@ -366,7 +366,7 @@ func YAMLStringListFromNodes(con *Controller, nodes []*yaml.Node, dir string) ([
 // the files are interpreted as either absolute
 // or relative to `dir`.
 func (con *Controller) YAMLFileList(node *yaml.Node, dir string) ([]string, error) {
-	strs, err := YAMLStringList(con, node, dir)
+	strs, err := con.YAMLStringList(node, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -381,7 +381,7 @@ func (con *Controller) YAMLFileList(node *yaml.Node, dir string) ([]string, erro
 // the files are interpreted as either absolute
 // or relative to `dir`.
 func (con *Controller) YAMLFileListFromNodes(nodes []*yaml.Node, dir string) ([]string, error) {
-	strs, err := YAMLStringListFromNodes(con, nodes, dir)
+	strs, err := con.YAMLStringListFromNodes(nodes, dir)
 	if err != nil {
 		return nil, err
 	}
