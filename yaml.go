@@ -20,7 +20,7 @@ type (
 	YAMLTargetFunc = func(*Controller, *yaml.Node, string) (Target, error)
 
 	// YAMLStringListFunc is the type of a function in the YAML string-list registry.
-	YAMLStringListFunc = func(*yaml.Node) ([]string, error)
+	YAMLStringListFunc = func(*Controller, *yaml.Node, string) ([]string, error)
 )
 
 var (
@@ -282,7 +282,7 @@ func RegisterYAMLStringList(name string, fn YAMLStringListFunc) {
 // Otherwise,
 // the node is expected to be a sequence,
 // and [YAMLStringListFromNodes] is called on its children.
-func YAMLStringList(node *yaml.Node) ([]string, error) {
+func YAMLStringList(con *Controller, node *yaml.Node, dir string) ([]string, error) {
 	if node.Kind == 0 {
 		return nil, nil
 	}
@@ -294,14 +294,14 @@ func YAMLStringList(node *yaml.Node) ([]string, error) {
 		if !ok {
 			return nil, UnknownStringListTagError{Tag: tag}
 		}
-		return fn(node)
+		return fn(con, node, dir)
 	}
 
 	if node.Kind != yaml.SequenceNode {
 		return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.SequenceNode}
 	}
 
-	return YAMLStringListFromNodes(node.Content)
+	return YAMLStringListFromNodes(con, node.Content, dir)
 }
 
 // UnknownStringListTagError is the type of error returned by YAMLStringList when it encounters an unknown node tag.
@@ -328,7 +328,7 @@ func (e BadYAMLNodeKindError) Error() string {
 // or a tagged node,
 // in which case it is parsed with the corresponding YAML string-list registry function
 // and the output appended to the result slice.
-func YAMLStringListFromNodes(nodes []*yaml.Node) ([]string, error) {
+func YAMLStringListFromNodes(con *Controller, nodes []*yaml.Node, dir string) ([]string, error) {
 	var result []string
 
 	for _, node := range nodes {
@@ -348,7 +348,7 @@ func YAMLStringListFromNodes(nodes []*yaml.Node) ([]string, error) {
 			return nil, UnknownStringListTagError{Tag: tag}
 		}
 
-		strs, err := fn(node)
+		strs, err := fn(con, node, dir)
 		if err != nil {
 			return nil, err
 		}
@@ -366,7 +366,7 @@ func YAMLStringListFromNodes(nodes []*yaml.Node) ([]string, error) {
 // the files are interpreted as either absolute
 // or relative to `dir`.
 func (con *Controller) YAMLFileList(node *yaml.Node, dir string) ([]string, error) {
-	strs, err := YAMLStringList(node)
+	strs, err := YAMLStringList(con, node, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -381,7 +381,7 @@ func (con *Controller) YAMLFileList(node *yaml.Node, dir string) ([]string, erro
 // the files are interpreted as either absolute
 // or relative to `dir`.
 func (con *Controller) YAMLFileListFromNodes(nodes []*yaml.Node, dir string) ([]string, error) {
-	strs, err := YAMLStringListFromNodes(nodes)
+	strs, err := YAMLStringListFromNodes(con, nodes, dir)
 	if err != nil {
 		return nil, err
 	}

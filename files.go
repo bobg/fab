@@ -354,21 +354,35 @@ func filesDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) 
 	return Files(target, in, out, Autoclean(yfiles.Autoclean)), nil
 }
 
-func globDecoder(node *yaml.Node) ([]string, error) {
+func globDecoder(con *Controller, node *yaml.Node, dir string) ([]string, error) {
 	if node.Kind != yaml.SequenceNode {
 		return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.SequenceNode}
 	}
 
-	patterns, err := YAMLStringListFromNodes(node.Content)
+	patterns, err := YAMLStringListFromNodes(con, node.Content, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "in children of Glob node")
 	}
 
+	jdir := con.JoinPath(dir)
+
 	var result []string
 	for _, pattern := range patterns {
-		matches, err := filepath.Glob(pattern)
+		// Each pattern has to be joined to dir
+		// in order to evaluate the glob in the right place.
+		// But then dir is removed from the resulting matches
+		// (via filepath.Rel).
+
+		j := con.JoinPath(dir, pattern)
+		matches, err := filepath.Glob(j)
 		if err != nil {
 			return nil, errors.Wrap(err, "in Glob pattern")
+		}
+		matches, err = slices.Mapx(matches, func(_ int, m string) (string, error) {
+			return filepath.Rel(jdir, m)
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "making matches relative to their directory")
 		}
 		result = append(result, matches...)
 	}

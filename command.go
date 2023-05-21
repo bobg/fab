@@ -380,17 +380,17 @@ func commandDecoder(con *Controller, node *yaml.Node, dir string) (Target, error
 		return nil, errors.Wrap(err, "YAML error decoding Command")
 	}
 
-	args, err := YAMLStringList(&c.Args)
+	args, err := YAMLStringList(con, &c.Args, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error decoding Command.Args")
 	}
-	env, err := YAMLStringList(&c.Env)
+	env, err := YAMLStringList(con, &c.Env, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error decoding Command.Env")
 	}
 
 	if c.Cmd == "" {
-		strs, err := YAMLStringList(&c.Shell)
+		strs, err := YAMLStringList(con, &c.Shell, dir)
 
 		var e BadYAMLNodeKindError
 		switch {

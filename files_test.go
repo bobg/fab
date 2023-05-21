@@ -217,7 +217,12 @@ func TestGlob(t *testing.T) {
 			Shell: "echo Hello",
 			Dir:   "_testdata/glob",
 		},
-		[]string{"x1", "x2", "y1", "y2"},
+		[]string{
+			"_testdata/glob/x1",
+			"_testdata/glob/x2",
+			"_testdata/glob/y1",
+			"_testdata/glob/y2",
+		},
 		nil,
 	)
 
