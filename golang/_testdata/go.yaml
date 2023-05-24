@@ -6,7 +6,7 @@ Foo: !go.Binary
 
 Bar: !Files
   In: !go.Deps
-    Dir: .
+    Dir: ..
   Out: [bar]
   Target: !Command
     Shell: echo bar

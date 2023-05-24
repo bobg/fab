@@ -149,7 +149,7 @@ func protodepsImport(imp string, includes []string, result set.Of[string]) error
 	return nil
 }
 
-func protodepsDecoder(node *yaml.Node) ([]string, error) {
+func protodepsDecoder(con *fab.Controller, node *yaml.Node, dir string) ([]string, error) {
 	var pd struct {
 		File     string   `yaml:"File"`
 		Includes []string `yaml:"Includes"`
@@ -157,7 +157,7 @@ func protodepsDecoder(node *yaml.Node) ([]string, error) {
 	if err := node.Decode(&pd); err != nil {
 		return nil, errors.Wrap(err, "YAML error in proto.Deps node")
 	}
-	return Deps(pd.File, pd.Includes)
+	return Deps(con.JoinPath(dir, pd.File), pd.Includes)
 }
 
 func init() {

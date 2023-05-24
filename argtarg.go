@@ -60,7 +60,7 @@ func argTargetDecoder(con *Controller, node *yaml.Node, dir string) (Target, err
 		return nil, errors.Wrap(err, "YAML error in target child of AllTarget node")
 	}
 
-	args, err := YAMLStringListFromNodes(node.Content[1:])
+	args, err := con.YAMLStringListFromNodes(node.Content[1:], dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error in ArgTarget args")
 	}

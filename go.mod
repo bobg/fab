@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/benbjohnson/clock v1.3.0
 	github.com/bobg/errors v0.10.0
-	github.com/bobg/go-generics/v2 v2.1.1
+	github.com/bobg/go-generics/v2 v2.1.2
 	github.com/bobg/tsdecls v0.1.0
 	github.com/bradleyjkemp/cupaloy/v2 v2.8.0
 	github.com/davecgh/go-spew v1.1.1

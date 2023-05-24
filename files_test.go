@@ -2,12 +2,14 @@ package fab
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 
 	"github.com/bobg/go-generics/v2/set"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func TestFileChaining(t *testing.T) {
@@ -169,5 +171,62 @@ func TestFileHashes(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestFilesRegistry(t *testing.T) {
+	targ := &files{}
+	filesRegistry.add("TestFilesRegistry/a/b/c.d", targ)
+	filesRegistry.add("TestFilesRegistry/a/e", targ)
+
+	cases := []struct {
+		probe string
+		want  bool
+	}{{
+		probe: "TestFilesRegistry/a/b/c.d",
+		want:  true,
+	}, {
+		probe: "TestFilesRegistry/a/b/x",
+		want:  false,
+	}, {
+		probe: "TestFilesRegistry/a/e/x",
+		want:  true,
+	}}
+
+	for i, tc := range cases {
+		t.Run(fmt.Sprintf("case_%02d", i+1), func(t *testing.T) {
+			got := findInFilesRegistry(tc.probe)
+			if got != nil && !tc.want {
+				t.Errorf("got a hit but didn't want one")
+			} else if got == nil && tc.want {
+				t.Errorf("got no hit but wanted one")
+			}
+		})
+	}
+}
+
+func TestGlob(t *testing.T) {
+	con := NewController("_testdata/glob")
+	if err := con.ReadYAMLFile(""); err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ := con.RegistryTarget("Doxating")
+	want := Files(
+		&Command{
+			Shell: "echo Hello",
+			Dir:   "_testdata/glob",
+		},
+		[]string{
+			"_testdata/glob/x1",
+			"_testdata/glob/x2",
+			"_testdata/glob/y1",
+			"_testdata/glob/y2",
+		},
+		nil,
+	)
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got:\n%s\nwant:\n%s", spew.Sdump(got), spew.Sdump(want))
 	}
 }

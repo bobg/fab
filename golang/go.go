@@ -80,7 +80,7 @@ func binaryDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target
 		out = filepath.Base(b.Dir)
 	}
 
-	flags, err := fab.YAMLStringList(&b.Flags)
+	flags, err := con.YAMLStringList(&b.Flags, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "YAML error decoding go.Binary.Flags")
 	}
@@ -156,7 +156,7 @@ func gopkgAdd(pkg *packages.Package, modpath string, files set.Of[string]) error
 	return nil
 }
 
-func depsDecoder(node *yaml.Node) ([]string, error) {
+func depsDecoder(con *fab.Controller, node *yaml.Node, dir string) ([]string, error) {
 	var gd struct {
 		Dir       string `yaml:"Dir"`
 		Recursive bool   `yaml:"Recursive"`
@@ -167,7 +167,7 @@ func depsDecoder(node *yaml.Node) ([]string, error) {
 		return nil, errors.Wrap(err, "YAML error decoding go.Deps")
 	}
 
-	return Deps(gd.Dir, gd.Recursive, gd.Tests)
+	return Deps(con.JoinPath(dir, gd.Dir), gd.Recursive, gd.Tests)
 }
 
 func init() {

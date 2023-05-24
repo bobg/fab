@@ -1,0 +1,6 @@
+Doxating: !Files
+  In: !Glob
+    - x*
+    - y*
+  Target: !Command
+    Shell: echo Hello
