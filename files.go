@@ -364,25 +364,18 @@ func globDecoder(con *Controller, node *yaml.Node, dir string) ([]string, error)
 		return nil, errors.Wrap(err, "in children of Glob node")
 	}
 
-	jdir := con.JoinPath(dir)
+	// Expand patterns in the context of dir, which is in the context of con.topdir.
+	dir = con.JoinPath(dir)
+	if dir == "" {
+		dir = "."
+	}
+	fsys := os.DirFS(dir)
 
 	var result []string
 	for _, pattern := range patterns {
-		// Each pattern has to be joined to dir
-		// in order to evaluate the glob in the right place.
-		// But then dir is removed from the resulting matches
-		// (via filepath.Rel).
-
-		j := con.JoinPath(dir, pattern)
-		matches, err := filepath.Glob(j)
+		matches, err := fs.Glob(fsys, pattern)
 		if err != nil {
 			return nil, errors.Wrap(err, "in Glob pattern")
-		}
-		matches, err = slices.Mapx(matches, func(_ int, m string) (string, error) {
-			return filepath.Rel(jdir, m)
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "making matches relative to their directory")
 		}
 		result = append(result, matches...)
 	}
