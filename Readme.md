@@ -16,7 +16,7 @@ and you can also define new target types in Go.
 (But that doesn’t mean Fab is for building Go programs only,
 any more than writing shell commands in a Makefile means Make builds only shell programs.)
 
-Running `fab` on one or more targets ensures that the targets’ prerequisites,
+Running `fab` ensures that your targets’ prerequisites,
 and the targets themselves,
 are up to date according to your build rules,
 while avoiding unnecessarily rebuilding any target that is already up to date.
