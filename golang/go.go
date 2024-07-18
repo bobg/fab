@@ -46,7 +46,7 @@ func Binary(dir, outfile string, flags ...string) (fab.Target, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "computing dependencies")
 	}
-	args := append([]string{"build", "-o", relOutfile, "-C", dir}, flags...)
+	args := append([]string{"build", "-C", dir, "-o", relOutfile}, flags...)
 	args = append(args, ".")
 	c := &fab.Command{
 		Cmd:  "go",
