@@ -1,5 +1,7 @@
 linters:
   enable:
+    - asasalint
+    - bodyclose
+    - contextcheck
     - gocritic
     - godot
-    - revive
