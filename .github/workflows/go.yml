@@ -30,9 +30,9 @@ jobs:
         # only-new-issues: true
 
     - name: Install Protoc
-      uses: arduino/setup-protoc@v1
+      uses: arduino/setup-protoc@v3
       with:
-        version: '3.12.4'
+        version: '26.1'
 
     - name: Unit tests
       run: go test -v -coverprofile=cover.out ./...

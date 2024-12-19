@@ -3,5 +3,7 @@ linters:
     - asasalint
     - bodyclose
     - contextcheck
+    - errname
     - gocritic
     - godot
+    - gofmt
