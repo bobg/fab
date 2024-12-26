@@ -40,7 +40,6 @@ func main() {
 		Fabdir:  fabdir,
 		Verbose: verbose,
 		List:    list,
-		Force:   force,
 		DryRun:  dryrun,
 		Args:    flag.Args(),
 	}

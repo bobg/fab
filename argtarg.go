@@ -21,7 +21,7 @@ import (
 // An ArgTarget target may be specified in YAML using the tag !ArgTarget,
 // which introduces a sequence.
 // The first element of the sequence is a target or target name.
-// The remaining elements of the sequence are interpreted byu [YAMLStringListFromNodes]
+// The remaining elements of the sequence are interpreted by [YAMLStringListFromNodes]
 // to produce the arguments for the target.
 func ArgTarget(target Target, args ...string) Target {
 	return &argTarget{
