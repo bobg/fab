@@ -93,15 +93,3 @@ func OpenHashDB(dir string) (*sqlite.DB, error) {
 	db, err := sqlite.Open(dbfile, sqlite.Keep(30*24*time.Hour)) // keep db entries for 30 days
 	return db, errors.Wrapf(err, "opening file %s", dbfile)
 }
-
-const fabVersionBasename = "fab-version.json"
-
-func addFileToHash(dh *dirHasher, filename string) error {
-	f, err := os.Open(filename)
-	if err != nil {
-		return errors.Wrapf(err, "opening %s", filename)
-	}
-	defer f.Close()
-
-	return dh.file(filename, f)
-}
