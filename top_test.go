@@ -26,32 +26,24 @@ func TestTopDir(t *testing.T) {
 		want: "case1",
 	}, {
 		name: "case3",
-		dir:  "case3",
+		dir:  "case3/foo",
 		want: "case3",
 	}, {
 		name: "case4",
-		dir:  "case3/foo", // sic
+		dir:  "case3/foo/bar", // sic
 		want: "case3",
 	}, {
-		name: "case5",
-		dir:  "case5/foo",
-		want: "case5",
-	}, {
-		name: "case6",
-		dir:  "case5/foo/bar", // sic
-		want: "case5",
-	}, {
-		name:    "case7",
-		dir:     "case5", // no topdir here or above
+		name:    "case5",
+		dir:     "case3", // no topdir here or above
 		wantErr: true,
 	}, {
-		name:    "case8",
-		dir:     "case8/foo/bar", // does not exist
+		name:    "case6",
+		dir:     "case6/foo/bar", // does not exist
 		wantErr: true,
 	}, {
-		name: "case9",
-		dir:  "case9/subdir1",
-		want: "case9",
+		name: "case7",
+		dir:  "case7/subdir1",
+		want: "case7",
 	}}
 
 	tmpdir, err := os.MkdirTemp("", "fab")

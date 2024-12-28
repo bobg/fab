@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/bobg/fab"
-	_ "github.com/bobg/fab/golang"
-	_ "github.com/bobg/fab/proto"
-	_ "github.com/bobg/fab/ts"
+	"github.com/bobg/fab/golang"
+	"github.com/bobg/fab/proto"
+	"github.com/bobg/fab/ts"
 )
 
 func TestBadYAML(t *testing.T) {
@@ -39,6 +39,11 @@ func TestBadYAML(t *testing.T) {
 			defer f.Close()
 
 			con := fab.NewController("")
+
+			golang.RegisterDefaults(con)
+			proto.RegisterDefaults(con)
+			ts.RegisterDefaults(con)
+
 			err = con.ReadYAML(f, "yamldir")
 			if err != nil {
 				t.Logf("got (expected) error %s", err)

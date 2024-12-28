@@ -3,7 +3,6 @@ package fab
 import (
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 
 	"github.com/bobg/errors"
@@ -13,9 +12,7 @@ import (
 // TopDir finds the top directory of a project,
 // given a directory inside it.
 //
-// The top directory is the one containing a _fab subdirectory
-// or (since that might not exist)
-// the one that fab.yaml files' _dir declarations are relative to.
+// The top directory is the one containing a fab.yaml with no _dir declaration.
 //
 // If TopDir can't find the answer in dir,
 // it will look in dir's parent,
@@ -28,14 +25,6 @@ func TopDir(dir string) (string, error) {
 	}
 
 	for {
-		info, err := os.Stat(filepath.Join(dir, "_fab"))
-		if err == nil && info.IsDir() {
-			return dir, nil
-		}
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return "", errors.Wrapf(err, "statting %s/_fab", dir)
-		}
-
 		result, err := topDirHelper(dir)
 		if err != nil {
 			return "", err

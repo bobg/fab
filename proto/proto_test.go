@@ -31,6 +31,8 @@ func TestProto(t *testing.T) {
 	)
 	ctx = fab.WithVerbose(ctx, true)
 
+	RegisterDefaults(con)
+
 	p, err := Proto([]string{"testdata/foo2.proto"}, []string{outfilecpp, outfileh}, []string{"testdata"}, []string{"--cpp_out=" + tmpdir})
 	if err != nil {
 		t.Fatal(err)
@@ -84,6 +86,8 @@ func TestProtoYAML(t *testing.T) {
 	defer f.Close()
 
 	con := fab.NewController("")
+	RegisterDefaults(con)
+
 	if err = con.ReadYAML(f, "testdata"); err != nil {
 		t.Fatal(err)
 	}

@@ -116,6 +116,8 @@ func TestGoYAML(t *testing.T) {
 	defer f.Close()
 
 	con := fab.NewController("")
+	RegisterDefaults(con)
+
 	if err = con.ReadYAML(f, "_testdata"); err != nil {
 		t.Fatal(err)
 	}

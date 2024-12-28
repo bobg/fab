@@ -28,6 +28,8 @@ func TestDecls(t *testing.T) {
 	}
 
 	con := fab.NewController(tmpdir)
+	RegisterDefaults(con)
+
 	if err := con.ReadYAMLFile(""); err != nil {
 		t.Fatal(err)
 	}
