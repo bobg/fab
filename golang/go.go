@@ -170,7 +170,8 @@ func depsDecoder(con *fab.Controller, node *yaml.Node, dir string) ([]string, er
 	return Deps(con.JoinPath(dir, gd.Dir), gd.Recursive, gd.Tests)
 }
 
-func init() {
-	fab.RegisterYAMLTarget("go.Binary", binaryDecoder)
-	fab.RegisterYAMLStringList("go.Deps", depsDecoder)
+// RegisterDefaults registers the default YAML decoders for Go-related targets.
+func RegisterDefaults(con *fab.Controller) {
+	con.RegisterYAMLTarget("go.Binary", binaryDecoder)
+	con.RegisterYAMLStringList("go.Deps", depsDecoder)
 }

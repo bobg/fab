@@ -86,10 +86,6 @@ func protoDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target,
 	return Proto(inputs, outputs, includes, p.Opts, fab.Autoclean(p.Autoclean))
 }
 
-func init() {
-	fab.RegisterYAMLTarget("proto.Proto", protoDecoder)
-}
-
 // Deps reads a protocol-buffer file and returns its list of dependencies.
 // Included in the dependencies is the file itself,
 // plus any files it imports
@@ -160,6 +156,8 @@ func protodepsDecoder(con *fab.Controller, node *yaml.Node, dir string) ([]strin
 	return Deps(con.JoinPath(dir, pd.File), pd.Includes)
 }
 
-func init() {
-	fab.RegisterYAMLStringList("proto.Deps", protodepsDecoder)
+// RegisterDefaults registers proto-related YAML decoders with the given fab.Controller.
+func RegisterDefaults(con *fab.Controller) {
+	con.RegisterYAMLTarget("proto.Proto", protoDecoder)
+	con.RegisterYAMLStringList("proto.Deps", protodepsDecoder)
 }

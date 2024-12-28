@@ -23,15 +23,12 @@ type (
 	YAMLStringListFunc = func(*Controller, *yaml.Node, string) ([]string, error)
 )
 
-var (
-	yamlTargetRegistry     = newRegistry[YAMLTargetFunc]()
-	yamlStringListRegistry = newRegistry[YAMLStringListFunc]()
-)
-
 // RegisterYAMLTarget places a function in the YAML target registry with the given name.
 // Use a YAML `!name` tag to introduce a node that should be parsed using this function.
-func RegisterYAMLTarget(name string, fn YAMLTargetFunc) {
-	yamlTargetRegistry.add(name, fn)
+func (con *Controller) RegisterYAMLTarget(name string, fn YAMLTargetFunc) {
+	con.mu.Lock()
+	con.yamlTargetRegistry[name] = fn
+	con.mu.Unlock()
 }
 
 // YAMLTarget parses a [Target] from a YAML node.
@@ -45,7 +42,9 @@ func RegisterYAMLTarget(name string, fn YAMLTargetFunc) {
 // (e.g. x/foo or ../a/b/foo).
 func (con *Controller) YAMLTarget(node *yaml.Node, dir string) (Target, error) {
 	if tag := normalizeTag(node.Tag); tag != "" {
-		fn, ok := yamlTargetRegistry.lookup(tag)
+		con.mu.Lock()
+		fn, ok := con.yamlTargetRegistry[tag]
+		con.mu.Unlock()
 		if !ok {
 			return nil, fmt.Errorf("unknown YAML target type %s", tag)
 		}
@@ -272,8 +271,10 @@ func openFabYAML(dir string) (*os.File, error) {
 
 // RegisterYAMLStringList places a function in the YAML string-list registry with the given name.
 // Use a YAML `!name` tag to introduce a node that should be parsed using this function.
-func RegisterYAMLStringList(name string, fn YAMLStringListFunc) {
-	yamlStringListRegistry.add(name, fn)
+func (con *Controller) RegisterYAMLStringList(name string, fn YAMLStringListFunc) {
+	con.mu.Lock()
+	con.yamlStringListRegistry[name] = fn
+	con.mu.Unlock()
 }
 
 // YAMLStringList parses a []string from a YAML node.
@@ -290,7 +291,9 @@ func (con *Controller) YAMLStringList(node *yaml.Node, dir string) ([]string, er
 	tag := normalizeTag(node.Tag)
 
 	if tag != "" {
-		fn, ok := yamlStringListRegistry.lookup(tag)
+		con.mu.Lock()
+		fn, ok := con.yamlStringListRegistry[tag]
+		con.mu.Unlock()
 		if !ok {
 			return nil, UnknownStringListTagError{Tag: tag}
 		}
@@ -343,7 +346,9 @@ func (con *Controller) YAMLStringListFromNodes(nodes []*yaml.Node, dir string) (
 			return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.ScalarNode}
 		}
 
-		fn, ok := yamlStringListRegistry.lookup(tag)
+		con.mu.Lock()
+		fn, ok := con.yamlStringListRegistry[tag]
+		con.mu.Unlock()
 		if !ok {
 			return nil, UnknownStringListTagError{Tag: tag}
 		}

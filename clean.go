@@ -114,7 +114,3 @@ func cleanDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) 
 
 	return &Clean{Files: files, Autoclean: autoclean}, nil
 }
-
-func init() {
-	RegisterYAMLTarget("Clean", cleanDecoder)
-}

@@ -67,7 +67,3 @@ func argTargetDecoder(con *Controller, node *yaml.Node, dir string) (Target, err
 
 	return ArgTarget(target, args...), nil
 }
-
-func init() {
-	RegisterYAMLTarget("ArgTarget", argTargetDecoder)
-}

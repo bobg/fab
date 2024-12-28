@@ -382,8 +382,3 @@ func globDecoder(con *Controller, node *yaml.Node, dir string) ([]string, error)
 
 	return result, nil
 }
-
-func init() {
-	RegisterYAMLTarget("Files", filesDecoder)
-	RegisterYAMLStringList("Glob", globDecoder)
-}

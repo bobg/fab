@@ -519,7 +519,3 @@ func maybeIndent(w io.Writer) func(context.Context, *Controller) io.Writer {
 		return nil
 	}
 }
-
-func init() {
-	RegisterYAMLTarget("Command", commandDecoder)
-}

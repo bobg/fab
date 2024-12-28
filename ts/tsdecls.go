@@ -99,6 +99,6 @@ func declsDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target,
 	return Decls(con.JoinPath(dir, d.Dir), d.Type, d.Prefix, con.JoinPath(dir, d.Out), fab.Autoclean(d.Autoclean))
 }
 
-func init() {
-	fab.RegisterYAMLTarget("ts.Decls", declsDecoder)
+func RegisterDefaults(con *fab.Controller) {
+	con.RegisterYAMLTarget("ts.Decls", declsDecoder)
 }

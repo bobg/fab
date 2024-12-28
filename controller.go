@@ -29,19 +29,49 @@ type Controller struct {
 	targetsByName map[string]targetRegistryTuple
 
 	targetsByAddr map[uintptr]targetRegistryTuple
+
+	yamlTargetRegistry     map[string]YAMLTargetFunc
+	yamlStringListRegistry map[string]YAMLStringListFunc
 }
 
 // NewController creates a new [Controller]
 // for the project with the given top-level directory.
+// It has a default set of YAML targets registered.
 //
-// The top directory is where a _fab subdirectory and/or a top-level fab.yaml file is expected.
+// The top directory is where a top-level fab.yaml file is expected.
 func NewController(topdir string) *Controller {
+	con := NewEmptyController(topdir)
+	con.RegisterDefaults()
+	return con
+}
+
+// NewEmptyController creates a new [Controller]
+// for the project with the given top-level directory.
+// It has no YAML targets registered.
+//
+// The top directory is where a top-level fab.yaml file is expected.
+func NewEmptyController(topdir string) *Controller {
 	return &Controller{
-		topdir:        topdir,
-		ran:           make(map[uintptr]*outcome),
-		targetsByName: make(map[string]targetRegistryTuple),
-		targetsByAddr: make(map[uintptr]targetRegistryTuple),
+		topdir:                 topdir,
+		ran:                    make(map[uintptr]*outcome),
+		targetsByName:          make(map[string]targetRegistryTuple),
+		targetsByAddr:          make(map[uintptr]targetRegistryTuple),
+		yamlTargetRegistry:     make(map[string]YAMLTargetFunc),
+		yamlStringListRegistry: make(map[string]YAMLStringListFunc),
 	}
+}
+
+// RegisterDefaults registers the default YAML decoders for targets and string lists.
+func (con *Controller) RegisterDefaults() {
+	con.RegisterYAMLTarget("All", allDecoder)
+	con.RegisterYAMLTarget("ArgTarget", argTargetDecoder)
+	con.RegisterYAMLTarget("Clean", cleanDecoder)
+	con.RegisterYAMLTarget("Command", commandDecoder)
+	con.RegisterYAMLTarget("Deps", depsDecoder)
+	con.RegisterYAMLTarget("Files", filesDecoder)
+	con.RegisterYAMLTarget("Seq", seqDecoder)
+
+	con.RegisterYAMLStringList("Glob", globDecoder)
 }
 
 // JoinPath is like [filepath.Join] with some additional behavior.

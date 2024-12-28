@@ -51,7 +51,3 @@ func allDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	}
 	return All(targets...), nil
 }
-
-func init() {
-	RegisterYAMLTarget("All", allDecoder)
-}

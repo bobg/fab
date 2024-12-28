@@ -59,7 +59,3 @@ func seqDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	}
 	return Seq(targets...), nil
 }
-
-func init() {
-	RegisterYAMLTarget("Seq", seqDecoder)
-}

@@ -89,7 +89,3 @@ func depsDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 		return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.SequenceNode | yaml.MappingNode}
 	}
 }
-
-func init() {
-	RegisterYAMLTarget("Deps", depsDecoder)
-}

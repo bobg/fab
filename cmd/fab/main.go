@@ -36,6 +36,8 @@ func main() {
 	flag.BoolVar(&dryrun, "n", false, "dry run mode")
 	flag.Parse()
 
+	// xxx need a Controller here, and need to call go.RegisterDefaults, proto.RegisterDefaults, etc.
+
 	m := fab.Main{
 		Fabdir:  fabdir,
 		Verbose: verbose,
