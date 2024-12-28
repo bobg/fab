@@ -59,7 +59,6 @@ var testGoDeps = []string{
 	"../argtarg.go",
 	"../clean.go",
 	"../command.go",
-	"../compile.go",
 	"../context.go",
 	"../controller.go",
 	"../deps.go",
