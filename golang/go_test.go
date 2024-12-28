@@ -63,7 +63,6 @@ var testGoDeps = []string{
 	"../context.go",
 	"../controller.go",
 	"../deps.go",
-	"../dirhash.go",
 	"../f.go",
 	"../files.go",
 	"../gate.go",
@@ -77,7 +76,6 @@ var testGoDeps = []string{
 	"../sqlite/schema.sql",
 	"../target.go",
 	"../top.go",
-	"../types.go",
 	"../yaml.go",
 	"go.go",
 }
