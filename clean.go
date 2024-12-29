@@ -27,7 +27,7 @@ import (
 // and `Autoclean`,
 // a boolean for enabling the autoclean feature.
 //
-// When [GetDryRun] is true,
+// When DryRun is true,
 // Clean will not remove any files.
 type Clean struct {
 	Files     []string
@@ -49,13 +49,13 @@ func (c *Clean) Run(ctx context.Context, con *Controller) error {
 		return nil
 	}
 
-	if GetDryRun(ctx) {
-		if GetVerbose(ctx) {
+	if con.DryRun {
+		if con.Verbose {
 			con.Indentf("  would remove %v", files)
 		}
 		return nil
 	}
-	if GetVerbose(ctx) {
+	if con.Verbose {
 		con.Indentf("  removing %v", files)
 	}
 	for _, f := range files {

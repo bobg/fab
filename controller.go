@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 )
@@ -16,16 +17,34 @@ import (
 // (error or no error)
 // of the first run.
 type Controller struct {
-	topdir string // absolute, or relative to the current directory
+	// Fabdir is where to find the user's hash DB, e.g. $HOME/.cache/fab.
+	Fabdir string
+
+	// Topdir is the directory containing a _fab subdir or top-level fab.yaml file.
+	// If this is not specified, it will be computed by traversing upward from the current directory.
+	Topdir string
+
+	// Verbose tells whether to run the driver in verbose mode
+	// (by supplying the -v command-line flag).
+	Verbose bool
+
+	// DryRun tells whether to run targets in "dry run" mode - i.e., with state-changing operations (like file creation and updating) suppressed.
+	DryRun bool
+
+	// Force forces targets to run even if they are up to date.
+	Force bool
 
 	mu sync.Mutex // protects the remaining fields
+
+	// DB is the hash DB to use for caching target hashes.
+	DB HashDB
 
 	depth int
 
 	// Records targets that have run or are running.
 	ran map[uintptr]*outcome
 
-	// Keys are names related to topdir.
+	// Keys are names related to Topdir.
 	targetsByName map[string]targetRegistryTuple
 
 	targetsByAddr map[uintptr]targetRegistryTuple
@@ -39,10 +58,13 @@ type Controller struct {
 // It has a default set of YAML targets registered.
 //
 // The top directory is where a top-level fab.yaml file is expected.
-func NewController(topdir string) *Controller {
-	con := NewEmptyController(topdir)
+func NewController(topdir string) (*Controller, error) {
+	con, err := NewEmptyController(topdir)
+	if err != nil {
+		return nil, err
+	}
 	con.RegisterDefaults()
-	return con
+	return con, nil
 }
 
 // NewEmptyController creates a new [Controller]
@@ -50,15 +72,25 @@ func NewController(topdir string) *Controller {
 // It has no YAML targets registered.
 //
 // The top directory is where a top-level fab.yaml file is expected.
-func NewEmptyController(topdir string) *Controller {
-	return &Controller{
-		topdir:                 topdir,
+func NewEmptyController(topdir string) (*Controller, error) {
+	if topdir == "" {
+		var err error
+		topdir, err = TopDir(".")
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	con := &Controller{
+		Topdir:                 topdir,
 		ran:                    make(map[uintptr]*outcome),
 		targetsByName:          make(map[string]targetRegistryTuple),
 		targetsByAddr:          make(map[uintptr]targetRegistryTuple),
 		yamlTargetRegistry:     make(map[string]YAMLTargetFunc),
 		yamlStringListRegistry: make(map[string]YAMLStringListFunc),
 	}
+
+	return con, nil
 }
 
 // RegisterDefaults registers the default YAML decoders for targets and string lists.
@@ -90,14 +122,14 @@ func (con *Controller) JoinPath(elts ...string) string {
 		}
 	}
 	args := make([]string, 1, 1+len(elts))
-	args[0] = con.topdir
+	args[0] = con.Topdir
 	args = append(args, elts...)
 	return filepath.Join(args...)
 }
 
 // RelPath returns the relative path to `path` from con's top directory.
 func (con *Controller) RelPath(path string) (string, error) {
-	return filepath.Rel(con.topdir, path)
+	return filepath.Rel(con.Topdir, path)
 }
 
 // ParseArgs parses the remaining arguments on a fab command line,
@@ -153,3 +185,5 @@ func (con *Controller) ListTargets(w io.Writer) {
 		}
 	}
 }
+
+var bolRegex = regexp.MustCompile("^")

@@ -64,8 +64,8 @@ type declsType struct {
 
 var _ fab.Target = &declsType{}
 
-func (t *declsType) Run(ctx context.Context, _ *fab.Controller) error {
-	if fab.GetDryRun(ctx) {
+func (t *declsType) Run(ctx context.Context, con *fab.Controller) error {
+	if con.DryRun {
 		return nil
 	}
 	f, err := os.Create(t.Outfile)

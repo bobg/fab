@@ -38,14 +38,16 @@ func TestBadYAML(t *testing.T) {
 			}
 			defer f.Close()
 
-			con := fab.NewController("")
+			con, err := fab.NewController("")
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			golang.RegisterDefaults(con)
 			proto.RegisterDefaults(con)
 			ts.RegisterDefaults(con)
 
-			err = con.ReadYAML(f, "yamldir")
-			if err != nil {
+			if err = con.ReadYAML(f, "yamldir"); err != nil {
 				t.Logf("got (expected) error %s", err)
 			} else {
 				t.Error("got no error but wanted one")

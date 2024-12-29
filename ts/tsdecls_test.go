@@ -27,8 +27,13 @@ func TestDecls(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	con := fab.NewController(tmpdir)
+	con, err := fab.NewController(tmpdir)
+	if err != nil {
+		t.Fatal(err)
+	}
 	RegisterDefaults(con)
+
+	con.Verbose = true
 
 	if err := con.ReadYAMLFile(""); err != nil {
 		t.Fatal(err)
@@ -54,7 +59,6 @@ func TestDecls(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	ctx = fab.WithVerbose(ctx, true)
 
 	if err := con.Run(ctx, targ); err != nil {
 		t.Fatal(err)

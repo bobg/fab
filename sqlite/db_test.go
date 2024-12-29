@@ -9,7 +9,6 @@ import (
 
 	"github.com/benbjohnson/clock"
 
-	"github.com/bobg/fab"
 	. "github.com/bobg/fab/sqlite"
 )
 
@@ -24,7 +23,6 @@ func TestDB(t *testing.T) {
 	defer os.Remove(tmpfile.Name())
 
 	ctx := context.Background()
-	ctx = fab.WithVerbose(ctx, true)
 
 	db, err := Open(tmpfile.Name())
 	if err != nil {
@@ -82,7 +80,6 @@ func TestDBKeep(t *testing.T) {
 		clk = clock.NewMock()
 		ctx = context.Background()
 	)
-	ctx = fab.WithVerbose(ctx, true)
 
 	db, err := Open(tmpfile.Name(), Keep(time.Hour), WithClock(clk), UpdateOnAccess(false))
 	if err != nil {

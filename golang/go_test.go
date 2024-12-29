@@ -29,14 +29,12 @@ func TestBinary(t *testing.T) {
 		binarydir = filepath.Join(tmpdir, "binary")
 		outfile   = filepath.Join(tmpdir, "out")
 	)
-	ctx = fab.WithVerbose(ctx, true)
 
 	db, err := fab.OpenHashDB(fabdir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	ctx = fab.WithHashDB(ctx, db)
 
 	if err = copy.Copy("_testdata/binary", binarydir); err != nil {
 		t.Fatal(err)
@@ -47,7 +45,13 @@ func TestBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	con := fab.NewController("")
+	con, err := fab.NewController("")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	con.DB = db
+	con.Verbose = true
 
 	if err = con.Run(ctx, targ); err != nil {
 		t.Fatal(err)
@@ -114,7 +118,10 @@ func TestGoYAML(t *testing.T) {
 	}
 	defer f.Close()
 
-	con := fab.NewController("")
+	con, err := fab.NewController("")
+	if err != nil {
+		t.Fatal(err)
+	}
 	RegisterDefaults(con)
 
 	if err = con.ReadYAML(f, "_testdata"); err != nil {

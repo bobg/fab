@@ -240,16 +240,16 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 // or, if that doesn't exist,
 // `fab.yml`.
 func (con *Controller) ReadYAMLFile(dir string) error {
-	dir = filepath.Join(con.topdir, dir)
+	dir = filepath.Join(con.Topdir, dir)
 	f, err := openFabYAML(dir)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	rel, err := filepath.Rel(con.topdir, dir)
+	rel, err := filepath.Rel(con.Topdir, dir)
 	if err != nil {
-		return errors.Wrapf(err, "getting relative path from %s to %s", con.topdir, dir)
+		return errors.Wrapf(err, "getting relative path from %s to %s", con.Topdir, dir)
 	}
 	if rel == "." {
 		rel = ""

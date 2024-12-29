@@ -34,8 +34,7 @@ var filesRegistry = newRegistry[*files]()
 //     as prerequisites.
 //   - It then computes a hash from the nested subtarget
 //     and all the input and output files.
-//     If this hash is found in the “hash database”
-//     (obtained with [GetHashDB]),
+//     If this hash is found in the “hash database,”
 //     that means none of the files has changed
 //     since the last time the output files were built,
 //     so running of the subtarget can be skipped.
@@ -67,7 +66,7 @@ var filesRegistry = newRegistry[*files]()
 // together with the Autoclean feature:
 // the entire directory tree will be deleted.
 //
-// When [GetDryRun] is true,
+// In dry-run mode,
 // checking and updating of the hash DB is skipped.
 //
 // A Files target may be specified in YAML using the !Files tag,
@@ -124,19 +123,17 @@ func (ft *files) Run(ctx context.Context, con *Controller) error {
 		return errors.Wrap(err, "in prerequisites")
 	}
 
-	db := GetHashDB(ctx)
-
-	if db != nil && !GetForce(ctx) && !GetDryRun(ctx) {
+	if con.DB != nil && !con.Force && !con.DryRun {
 		h, err := ft.computeHash(con)
 		if err != nil {
 			return errors.Wrap(err, "computing hash before running subtarget")
 		}
-		has, err := db.Has(ctx, h)
+		has, err := con.DB.Has(ctx, h)
 		if err != nil {
 			return errors.Wrap(err, "checking hash db")
 		}
 		if has {
-			if GetVerbose(ctx) {
+			if con.Verbose {
 				con.Indentf("%s is up to date", con.Describe(ft))
 			}
 			return nil
@@ -147,7 +144,7 @@ func (ft *files) Run(ctx context.Context, con *Controller) error {
 		return errors.Wrap(err, "running subtarget")
 	}
 
-	if db == nil || GetDryRun(ctx) {
+	if con.DB == nil || con.DryRun {
 		return nil
 	}
 
@@ -155,7 +152,7 @@ func (ft *files) Run(ctx context.Context, con *Controller) error {
 	if err != nil {
 		return errors.Wrap(err, "computing hash after running subtarget")
 	}
-	err = db.Add(ctx, h)
+	err = con.DB.Add(ctx, h)
 	return errors.Wrap(err, "adding hash to db")
 }
 

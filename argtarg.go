@@ -43,6 +43,20 @@ func (a *argTarget) Run(ctx context.Context, con *Controller) error {
 	return con.Run(ctx, a.Target)
 }
 
+type argsKey struct{}
+
+// WithArgs returns a new context decorated with the given arguments.
+// Retrieve them with [GetArgs].
+func WithArgs(ctx context.Context, args ...string) context.Context {
+	return context.WithValue(ctx, argsKey{}, args)
+}
+
+// GetArgs retrieves the arguments decorating the context.
+func GetArgs(ctx context.Context) []string {
+	v, _ := ctx.Value(argsKey{}).([]string)
+	return v
+}
+
 // Desc implements Target.Desc.
 func (*argTarget) Desc() string {
 	return "ArgTarget"

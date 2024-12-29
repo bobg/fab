@@ -8,7 +8,10 @@ import (
 func TestRegister(t *testing.T) {
 	t.Parallel()
 
-	con := NewController("")
+	con, err := NewController("")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	target, err := con.RegisterTarget("target", "target doc", &countTarget{})
 	if err != nil {
@@ -39,7 +42,10 @@ func TestRegister(t *testing.T) {
 func TestDescribe(t *testing.T) {
 	t.Parallel()
 
-	con := NewController("")
+	con, err := NewController("")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	targ1 := &countTarget{}
 	if _, err := con.RegisterTarget("targ1", "", targ1); err != nil {

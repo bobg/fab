@@ -38,15 +38,22 @@ func TestHashTarget(t *testing.T) {
 		[]string{outpath},
 	)
 
-	ctx := context.Background()
-	ctx = WithVerbose(ctx, true)
-
-	expect := ""
+	var (
+		ctx    = context.Background()
+		expect = ""
+		db     HashDB
+	)
 	try := func(want bool) func(t *testing.T) {
 		t.Helper()
 
 		return func(t *testing.T) {
-			con := NewController("")
+			con, err := NewController("")
+			if err != nil {
+				t.Fatal(err)
+			}
+			con.DB = db
+			con.Verbose = testing.Verbose()
+
 			err = con.Run(ctx, fc)
 			if err != nil {
 				t.Fatal(err)
@@ -74,9 +81,7 @@ func TestHashTarget(t *testing.T) {
 
 	t.Run("1 no db", try(true))
 
-	db := memdb(set.New[string]())
-	ctx = WithHashDB(ctx, db)
-	ctx = WithVerbose(ctx, testing.Verbose())
+	db = memdb(set.New[string]())
 
 	t.Run("2 empty db", try(true))
 	t.Run("3 non-empty db", try(false))

@@ -91,8 +91,7 @@ type Command struct {
 
 	// Stdout tells where to send the command's output.
 	// When no output destination is specified,
-	// the default depends on whether Fab is running in verbose mode
-	// (i.e., if [GetVerbose] returns true).
+	// the default depends on whether Fab is running in verbose mode.
 	// In verbose mode,
 	// the command's output is indented and copied to Fab's standard output
 	// (using [IndentingCopier]).
@@ -105,8 +104,7 @@ type Command struct {
 
 	// Stderr tells where to send the command's error output.
 	// When no error-output destination is specified,
-	// the default depends on whether Fab is running in verbose mode
-	// (i.e., if [GetVerbose] returns true).
+	// the default depends on whether Fab is running in verbose mode.
 	// In verbose mode,
 	// the command's error output is indented and copied to Fab's standard error
 	// (using [IndentingCopier]).
@@ -202,8 +200,8 @@ func (c *Command) Run(ctx context.Context, con *Controller) (err error) {
 	cmd.Dir = c.Dir
 	cmd.Env = append(os.Environ(), c.Env...)
 
-	if GetDryRun(ctx) {
-		if GetVerbose(ctx) {
+	if con.DryRun {
+		if con.Verbose {
 			con.Indentf("  Would run command %s", cmd)
 		}
 		return nil
@@ -309,7 +307,7 @@ func (c *Command) Run(ctx context.Context, con *Controller) (err error) {
 
 	var buf bytes.Buffer
 
-	if GetVerbose(ctx) {
+	if con.Verbose {
 		if cmd.Stdout == nil {
 			cmd.Stdout = con.IndentingCopier(os.Stdout, "    ")
 		}
@@ -513,7 +511,7 @@ func deferredIndent(w io.Writer) func(context.Context, *Controller) io.Writer {
 
 func maybeIndent(w io.Writer) func(context.Context, *Controller) io.Writer {
 	return func(ctx context.Context, con *Controller) io.Writer {
-		if GetVerbose(ctx) {
+		if con.Verbose {
 			return con.IndentingCopier(w, "    ")
 		}
 		return nil

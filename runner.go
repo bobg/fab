@@ -32,6 +32,15 @@ func (con *Controller) decDepth() {
 	con.mu.Unlock()
 }
 
+// RunArgs parses the given command-line arguments and calls Run on the target or targets found.
+func (con *Controller) RunArgs(ctx context.Context, args []string) error {
+	targets, err := con.ParseArgs(args)
+	if err != nil {
+		return errors.Wrap(err, "parsing args")
+	}
+	return con.Run(ctx, targets...)
+}
+
 // Run runs the given targets, skipping any that have already run.
 //
 // A controller remembers which targets it has already run
@@ -54,13 +63,16 @@ func (con *Controller) Run(ctx context.Context, targets ...Target) error {
 		return nil
 	}
 
+	if err := con.ensureDB(); err != nil {
+		return errors.Wrap(err, "opening database")
+	}
+
 	con.incDepth()
 	defer con.decDepth()
 
 	var (
-		verbose = GetVerbose(ctx)
-		errs    = make([]error, len(targets))
-		wg      sync.WaitGroup
+		errs = make([]error, len(targets))
+		wg   sync.WaitGroup
 	)
 	for i, target := range targets {
 		addr, err := targetAddr(target)
@@ -100,7 +112,7 @@ func (con *Controller) Run(ctx context.Context, targets ...Target) error {
 			} else {
 				// This target was not previously launched,
 				// so run it and then open its "outcome gate."
-				if verbose {
+				if con.Verbose {
 					con.Indentf("Running %s", con.Describe(target))
 				}
 				err := target.Run(ctx, con)
@@ -117,6 +129,19 @@ func (con *Controller) Run(ctx context.Context, targets ...Target) error {
 	wg.Wait()
 
 	return errors.Join(errs...)
+}
+
+func (con *Controller) ensureDB() error {
+	con.mu.Lock()
+	defer con.mu.Unlock()
+
+	if con.DB != nil {
+		return nil
+	}
+
+	var err error
+	con.DB, err = OpenHashDB(con.Fabdir)
+	return err
 }
 
 // Indentf formats and prints its arguments

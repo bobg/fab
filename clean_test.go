@@ -33,13 +33,13 @@ func TestClean(t *testing.T) {
 		},
 	}
 
-	var (
-		con = NewController("")
-		ctx = context.Background()
-	)
-	ctx = WithVerbose(ctx, true)
+	con, err := NewController("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con.Verbose = true
 
-	if err = con.Run(ctx, clean); err != nil {
+	if err = con.Run(context.Background(), clean); err != nil {
 		t.Fatal(err)
 	}
 
@@ -70,11 +70,13 @@ func TestAutoclean(t *testing.T) {
 	})
 	files := Files(mkfile, nil, []string{path}, Autoclean(true))
 
-	var (
-		con = NewController("")
-		ctx = context.Background()
-	)
-	ctx = WithVerbose(ctx, true)
+	con, err := NewController("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con.Verbose = true
+
+	ctx := context.Background()
 
 	if err = con.Run(ctx, files); err != nil {
 		t.Fatal(err)

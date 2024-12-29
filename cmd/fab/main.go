@@ -7,17 +7,27 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/bobg/errors"
+
 	"github.com/bobg/fab"
-	_ "github.com/bobg/fab/golang"
+	"github.com/bobg/fab/golang"
+	"github.com/bobg/fab/proto"
+	"github.com/bobg/fab/ts"
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Printf("Error: %s\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			fmt.Printf("Error getting home dir: %s\n", err)
-			os.Exit(1)
+			return errors.Wrap(err, "getting home dir")
 		}
 		cacheDir = filepath.Join(home, ".cache")
 	}
@@ -36,17 +46,27 @@ func main() {
 	flag.BoolVar(&dryrun, "n", false, "dry run mode")
 	flag.Parse()
 
-	// xxx need a Controller here, and need to call go.RegisterDefaults, proto.RegisterDefaults, etc.
+	con, err := fab.NewController("")
+	if err != nil {
+		return errors.Wrap(err, "creating controller")
+	}
+	golang.RegisterDefaults(con)
+	proto.RegisterDefaults(con)
+	ts.RegisterDefaults(con)
 
-	m := fab.Main{
-		Fabdir:  fabdir,
-		Verbose: verbose,
-		List:    list,
-		DryRun:  dryrun,
-		Args:    flag.Args(),
+	con.DryRun = dryrun
+	con.Fabdir = fabdir
+	con.Force = force
+	con.Verbose = verbose
+
+	if err := con.ReadYAMLFile(""); err != nil {
+		return errors.Wrap(err, "reading YAML file")
 	}
-	if err := m.Run(context.Background()); err != nil {
-		fmt.Printf("Error: %s\n", err)
-		os.Exit(1)
+
+	if list {
+		con.ListTargets(os.Stdout)
+		return nil
 	}
+
+	return con.RunArgs(context.Background(), flag.Args())
 }
