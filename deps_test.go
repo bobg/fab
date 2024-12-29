@@ -35,15 +35,12 @@ func TestDeps(t *testing.T) {
 		return nil
 	})
 
-	con, err := NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	con := NewController("", nil)
 	con.Verbose = true
 
 	ctx := context.Background()
 
-	if err = con.Run(ctx, Deps(post, pre1, pre2)); err != nil {
+	if err := con.Run(ctx, Deps(post, pre1, pre2)); err != nil {
 		t.Fatal(err)
 	}
 

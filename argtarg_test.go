@@ -19,10 +19,7 @@ func TestArgTarget(t *testing.T) {
 		return nil
 	})
 
-	con, err := NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	con := NewController("", nil)
 	con.Verbose = true
 
 	var (

@@ -46,16 +46,17 @@ func run() error {
 	flag.BoolVar(&dryrun, "n", false, "dry run mode")
 	flag.Parse()
 
-	con, err := fab.NewController("")
+	db, err := fab.OpenHashDB(fabdir)
 	if err != nil {
-		return errors.Wrap(err, "creating controller")
+		return errors.Wrap(err, "opening hash DB")
 	}
+
+	con := fab.NewController("", db)
 	golang.RegisterDefaults(con)
 	proto.RegisterDefaults(con)
 	ts.RegisterDefaults(con)
 
 	con.DryRun = dryrun
-	con.Fabdir = fabdir
 	con.Force = force
 	con.Verbose = verbose
 

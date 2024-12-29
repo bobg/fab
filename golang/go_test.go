@@ -45,15 +45,10 @@ func TestBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	con, err := fab.NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	con.DB = db
+	con := fab.NewController("", db)
 	con.Verbose = true
 
-	if err = con.Run(ctx, targ); err != nil {
+	if err := con.Run(ctx, targ); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -63,14 +58,12 @@ var testGoDeps = []string{
 	"../argtarg.go",
 	"../clean.go",
 	"../command.go",
-	"../context.go",
 	"../controller.go",
 	"../deps.go",
 	"../f.go",
 	"../files.go",
 	"../gate.go",
 	"../hash.go",
-	"../main.go",
 	"../register.go",
 	"../registry.go",
 	"../runner.go",
@@ -118,13 +111,10 @@ func TestGoYAML(t *testing.T) {
 	}
 	defer f.Close()
 
-	con, err := fab.NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	con := fab.NewController("", nil)
 	RegisterDefaults(con)
 
-	if err = con.ReadYAML(f, "_testdata"); err != nil {
+	if err := con.ReadYAML(f, "_testdata"); err != nil {
 		t.Fatal(err)
 	}
 

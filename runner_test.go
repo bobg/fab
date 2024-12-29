@@ -15,10 +15,7 @@ import (
 func TestRunTarget(t *testing.T) {
 	t.Parallel()
 
-	con, err := NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	con := NewController("", nil)
 	con.Verbose = true
 
 	ctx := context.Background()
@@ -33,38 +30,29 @@ func TestRunTarget(t *testing.T) {
 		targets = append(targets, target)
 	}
 
-	if err = con.Run(ctx, targets...); err != nil {
+	if err := con.Run(ctx, targets...); err != nil {
 		t.Fatal(err)
 	}
 	if ct.count != 1 {
 		t.Errorf("got %d, want 1", ct.count)
 	}
 
-	con, err = NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
 	db := &memHashDB{s: set.New[string]()}
-	con.DB = db
+
+	con = NewController("", db)
 	con.Verbose = true
 
-	err = con.Run(ctx, targets...)
-	if err != nil {
+	if err := con.Run(ctx, targets...); err != nil {
 		t.Fatal(err)
 	}
 	if ct.count != 2 {
 		t.Errorf("got %d, want 2", ct.count)
 	}
 
-	con, err = NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	con.DB = db
+	con = NewController("", db)
 	con.Verbose = true
 
-	err = con.Run(ctx, targets...)
-	if err != nil {
+	if err := con.Run(ctx, targets...); err != nil {
 		t.Fatal(err)
 	}
 	if ct.count != 2 {
@@ -107,10 +95,7 @@ func TestIndentingCopier(t *testing.T) {
 	}
 	text := string(b)
 
-	con, err := NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	con := NewController("", nil)
 
 	var (
 		buf = new(bytes.Buffer)
@@ -141,10 +126,7 @@ func TestIndentingCopier(t *testing.T) {
 func TestIndentf(t *testing.T) {
 	t.Parallel()
 
-	con, err := NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	con := NewController("", nil)
 
 	buf := new(bytes.Buffer)
 	con.indentf(buf, "foo")

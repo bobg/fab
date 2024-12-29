@@ -40,12 +40,12 @@ func TestFileChaining(t *testing.T) {
 	aToB := fileCopyTarget(aFile, bFile)
 	bToC := fileCopyTarget(bFile, cFile)
 
+	db := memdb(set.New[string]())
+
 	newController := func() *Controller {
-		con, err := NewController("")
-		if err != nil {
-			t.Fatal(err)
-		}
+		con := NewController("", db)
 		con.Verbose = true
+
 		// These registrations make things clearer in verbose mode.
 		if _, err = con.RegisterTarget("AB", "", aToB); err != nil {
 			t.Fatal(err)
@@ -58,8 +58,6 @@ func TestFileChaining(t *testing.T) {
 	con := newController()
 
 	ctx := context.Background()
-
-	con.DB = memdb(set.New[string]())
 
 	if err = con.Run(ctx, bToC); err != nil {
 		t.Fatal(err)
@@ -208,10 +206,7 @@ func TestFilesRegistry(t *testing.T) {
 }
 
 func TestGlob(t *testing.T) {
-	con, err := NewController("_testdata/glob")
-	if err != nil {
-		t.Fatal(err)
-	}
+	con := NewController("_testdata/glob", nil)
 	if err := con.ReadYAMLFile(""); err != nil {
 		t.Fatal(err)
 	}

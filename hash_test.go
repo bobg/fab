@@ -47,15 +47,10 @@ func TestHashTarget(t *testing.T) {
 		t.Helper()
 
 		return func(t *testing.T) {
-			con, err := NewController("")
-			if err != nil {
-				t.Fatal(err)
-			}
-			con.DB = db
+			con := NewController("", db)
 			con.Verbose = testing.Verbose()
 
-			err = con.Run(ctx, fc)
-			if err != nil {
+			if err := con.Run(ctx, fc); err != nil {
 				t.Fatal(err)
 			}
 			got, err := os.ReadFile(outpath)

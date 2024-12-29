@@ -22,10 +22,7 @@ func TestYAML(t *testing.T) {
 	}
 	defer f.Close()
 
-	con, err := NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	con := NewController("", nil)
 
 	if err := con.ReadYAML(f, ""); err != nil {
 		t.Fatal(err)
@@ -289,19 +286,16 @@ func TestDeferredResolutionTarget(t *testing.T) {
 		ctarg = &countTarget{}
 	)
 
-	con, err := NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	con := NewController("", nil)
 	con.Verbose = true
 
-	if _, err = con.RegisterTarget("c", "", ctarg); err != nil {
+	if _, err := con.RegisterTarget("c", "", ctarg); err != nil {
 		t.Fatal(err)
 	}
 
 	ctx := context.Background()
 
-	if err = con.Run(ctx, dtarg); err != nil {
+	if err := con.Run(ctx, dtarg); err != nil {
 		t.Fatal(err)
 	}
 	if got := atomic.LoadUint32(&ctarg.count); got != 1 {

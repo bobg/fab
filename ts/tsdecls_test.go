@@ -27,12 +27,8 @@ func TestDecls(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	con, err := fab.NewController(tmpdir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	con := fab.NewController(tmpdir, nil)
 	RegisterDefaults(con)
-
 	con.Verbose = true
 
 	if err := con.ReadYAMLFile(""); err != nil {

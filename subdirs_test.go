@@ -25,10 +25,7 @@ func TestSubdirs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	con, err := NewController(tmpdir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	con := NewController(tmpdir, nil)
 	con.Verbose = true
 
 	if err := con.ReadYAMLFile(""); err != nil {

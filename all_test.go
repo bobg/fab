@@ -15,10 +15,7 @@ func TestAll(t *testing.T) {
 		ran1, ran2 bool
 	)
 
-	con, err := NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	con := NewController("", nil)
 	con.Verbose = true
 
 	t1 := F(func(context.Context, *Controller) error {
@@ -44,7 +41,7 @@ func TestAll(t *testing.T) {
 
 	a := All(t1, t2)
 
-	if err = con.Run(ctx, a); err != nil {
+	if err := con.Run(ctx, a); err != nil {
 		t.Fatal(err)
 	}
 	if !ran1 {

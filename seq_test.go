@@ -44,15 +44,12 @@ func TestSeq(t *testing.T) {
 	})
 	s := Seq(t1, t2)
 
-	con, err := NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	con := NewController("", nil)
 	con.Verbose = true
 
 	ctx := context.Background()
 
-	if err = con.Run(ctx, s); err != nil {
+	if err := con.Run(ctx, s); err != nil {
 		t.Fatal(err)
 	}
 	if !ran1 {
@@ -66,14 +63,10 @@ func TestSeq(t *testing.T) {
 	// t1 should error and prevent t2 from running.
 	ran2 = false
 
-	con, err = NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	con = NewController("", nil)
 	con.Verbose = true
 
-	err = con.Run(ctx, s)
-	if !errors.Is(err, t1secondTimeErr) {
+	if err := con.Run(ctx, s); !errors.Is(err, t1secondTimeErr) {
 		t.Errorf("want %s, got %v", t1secondTimeErr, err)
 	}
 	if ran2 {

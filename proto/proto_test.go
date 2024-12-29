@@ -29,10 +29,7 @@ func TestProto(t *testing.T) {
 		outfileh   = filepath.Join(tmpdir, "foo2.pb.h")
 	)
 
-	con, err := fab.NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	con := fab.NewController("", nil)
 	RegisterDefaults(con)
 	con.Verbose = true
 
@@ -88,13 +85,10 @@ func TestProtoYAML(t *testing.T) {
 	}
 	defer f.Close()
 
-	con, err := fab.NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	con := fab.NewController("", nil)
 	RegisterDefaults(con)
 
-	if err = con.ReadYAML(f, "testdata"); err != nil {
+	if err := con.ReadYAML(f, "testdata"); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := con.RegistryTarget("testdata/Foo")

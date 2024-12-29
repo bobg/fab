@@ -50,10 +50,7 @@ func TestJoinPath(t *testing.T) {
 func TestParseArgs(t *testing.T) {
 	t.Parallel()
 
-	con, err := NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	con := NewController("", nil)
 	t1, err := con.RegisterTarget("t1", "", &countTarget{})
 	if err != nil {
 		t.Fatal(err)
@@ -85,11 +82,8 @@ func TestParseArgs(t *testing.T) {
 func TestListTargets(t *testing.T) {
 	t.Parallel()
 
-	con, err := NewController("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = con.RegisterTarget("t1", "This is t1.", &countTarget{})
+	con := NewController("", nil)
+	_, err := con.RegisterTarget("t1", "This is t1.", &countTarget{})
 	if err != nil {
 		t.Fatal(err)
 	}

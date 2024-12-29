@@ -17,9 +17,6 @@ import (
 // (error or no error)
 // of the first run.
 type Controller struct {
-	// Fabdir is where to find the user's hash DB, e.g. $HOME/.cache/fab.
-	Fabdir string
-
 	// Topdir is the directory containing a _fab subdir or top-level fab.yaml file.
 	// If this is not specified, it will be computed by traversing upward from the current directory.
 	Topdir string
@@ -58,13 +55,10 @@ type Controller struct {
 // It has a default set of YAML targets registered.
 //
 // The top directory is where a top-level fab.yaml file is expected.
-func NewController(topdir string) (*Controller, error) {
-	con, err := NewEmptyController(topdir)
-	if err != nil {
-		return nil, err
-	}
+func NewController(topdir string, db HashDB) *Controller {
+	con := NewEmptyController(topdir, db)
 	con.RegisterDefaults()
-	return con, nil
+	return con
 }
 
 // NewEmptyController creates a new [Controller]
@@ -72,25 +66,16 @@ func NewController(topdir string) (*Controller, error) {
 // It has no YAML targets registered.
 //
 // The top directory is where a top-level fab.yaml file is expected.
-func NewEmptyController(topdir string) (*Controller, error) {
-	if topdir == "" {
-		var err error
-		topdir, err = TopDir(".")
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	con := &Controller{
+func NewEmptyController(topdir string, db HashDB) *Controller {
+	return &Controller{
 		Topdir:                 topdir,
+		DB:                     db,
 		ran:                    make(map[uintptr]*outcome),
 		targetsByName:          make(map[string]targetRegistryTuple),
 		targetsByAddr:          make(map[uintptr]targetRegistryTuple),
 		yamlTargetRegistry:     make(map[string]YAMLTargetFunc),
 		yamlStringListRegistry: make(map[string]YAMLStringListFunc),
 	}
-
-	return con, nil
 }
 
 // RegisterDefaults registers the default YAML decoders for targets and string lists.

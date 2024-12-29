@@ -63,10 +63,6 @@ func (con *Controller) Run(ctx context.Context, targets ...Target) error {
 		return nil
 	}
 
-	if err := con.ensureDB(); err != nil {
-		return errors.Wrap(err, "opening database")
-	}
-
 	con.incDepth()
 	defer con.decDepth()
 
@@ -129,19 +125,6 @@ func (con *Controller) Run(ctx context.Context, targets ...Target) error {
 	wg.Wait()
 
 	return errors.Join(errs...)
-}
-
-func (con *Controller) ensureDB() error {
-	con.mu.Lock()
-	defer con.mu.Unlock()
-
-	if con.DB != nil {
-		return nil
-	}
-
-	var err error
-	con.DB, err = OpenHashDB(con.Fabdir)
-	return err
 }
 
 // Indentf formats and prints its arguments
