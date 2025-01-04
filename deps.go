@@ -11,7 +11,7 @@ import (
 // Deps wraps a target with a set of dependencies,
 // making sure those run first.
 //
-// It is equivalent to Seq(All(depTargets...), target).
+// It is equivalent to Seq(Parallel(depTargets...), target).
 //
 // A Deps target may be specified in YAML using the !Deps tag.
 // This may introduce a sequence or a mapping.
@@ -42,7 +42,7 @@ import (
 //
 // This is equivalent to the first example above.
 func Deps(target Target, depTargets ...Target) Target {
-	return Seq(All(depTargets...), target)
+	return Seq(Parallel(depTargets...), target)
 }
 
 func depsDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {

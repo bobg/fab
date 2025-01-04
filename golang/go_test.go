@@ -54,7 +54,6 @@ func TestBinary(t *testing.T) {
 }
 
 var testGoDeps = []string{
-	"../all.go",
 	"../argtarg.go",
 	"../clean.go",
 	"../command.go",
@@ -64,6 +63,7 @@ var testGoDeps = []string{
 	"../files.go",
 	"../gate.go",
 	"../hash.go",
+	"../parallel.go",
 	"../register.go",
 	"../registry.go",
 	"../runner.go",

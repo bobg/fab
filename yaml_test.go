@@ -61,7 +61,7 @@ func TestYAML(t *testing.T) {
 		t.Parallel()
 
 		gotFoo, gotFooDoc := con.RegistryTarget("Foo")
-		wantFoo := All(&deferredResolutionTarget{Name: "Bar"}, &deferredResolutionTarget{Name: "Baz"})
+		wantFoo := Parallel(&deferredResolutionTarget{Name: "Bar"}, &deferredResolutionTarget{Name: "Baz"})
 		const wantFooDoc = "Foo does Bar and Baz."
 		if !reflect.DeepEqual(gotFoo, wantFoo) {
 			t.Errorf("mismatch for Foo; got:\n%s\nwant:\n%s", spew.Sdump(gotFoo), spew.Sdump(wantFoo))

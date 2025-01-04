@@ -8,17 +8,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// All produces a target that runs a collection of targets in parallel.
+// Parallel produces a target that runs a collection of targets in parallel.
 //
 // It is JSON-encodable
 // (and therefore usable as the subtarget in [Files])
 // if all of the targets in its collection are.
 //
-// An All target may be specified in YAML using the tag !All,
-// which introduces a sequence.
-// The elements in the sequence are targets themselves,
-// or target names.
-func All(targets ...Target) Target {
+// A Parallel target may be specified in YAML using the tag !Parallel,
+// which introduces a sequence of subtargets.
+func Parallel(targets ...Target) Target {
 	return &all{Targets: targets}
 }
 
@@ -35,10 +33,10 @@ func (a *all) Run(ctx context.Context, con *Controller) error {
 
 // Desc implements Target.Desc.
 func (*all) Desc() string {
-	return "All"
+	return "Parallel"
 }
 
-func allDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
+func parallelDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	if node.Kind != yaml.SequenceNode {
 		return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.SequenceNode}
 	}
@@ -47,7 +45,7 @@ func allDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 		return target, errors.Wrapf(err, "child %d", idx)
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "YAML error decoding All")
+		return nil, errors.Wrap(err, "YAML error decoding Parallel")
 	}
-	return All(targets...), nil
+	return Parallel(targets...), nil
 }

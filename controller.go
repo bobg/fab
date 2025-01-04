@@ -80,7 +80,7 @@ func NewEmptyController(topdir string, db HashDB) *Controller {
 
 // RegisterDefaults registers the default YAML decoders for targets and string lists.
 func (con *Controller) RegisterDefaults() {
-	con.RegisterYAMLTarget("All", allDecoder)
+	con.RegisterYAMLTarget("Parallel", parallelDecoder)
 	con.RegisterYAMLTarget("ArgTarget", argTargetDecoder)
 	con.RegisterYAMLTarget("Clean", cleanDecoder)
 	con.RegisterYAMLTarget("Command", commandDecoder)

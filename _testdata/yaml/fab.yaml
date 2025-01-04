@@ -1,5 +1,5 @@
 # Foo does Bar and Baz.
-Foo: !All
+Foo: !Parallel
   - $Bar
   - $Baz
 

@@ -39,7 +39,7 @@ func TestAll(t *testing.T) {
 
 	ctx := context.Background()
 
-	a := All(t1, t2)
+	a := Parallel(t1, t2)
 
 	if err := con.Run(ctx, a); err != nil {
 		t.Fatal(err)

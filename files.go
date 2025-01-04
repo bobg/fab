@@ -221,6 +221,7 @@ func findInFilesRegistry(name string) Target {
 	}
 }
 
+// FilesOpt is the type of an option passed to [Files].
 type FilesOpt func(*files)
 
 // Autoclean is an option for passing to [Files].
