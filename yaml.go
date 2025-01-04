@@ -32,14 +32,20 @@ func (con *Controller) RegisterYAMLTarget(name string, fn YAMLTargetFunc) {
 }
 
 // YAMLTarget parses a [Target] from a YAML node.
-// If the node has a tag `!foo`,
-// then the [YAMLTargetFunc] in the YAML target registry named `foo` is used to parse the node.
-// Otherwise,
-// if the node is a bare string `foo`,
-// then it is presumed to refer to a target in the (non-YAML) target registry named `foo`.
-// This string may refer to a target in another directory's YAML file,
-// in which case it should have a path prefix relative to `dir`
-// (e.g. x/foo or ../a/b/foo).
+// There are several possible cases:
+//
+//   - If the node is has a tag `!foo`,
+//     then the [YAMLTargetFunc] in the YAML target registry named `foo` is used to parse the node.
+//   - If the node is a sequence,
+//     it is interpreted as a [Seq] of subtargets.
+//   - If the node is a string `$foo`,
+//     it is interpreted as a target in the (non-YAML) target registry named foo.
+//     This string may refer to a target in another directory's YAML file,
+//     in which case it should have a path prefix relative to `dir`
+//     (e.g. $x/foo or $../a/b/foo).
+//   - Otherwise,
+//     if the node is a string,
+//     it is interpreted as a shell command and turned into a [Command] target.
 func (con *Controller) YAMLTarget(node *yaml.Node, dir string) (Target, error) {
 	if tag := normalizeTag(node.Tag); tag != "" {
 		con.mu.Lock()
@@ -51,41 +57,54 @@ func (con *Controller) YAMLTarget(node *yaml.Node, dir string) (Target, error) {
 		return fn(con, node, dir)
 	}
 
+	if node.Kind == yaml.SequenceNode {
+		return seqDecoder(con, node, dir)
+	}
+
 	if node.Kind != yaml.ScalarNode {
 		return nil, fmt.Errorf("untyped YAML target node")
 	}
 
-	qname := node.Value
-	if strings.Contains(qname, "/") {
-		qname = con.JoinPath(dir, qname)
+	val := node.Value
 
-		var err error
-		qname, err = con.RelPath(qname)
-		if err != nil {
-			return nil, errors.Wrapf(err, "making %s related to topdir", node.Value)
+	if strings.HasPrefix(val, "$") {
+		qname := strings.TrimPrefix(val, "$")
+		if strings.Contains(qname, "/") {
+			qname = con.JoinPath(dir, qname)
+
+			var err error
+			qname, err = con.RelPath(qname)
+			if err != nil {
+				return nil, errors.Wrapf(err, "making %s related to topdir", node.Value)
+			}
+
+			if tdir := filepath.Dir(qname); tdir != "." {
+				found, _ := con.RegistryTarget(qname)
+				if found != nil {
+					return found, nil
+				}
+
+				if err := con.ReadYAMLFile(tdir); err != nil {
+					return nil, errors.Wrapf(err, "resolving target %s", qname)
+				}
+
+				found, _ = con.RegistryTarget(qname)
+				if found != nil {
+					return found, nil
+				}
+
+				return nil, fmt.Errorf("cannot resolve target %s", qname)
+			}
 		}
 
-		if tdir := filepath.Dir(qname); tdir != "." {
-			found, _ := con.RegistryTarget(qname)
-			if found != nil {
-				return found, nil
-			}
-
-			if err := con.ReadYAMLFile(tdir); err != nil {
-				return nil, errors.Wrapf(err, "resolving target %s", qname)
-			}
-
-			found, _ = con.RegistryTarget(qname)
-			if found != nil {
-				return found, nil
-			}
-
-			return nil, fmt.Errorf("cannot resolve target %s", qname)
-		}
+		// TODO: try to resolve now?
+		return &deferredResolutionTarget{Name: qname}, nil
 	}
 
-	// TODO: try to resolve now?
-	return &deferredResolutionTarget{Name: qname}, nil
+	return &Command{
+		Shell: val,
+		Dir:   filepath.Join(con.Topdir, dir),
+	}, nil
 }
 
 type deferredResolutionTarget struct {

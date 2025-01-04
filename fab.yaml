@@ -3,29 +3,24 @@ Build: !go.Binary
   Dir: cmd/fab
 
 # Test runs "go test" with the race detector enabled, plus coverage reporting.
-Test: !Command
-  Shell: go test -race -cover ./...
-  Stdout: $stdout
+Test: go test -race -cover ./...
 
 # Lint runs an assortment of linters.
-Lint: !Command
-  Shell: golangci-lint run ./...
+Lint: golangci-lint run ./...
 
 # Vet runs "go vet".
-Vet: !Command
-  Shell: go vet ./...
+Vet: go vet ./...
 
 # Check runs Vet, Lint, and Test.
-Check: !Seq
-  - Vet
-  - Lint
-  - Test
+Check:
+  - $Vet
+  - $Lint
+  - $Test
 
 # Cover produces a test-coverage profile and opens it in a browser.
 Cover: !Deps
-  Pre: [CoverOut]
-  Post: !Command
-    Shell: go tool cover -html cover.out
+  Pre: [$CoverOut]
+  Post: go tool cover -html cover.out
 
 # CoverOut produces cover.out by running "go test -coverprofile".
 CoverOut: !Files
@@ -34,8 +29,7 @@ CoverOut: !Files
     Recursive: true
     Tests: true
   Out: [cover.out]
-  Target: !Command
-    Shell: go test -coverprofile cover.out ./...
+  Target: go test -coverprofile cover.out ./...
   Autoclean: true
 
 # Clean removes build-target output.

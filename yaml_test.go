@@ -31,6 +31,7 @@ func TestYAML(t *testing.T) {
 	names := con.RegistryNames()
 	wantNames := []string{
 		"Bar",
+		"Bar2",
 		"Baz",
 		"Baz2",
 		"DiscardStderr",
@@ -47,8 +48,10 @@ func TestYAML(t *testing.T) {
 		"VerboseStdout",
 		"W",
 		"X",
+		"X2",
 		"Y",
 		"Z",
+		"Z2",
 	}
 	if !reflect.DeepEqual(names, wantNames) {
 		t.Fatalf("got %v, want %v", names, wantNames)
@@ -79,6 +82,20 @@ func TestYAML(t *testing.T) {
 		}
 		if gotBarDoc != wantBarDoc {
 			t.Errorf("got %s for Bar doc, want %s", gotBarDoc, wantBarDoc)
+		}
+	})
+
+	t.Run("Bar2", func(t *testing.T) {
+		t.Parallel()
+
+		gotBar2, gotBar2Doc := con.RegistryTarget("Bar2")
+		wantBar2 := &Command{Shell: "echo How do you do"}
+		const wantBar2Doc = "Bar2 doesn't do much."
+		if !reflect.DeepEqual(gotBar2, wantBar2) {
+			t.Errorf("mismatch for Bar2; got:\n%s\nwant:\n%s", spew.Sdump(gotBar2), spew.Sdump(wantBar2))
+		}
+		if gotBar2Doc != wantBar2Doc {
+			t.Errorf("got %s for Bar2 doc, want %s", gotBar2Doc, wantBar2Doc)
 		}
 	})
 
@@ -128,6 +145,24 @@ func TestYAML(t *testing.T) {
 		}
 	})
 
+	t.Run("X2", func(t *testing.T) {
+		t.Parallel()
+
+		gotX2, gotX2Doc := con.RegistryTarget("X2")
+		wantX2 := Seq(
+			&deferredResolutionTarget{Name: "A"},
+			&deferredResolutionTarget{Name: "B"},
+			&deferredResolutionTarget{Name: "C"},
+		)
+		const wantX2Doc = "X2 does A then B then C."
+		if !reflect.DeepEqual(gotX2, wantX2) {
+			t.Errorf("mismatch for X2; got:\n%s\nwant:\n%s", spew.Sdump(gotX2), spew.Sdump(wantX2))
+		}
+		if gotX2Doc != wantX2Doc {
+			t.Errorf("got %s for X2 doc, want %s", gotX2Doc, wantX2Doc)
+		}
+	})
+
 	t.Run("Y", func(t *testing.T) {
 		t.Parallel()
 
@@ -157,6 +192,24 @@ func TestYAML(t *testing.T) {
 		}
 		if gotZDoc != wantZDoc {
 			t.Errorf("got %s for Z doc, want %s", gotZDoc, wantZDoc)
+		}
+	})
+
+	t.Run("Z2", func(t *testing.T) {
+		t.Parallel()
+
+		gotZ2, gotZ2Doc := con.RegistryTarget("Z2")
+		wantZ2 := Files(
+			&Command{Shell: "go build -o output ./..."},
+			[]string{"p.go", "q.go", "r.go"},
+			[]string{"output"},
+		)
+		const wantZ2Doc = "Z2 builds output if p.go, q.go, or r.go change."
+		if !reflect.DeepEqual(gotZ2, wantZ2) {
+			t.Errorf("mismatch for Z2; got:\n%s\nwant:\n%s", spew.Sdump(gotZ2), spew.Sdump(wantZ2))
+		}
+		if gotZ2Doc != wantZ2Doc {
+			t.Errorf("got %s for Z2 doc, want %s", gotZ2Doc, wantZ2Doc)
 		}
 	})
 
