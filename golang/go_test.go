@@ -70,7 +70,6 @@ var testGoDeps = []string{
 	"../hash.go",
 	"../parallel.go",
 	"../register.go",
-	"../registry.go",
 	"../runner.go",
 	"../seq.go",
 	"../target.go",

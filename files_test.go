@@ -176,8 +176,10 @@ func TestFileHashes(t *testing.T) {
 
 func TestFilesRegistry(t *testing.T) {
 	targ := &files{}
-	filesRegistry.add("TestFilesRegistry/a/b/c.d", targ)
-	filesRegistry.add("TestFilesRegistry/a/e", targ)
+	filesRegistryMu.Lock()
+	filesRegistry["TestFilesRegistry/a/b/c.d"] = targ
+	filesRegistry["TestFilesRegistry/a/e"] = targ
+	filesRegistryMu.Unlock()
 
 	cases := []struct {
 		probe string
