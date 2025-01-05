@@ -37,7 +37,7 @@ import (
 //   - Opts: the list of "other options" (see above) to pass to the protoc command line
 //   - Autoclean: a boolean indicating whether the files listed in Outputs should be added to the "autoclean registry."
 //     See [fab.Autoclean] for more about this feature.
-func Proto(inputs, outputs, includes, otherOpts []string, filesOpts ...fab.FilesOpt) (fab.Target, error) {
+func Proto(con *fab.Controller, inputs, outputs, includes, otherOpts []string, filesOpts ...fab.FilesOpt) (fab.Target, error) {
 	alldeps := set.New[string](inputs...)
 	for _, inp := range inputs {
 		d, err := Deps(inp, includes)
@@ -53,7 +53,7 @@ func Proto(inputs, outputs, includes, otherOpts []string, filesOpts ...fab.Files
 	args := slices.Map(includes, func(inc string) string { return "-I" + inc })
 	args = append(args, otherOpts...)
 	args = append(args, inputs...)
-	return fab.Files(&fab.Command{Cmd: "protoc", Args: args}, alldepsSlice, outputs, filesOpts...), nil
+	return fab.Files(con, &fab.Command{Cmd: "protoc", Args: args}, alldepsSlice, outputs, filesOpts...), nil
 }
 
 func protoDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target, error) {
@@ -83,7 +83,7 @@ func protoDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target,
 		return nil, errors.Wrap(err, "parsing protoc include list")
 	}
 
-	return Proto(inputs, outputs, includes, p.Opts, fab.Autoclean(p.Autoclean))
+	return Proto(con, inputs, outputs, includes, p.Opts, fab.Autoclean(con, p.Autoclean))
 }
 
 // Deps reads a protocol-buffer file and returns its list of dependencies.

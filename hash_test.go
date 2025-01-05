@@ -32,12 +32,6 @@ func TestHashTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fc := Files(
-		Shellf("sh -c 'cat %s >> %s'", inpath, outpath),
-		[]string{inpath},
-		[]string{outpath},
-	)
-
 	var (
 		ctx    = context.Background()
 		expect = ""
@@ -49,6 +43,13 @@ func TestHashTarget(t *testing.T) {
 		return func(t *testing.T) {
 			con := NewController("", db)
 			con.Verbose = testing.Verbose()
+
+			fc := Files(
+				con,
+				Shellf("sh -c 'cat %s >> %s'", inpath, outpath),
+				[]string{inpath},
+				[]string{outpath},
+			)
 
 			if err := con.Run(ctx, fc); err != nil {
 				t.Fatal(err)

@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/bobg/go-generics/v4/set"
 )
 
 // Controller is in charge of registering and running targets.
@@ -48,6 +50,9 @@ type Controller struct {
 
 	yamlTargetRegistry     map[string]YAMLTargetFunc
 	yamlStringListRegistry map[string]YAMLStringListFunc
+
+	autocleanRegistry set.Of[string]
+	filesRegistry     map[string]*files
 }
 
 // NewController creates a new [Controller]
@@ -75,17 +80,19 @@ func NewEmptyController(topdir string, db HashDB) *Controller {
 		targetsByAddr:          make(map[uintptr]targetRegistryTuple),
 		yamlTargetRegistry:     make(map[string]YAMLTargetFunc),
 		yamlStringListRegistry: make(map[string]YAMLStringListFunc),
+		autocleanRegistry:      set.New[string](),
+		filesRegistry:          make(map[string]*files),
 	}
 }
 
 // RegisterDefaults registers the default YAML decoders for targets and string lists.
 func (con *Controller) RegisterDefaults() {
-	con.RegisterYAMLTarget("Parallel", parallelDecoder)
 	con.RegisterYAMLTarget("ArgTarget", argTargetDecoder)
 	con.RegisterYAMLTarget("Clean", cleanDecoder)
 	con.RegisterYAMLTarget("Command", commandDecoder)
 	con.RegisterYAMLTarget("Deps", depsDecoder)
 	con.RegisterYAMLTarget("Files", filesDecoder)
+	con.RegisterYAMLTarget("Parallel", parallelDecoder)
 	con.RegisterYAMLTarget("Seq", seqDecoder)
 
 	con.RegisterYAMLStringList("Glob", globDecoder)

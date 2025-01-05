@@ -22,7 +22,7 @@ func TestRunTarget(t *testing.T) {
 
 	var (
 		ct      = &countTarget{}
-		target  = Files(ct, nil, []string{"/dev/null"})
+		target  = Files(con, ct, nil, []string{"/dev/null"})
 		targets []Target
 	)
 

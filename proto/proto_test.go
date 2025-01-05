@@ -33,7 +33,7 @@ func TestProto(t *testing.T) {
 	RegisterDefaults(con)
 	con.Verbose = true
 
-	p, err := Proto([]string{"testdata/foo2.proto"}, []string{outfilecpp, outfileh}, []string{"testdata"}, []string{"--cpp_out=" + tmpdir})
+	p, err := Proto(con, []string{"testdata/foo2.proto"}, []string{outfilecpp, outfileh}, []string{"testdata"}, []string{"--cpp_out=" + tmpdir})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,6 +93,7 @@ func TestProtoYAML(t *testing.T) {
 	}
 	got, _ := con.RegistryTarget("testdata/Foo")
 	want, err := Proto(
+		con,
 		[]string{"testdata/foo.proto"},
 		[]string{"testdata/out1", "testdata/out2"},
 		[]string{"testdata/x"},

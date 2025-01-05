@@ -5,10 +5,8 @@ import (
 	"io/fs"
 	"os"
 	"sort"
-	"sync"
 
 	"github.com/bobg/errors"
-	"github.com/bobg/go-generics/v4/set"
 	"gopkg.in/yaml.v3"
 )
 
@@ -38,10 +36,9 @@ type Clean struct {
 func (c *Clean) Run(ctx context.Context, con *Controller) error {
 	files := c.Files
 	if c.Autoclean {
-		autocleanMu.Lock()
-		autocleanFiles := autocleanRegistry.Slice()
-		files = append(files, autocleanFiles...)
-		autocleanMu.Unlock()
+		con.mu.Lock()
+		files = append(files, con.autocleanRegistry.Slice()...)
+		con.mu.Unlock()
 	}
 	sort.Strings(files)
 
@@ -74,11 +71,6 @@ func (c *Clean) Run(ctx context.Context, con *Controller) error {
 func (*Clean) Desc() string {
 	return "Clean"
 }
-
-var (
-	autocleanMu       sync.Mutex
-	autocleanRegistry = set.New[string]()
-)
 
 func cleanDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	var (

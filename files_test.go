@@ -47,10 +47,10 @@ func TestFileChaining(t *testing.T) {
 		con.Verbose = true
 
 		// These registrations make things clearer in verbose mode.
-		if _, err = con.RegisterTarget("AB", "", aToB); err != nil {
+		if _, err = con.RegisterTarget("AB", "", aToB(con)); err != nil {
 			t.Fatal(err)
 		}
-		if _, err = con.RegisterTarget("BC", "", bToC); err != nil {
+		if _, err = con.RegisterTarget("BC", "", bToC(con)); err != nil {
 			t.Fatal(err)
 		}
 		return con
@@ -59,7 +59,7 @@ func TestFileChaining(t *testing.T) {
 
 	ctx := context.Background()
 
-	if err = con.Run(ctx, bToC); err != nil {
+	if err = con.Run(ctx, bToC(con)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -83,7 +83,7 @@ func TestFileChaining(t *testing.T) {
 
 	con = newController()
 
-	if err = con.Run(ctx, aToB); err != nil {
+	if err = con.Run(ctx, aToB(con)); err != nil {
 		t.Fatal(err)
 	}
 	info, err = os.Stat(bFile)
@@ -96,7 +96,7 @@ func TestFileChaining(t *testing.T) {
 
 	con = newController()
 
-	if err = con.Run(ctx, bToC); err != nil {
+	if err = con.Run(ctx, bToC(con)); err != nil {
 		t.Fatal(err)
 	}
 	info, err = os.Stat(cFile)
@@ -119,7 +119,7 @@ func TestFileChaining(t *testing.T) {
 
 	con = newController()
 
-	if err = con.Run(ctx, bToC); err != nil {
+	if err = con.Run(ctx, bToC(con)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -142,12 +142,15 @@ func TestFileChaining(t *testing.T) {
 	}
 }
 
-func fileCopyTarget(from, to string) Target {
-	return Files(
-		Shellf("sleep 1; cp %s %s", from, to),
-		[]string{from},
-		[]string{to},
-	)
+func fileCopyTarget(from, to string) func(*Controller) Target {
+	return func(con *Controller) Target {
+		return Files(
+			con,
+			Shellf("sleep 1; cp %s %s", from, to),
+			[]string{from},
+			[]string{to},
+		)
+	}
 }
 
 func TestFileHashes(t *testing.T) {
@@ -176,10 +179,13 @@ func TestFileHashes(t *testing.T) {
 
 func TestFilesRegistry(t *testing.T) {
 	targ := &files{}
-	filesRegistryMu.Lock()
-	filesRegistry["TestFilesRegistry/a/b/c.d"] = targ
-	filesRegistry["TestFilesRegistry/a/e"] = targ
-	filesRegistryMu.Unlock()
+
+	con := NewEmptyController("", nil)
+
+	con.mu.Lock()
+	con.filesRegistry["TestFilesRegistry/a/b/c.d"] = targ
+	con.filesRegistry["TestFilesRegistry/a/e"] = targ
+	con.mu.Unlock()
 
 	cases := []struct {
 		probe string
@@ -197,7 +203,7 @@ func TestFilesRegistry(t *testing.T) {
 
 	for i, tc := range cases {
 		t.Run(fmt.Sprintf("case_%02d", i+1), func(t *testing.T) {
-			got := findInFilesRegistry(tc.probe)
+			got := con.findInFilesRegistry(tc.probe)
 			if got != nil && !tc.want {
 				t.Errorf("got a hit but didn't want one")
 			} else if got == nil && tc.want {
@@ -215,6 +221,7 @@ func TestGlob(t *testing.T) {
 
 	got, _ := con.RegistryTarget("Doxating")
 	want := Files(
+		con,
 		&Command{
 			Shell: "echo Hello",
 			Dir:   "_testdata/glob",

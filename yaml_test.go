@@ -182,6 +182,7 @@ func TestYAML(t *testing.T) {
 
 		gotZ, gotZDoc := con.RegistryTarget("Z")
 		wantZ := Files(
+			con,
 			&Command{Shell: "go build -o output ./..."},
 			[]string{"p.go", "q.go", "r.go"},
 			[]string{"output"},
@@ -200,6 +201,7 @@ func TestYAML(t *testing.T) {
 
 		gotZ2, gotZ2Doc := con.RegistryTarget("Z2")
 		wantZ2 := Files(
+			con,
 			&Command{Shell: "go build -o output ./..."},
 			[]string{"p.go", "q.go", "r.go"},
 			[]string{"output"},

@@ -32,7 +32,7 @@ import (
 // Both Dir and Out are either absolute or relative to the directory containing the YAML file.
 // If Out is unspecified,
 // it defaults to the last path element of Dir.
-func Binary(dir, outfile string, flags ...string) (fab.Target, error) {
+func Binary(con *fab.Controller, dir, outfile string, flags ...string) (fab.Target, error) {
 	if outfile == "" {
 		outfile = filepath.Base(dir)
 	}
@@ -52,16 +52,7 @@ func Binary(dir, outfile string, flags ...string) (fab.Target, error) {
 		Cmd:  "go",
 		Args: args,
 	}
-	return fab.Files(c, deps, []string{outfile}, fab.Autoclean(true)), nil
-}
-
-// MustBinary is the same as [Binary] but panics on error.
-func MustBinary(dir, outfile string, flags ...string) fab.Target {
-	target, err := Binary(dir, outfile, flags...)
-	if err != nil {
-		panic(err)
-	}
-	return target
+	return fab.Files(con, c, deps, []string{outfile}, fab.Autoclean(con, true)), nil
 }
 
 func binaryDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target, error) {
@@ -85,7 +76,7 @@ func binaryDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target
 		return nil, errors.Wrap(err, "YAML error decoding go.Binary.Flags")
 	}
 
-	return Binary(con.JoinPath(dir, b.Dir), con.JoinPath(dir, out), flags...)
+	return Binary(con, con.JoinPath(dir, b.Dir), con.JoinPath(dir, out), flags...)
 }
 
 // Deps produces the list of files involved in building the Go package in the given directory.

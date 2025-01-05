@@ -45,13 +45,13 @@ func TestBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	targ, err := Binary(binarydir, outfile)
+	con := fab.NewController("", db)
+	con.Verbose = true
+
+	targ, err := Binary(con, binarydir, outfile)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	con := fab.NewController("", db)
-	con.Verbose = true
 
 	if err := con.Run(ctx, targ); err != nil {
 		t.Fatal(err)
@@ -123,7 +123,7 @@ func TestGoYAML(t *testing.T) {
 		t.Parallel()
 
 		got, _ := con.RegistryTarget("_testdata/Foo")
-		want, err := Binary("_testdata/binary", "_testdata/b")
+		want, err := Binary(con, "_testdata/binary", "_testdata/b")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -142,6 +142,7 @@ func TestGoYAML(t *testing.T) {
 		}
 		sort.Strings(deps)
 		want := fab.Files(
+			con,
 			&fab.Command{Shell: "echo bar", Dir: "_testdata", StdoutFile: "_testdata/bar"},
 			deps,
 			[]string{"_testdata/bar"},

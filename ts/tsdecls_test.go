@@ -39,6 +39,7 @@ func TestDecls(t *testing.T) {
 
 	targ, _ := con.RegistryTarget("Build")
 	want := fab.Files(
+		con,
 		&declsType{
 			Dir:      filepath.Join(tmpdir, "lib"),
 			Typename: "Server",
@@ -47,7 +48,7 @@ func TestDecls(t *testing.T) {
 		},
 		[]string{filepath.Join(tmpdir, "lib/tt.go")},
 		[]string{outfile},
-		fab.Autoclean(true),
+		fab.Autoclean(con, true),
 	)
 	if !reflect.DeepEqual(targ, want) {
 		spew.Config.DisableMethods = true

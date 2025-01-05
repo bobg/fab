@@ -11,17 +11,11 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
-	"sync"
 
 	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v4/slices"
 	json "github.com/gibson042/canonicaljson-go"
 	"gopkg.in/yaml.v3"
-)
-
-var (
-	filesRegistryMu sync.Mutex
-	filesRegistry   = make(map[string]*files)
 )
 
 // Files creates a target that contains a list of input files
@@ -95,7 +89,7 @@ var (
 // which runs the given `go build` command
 // to update the output file `thingify`
 // when any files depended on by the Go package in `cmd` change.
-func Files(target Target, in, out []string, opts ...FilesOpt) Target {
+func Files(con *Controller, target Target, in, out []string, opts ...FilesOpt) Target {
 	result := &files{
 		Target: target,
 		In:     in,
@@ -106,11 +100,11 @@ func Files(target Target, in, out []string, opts ...FilesOpt) Target {
 		opt(result)
 	}
 
-	filesRegistryMu.Lock()
+	con.mu.Lock()
 	for _, o := range out {
-		filesRegistry[o] = result
+		con.filesRegistry[o] = result
 	}
-	filesRegistryMu.Unlock()
+	con.mu.Unlock()
 
 	return result
 }
@@ -201,7 +195,7 @@ func (ft *files) runPrereqs(ctx context.Context, con *Controller) error {
 	var prereqs []Target
 
 	for _, in := range ft.In {
-		if target := findInFilesRegistry(in); target != nil {
+		if target := con.findInFilesRegistry(in); target != nil {
 			prereqs = append(prereqs, target)
 		}
 	}
@@ -212,12 +206,12 @@ func (ft *files) runPrereqs(ctx context.Context, con *Controller) error {
 	return con.Run(ctx, prereqs...)
 }
 
-func findInFilesRegistry(name string) Target {
-	filesRegistryMu.Lock()
-	defer filesRegistryMu.Unlock()
+func (con *Controller) findInFilesRegistry(name string) Target {
+	con.mu.Lock()
+	defer con.mu.Unlock()
 
 	for {
-		if target, ok := filesRegistry[name]; ok {
+		if target, ok := con.filesRegistry[name]; ok {
 			return target
 		}
 
@@ -234,20 +228,18 @@ func findInFilesRegistry(name string) Target {
 type FilesOpt func(*files)
 
 // Autoclean is an option for passing to [Files].
-// It causes the output files of the Files target to be added to the "autoclean registry."
+// It causes the output files of the Files target to be added to a [Controller]'s "autoclean registry."
 // A [Clean] target may then choose to remove the files listed in that registry
 // (instead of, or in addition to, any explicitly listed files)
 // by setting its Autoclean field to true.
-func Autoclean(autoclean bool) FilesOpt {
+func Autoclean(con *Controller, autoclean bool) FilesOpt {
 	return func(f *files) {
 		if !autoclean {
 			return
 		}
-		autocleanMu.Lock()
-		for _, file := range f.Out {
-			autocleanRegistry.Add(file)
-		}
-		autocleanMu.Unlock()
+		con.mu.Lock()
+		con.autocleanRegistry.Add(f.Out...)
+		con.mu.Unlock()
 	}
 }
 
@@ -358,7 +350,7 @@ func filesDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) 
 		return nil, errors.Wrap(err, "YAML error in Files.Out node")
 	}
 
-	return Files(target, in, out, Autoclean(yfiles.Autoclean)), nil
+	return Files(con, target, in, out, Autoclean(con, yfiles.Autoclean)), nil
 }
 
 func globDecoder(con *Controller, node *yaml.Node, dir string) ([]string, error) {

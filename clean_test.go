@@ -62,13 +62,13 @@ func TestAutoclean(t *testing.T) {
 
 	path := filepath.Join(tmpdir, "outfile")
 
+	con := NewController("", nil)
+	con.Verbose = true
+
 	mkfile := F(func(context.Context, *Controller) error {
 		return os.WriteFile(path, []byte("Professor Little Old Man!"), 0644)
 	})
-	files := Files(mkfile, nil, []string{path}, Autoclean(true))
-
-	con := NewController("", nil)
-	con.Verbose = true
+	files := Files(con, mkfile, nil, []string{path}, Autoclean(con, true))
 
 	ctx := context.Background()
 
