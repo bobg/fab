@@ -196,8 +196,6 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 		return fmt.Errorf("got %d children for second-level node, want an even number", len(m.Content))
 	}
 
-	var sawDirDecl bool
-
 	for i := 0; i < len(m.Content); i += 2 {
 		nameNode := m.Content[i]
 		if nameNode.Kind != yaml.ScalarNode {
@@ -212,18 +210,6 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 			doc = nameNode.LineComment
 		}
 		doc = strings.TrimLeft(doc, "# ")
-
-		if name == "_dir" {
-			decl := m.Content[i+1]
-			if decl.Kind != yaml.ScalarNode {
-				return fmt.Errorf("_dir declaration value has kind %v, want %v", decl.Kind, yaml.ScalarNode)
-			}
-			if decl.Value != dir {
-				return fmt.Errorf("_dir declaration %s does not match actual directory %s", decl.Value, dir)
-			}
-			sawDirDecl = true
-			continue
-		}
 
 		if strings.Contains(name, "/") {
 			return fmt.Errorf("no slashes in target names")
@@ -245,10 +231,6 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 		if err != nil {
 			return errors.Wrapf(err, "registering target %s", qname)
 		}
-	}
-
-	if dir != "" && !sawDirDecl {
-		return fmt.Errorf("no _dir declaration in YAML file")
 	}
 
 	return nil

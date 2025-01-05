@@ -71,7 +71,6 @@ var testGoDeps = []string{
 	"../sqlite/db.go",
 	"../sqlite/schema.sql",
 	"../target.go",
-	"../top.go",
 	"../yaml.go",
 	"go.go",
 }
