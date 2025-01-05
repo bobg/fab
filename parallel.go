@@ -17,22 +17,22 @@ import (
 // A Parallel target may be specified in YAML using the tag !Parallel,
 // which introduces a sequence of subtargets.
 func Parallel(targets ...Target) Target {
-	return &all{Targets: targets}
+	return &parallel{Targets: targets}
 }
 
-type all struct {
+type parallel struct {
 	Targets []Target
 }
 
-var _ Target = &all{}
+var _ Target = &parallel{}
 
 // Run implements Target.Run.
-func (a *all) Run(ctx context.Context, con *Controller) error {
+func (a *parallel) Run(ctx context.Context, con *Controller) error {
 	return con.Run(ctx, a.Targets...)
 }
 
 // Desc implements Target.Desc.
-func (*all) Desc() string {
+func (*parallel) Desc() string {
 	return "Parallel"
 }
 
