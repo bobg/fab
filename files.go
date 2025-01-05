@@ -6,19 +6,17 @@ import (
 	"encoding/hex"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
 
 	"github.com/bobg/errors"
-	"github.com/bobg/go-generics/v2/maps"
-	"github.com/bobg/go-generics/v2/slices"
+	"github.com/bobg/go-generics/v4/slices"
 	json "github.com/gibson042/canonicaljson-go"
 	"gopkg.in/yaml.v3"
 )
-
-var filesRegistry = newRegistry[*files]()
 
 // Files creates a target that contains a list of input files
 // and a list of expected output files.
@@ -34,8 +32,7 @@ var filesRegistry = newRegistry[*files]()
 //     as prerequisites.
 //   - It then computes a hash from the nested subtarget
 //     and all the input and output files.
-//     If this hash is found in the “hash database”
-//     (obtained with [GetHashDB]),
+//     If this hash is found in the “hash database,”
 //     that means none of the files has changed
 //     since the last time the output files were built,
 //     so running of the subtarget can be skipped.
@@ -67,7 +64,7 @@ var filesRegistry = newRegistry[*files]()
 // together with the Autoclean feature:
 // the entire directory tree will be deleted.
 //
-// When [GetDryRun] is true,
+// In dry-run mode,
 // checking and updating of the hash DB is skipped.
 //
 // A Files target may be specified in YAML using the !Files tag,
@@ -92,7 +89,7 @@ var filesRegistry = newRegistry[*files]()
 // which runs the given `go build` command
 // to update the output file `thingify`
 // when any files depended on by the Go package in `cmd` change.
-func Files(target Target, in, out []string, opts ...FilesOpt) Target {
+func Files(con *Controller, target Target, in, out []string, opts ...FilesOpt) Target {
 	result := &files{
 		Target: target,
 		In:     in,
@@ -103,9 +100,11 @@ func Files(target Target, in, out []string, opts ...FilesOpt) Target {
 		opt(result)
 	}
 
+	con.mu.Lock()
 	for _, o := range out {
-		filesRegistry.add(o, result)
+		con.filesRegistry[o] = result
 	}
+	con.mu.Unlock()
 
 	return result
 }
@@ -124,19 +123,17 @@ func (ft *files) Run(ctx context.Context, con *Controller) error {
 		return errors.Wrap(err, "in prerequisites")
 	}
 
-	db := GetHashDB(ctx)
-
-	if db != nil && !GetForce(ctx) && !GetDryRun(ctx) {
+	if con.DB != nil && !con.Force && !con.DryRun {
 		h, err := ft.computeHash(con)
 		if err != nil {
 			return errors.Wrap(err, "computing hash before running subtarget")
 		}
-		has, err := db.Has(ctx, h)
+		has, err := con.DB.Has(ctx, h)
 		if err != nil {
 			return errors.Wrap(err, "checking hash db")
 		}
 		if has {
-			if GetVerbose(ctx) {
+			if con.Verbose {
 				con.Indentf("%s is up to date", con.Describe(ft))
 			}
 			return nil
@@ -147,7 +144,7 @@ func (ft *files) Run(ctx context.Context, con *Controller) error {
 		return errors.Wrap(err, "running subtarget")
 	}
 
-	if db == nil || GetDryRun(ctx) {
+	if con.DB == nil || con.DryRun {
 		return nil
 	}
 
@@ -155,7 +152,7 @@ func (ft *files) Run(ctx context.Context, con *Controller) error {
 	if err != nil {
 		return errors.Wrap(err, "computing hash after running subtarget")
 	}
-	err = db.Add(ctx, h)
+	err = con.DB.Add(ctx, h)
 	return errors.Wrap(err, "adding hash to db")
 }
 
@@ -198,7 +195,7 @@ func (ft *files) runPrereqs(ctx context.Context, con *Controller) error {
 	var prereqs []Target
 
 	for _, in := range ft.In {
-		if target := findInFilesRegistry(in); target != nil {
+		if target := con.findInFilesRegistry(in); target != nil {
 			prereqs = append(prereqs, target)
 		}
 	}
@@ -209,9 +206,12 @@ func (ft *files) runPrereqs(ctx context.Context, con *Controller) error {
 	return con.Run(ctx, prereqs...)
 }
 
-func findInFilesRegistry(name string) Target {
+func (con *Controller) findInFilesRegistry(name string) Target {
+	con.mu.Lock()
+	defer con.mu.Unlock()
+
 	for {
-		if target, ok := filesRegistry.lookup(name); ok {
+		if target, ok := con.filesRegistry[name]; ok {
 			return target
 		}
 
@@ -224,23 +224,22 @@ func findInFilesRegistry(name string) Target {
 	}
 }
 
+// FilesOpt is the type of an option passed to [Files].
 type FilesOpt func(*files)
 
 // Autoclean is an option for passing to [Files].
-// It causes the output files of the Files target to be added to the "autoclean registry."
+// It causes the output files of the Files target to be added to a [Controller]'s "autoclean registry."
 // A [Clean] target may then choose to remove the files listed in that registry
 // (instead of, or in addition to, any explicitly listed files)
 // by setting its Autoclean field to true.
-func Autoclean(autoclean bool) FilesOpt {
+func Autoclean(con *Controller, autoclean bool) FilesOpt {
 	return func(f *files) {
 		if !autoclean {
 			return
 		}
-		autocleanMu.Lock()
-		for _, file := range f.Out {
-			autocleanRegistry.Add(file)
-		}
-		autocleanMu.Unlock()
+		con.mu.Lock()
+		con.autocleanRegistry.Add(f.Out...)
+		con.mu.Unlock()
 	}
 }
 
@@ -254,7 +253,7 @@ func fileHashes(items []string) ([]string, error) {
 		return nil, err
 	}
 
-	keys := maps.Keys(hashes)
+	keys := slices.Collect(maps.Keys(hashes))
 	sort.Strings(keys)
 
 	result := make([]string, 0, 2*len(keys))
@@ -351,7 +350,7 @@ func filesDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) 
 		return nil, errors.Wrap(err, "YAML error in Files.Out node")
 	}
 
-	return Files(target, in, out, Autoclean(yfiles.Autoclean)), nil
+	return Files(con, target, in, out, Autoclean(con, yfiles.Autoclean)), nil
 }
 
 func globDecoder(con *Controller, node *yaml.Node, dir string) ([]string, error) {
@@ -381,9 +380,4 @@ func globDecoder(con *Controller, node *yaml.Node, dir string) ([]string, error)
 	}
 
 	return result, nil
-}
-
-func init() {
-	RegisterYAMLTarget("Files", filesDecoder)
-	RegisterYAMLStringList("Glob", globDecoder)
 }

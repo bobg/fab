@@ -5,7 +5,7 @@ import (
 	"sort"
 
 	"github.com/bobg/errors"
-	"github.com/bobg/go-generics/v2/set"
+	"github.com/bobg/go-generics/v4/set"
 	"golang.org/x/tools/go/packages"
 	"gopkg.in/yaml.v3"
 
@@ -32,7 +32,7 @@ import (
 // Both Dir and Out are either absolute or relative to the directory containing the YAML file.
 // If Out is unspecified,
 // it defaults to the last path element of Dir.
-func Binary(dir, outfile string, flags ...string) (fab.Target, error) {
+func Binary(con *fab.Controller, dir, outfile string, flags ...string) (fab.Target, error) {
 	if outfile == "" {
 		outfile = filepath.Base(dir)
 	}
@@ -52,16 +52,7 @@ func Binary(dir, outfile string, flags ...string) (fab.Target, error) {
 		Cmd:  "go",
 		Args: args,
 	}
-	return fab.Files(c, deps, []string{outfile}, fab.Autoclean(true)), nil
-}
-
-// MustBinary is the same as [Binary] but panics on error.
-func MustBinary(dir, outfile string, flags ...string) fab.Target {
-	target, err := Binary(dir, outfile, flags...)
-	if err != nil {
-		panic(err)
-	}
-	return target
+	return fab.Files(con, c, deps, []string{outfile}, fab.Autoclean(con, true)), nil
 }
 
 func binaryDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target, error) {
@@ -85,7 +76,7 @@ func binaryDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target
 		return nil, errors.Wrap(err, "YAML error decoding go.Binary.Flags")
 	}
 
-	return Binary(con.JoinPath(dir, b.Dir), con.JoinPath(dir, out), flags...)
+	return Binary(con, con.JoinPath(dir, b.Dir), con.JoinPath(dir, out), flags...)
 }
 
 // Deps produces the list of files involved in building the Go package in the given directory.
@@ -170,7 +161,8 @@ func depsDecoder(con *fab.Controller, node *yaml.Node, dir string) ([]string, er
 	return Deps(con.JoinPath(dir, gd.Dir), gd.Recursive, gd.Tests)
 }
 
-func init() {
-	fab.RegisterYAMLTarget("go.Binary", binaryDecoder)
-	fab.RegisterYAMLStringList("go.Deps", depsDecoder)
+// RegisterDefaults registers the default YAML decoders for Go-related targets.
+func RegisterDefaults(con *fab.Controller) {
+	con.RegisterYAMLTarget("go.Binary", binaryDecoder)
+	con.RegisterYAMLStringList("go.Deps", depsDecoder)
 }

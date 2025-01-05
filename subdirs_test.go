@@ -25,13 +25,14 @@ func TestSubdirs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	con := NewController(tmpdir)
+	con := NewController(tmpdir, nil)
+	con.Verbose = true
+
 	if err := con.ReadYAMLFile(""); err != nil {
 		t.Fatal(err)
 	}
 
 	ctx := context.Background()
-	ctx = WithVerbose(ctx, true)
 
 	t.Run("a", func(t *testing.T) {
 		a, _ := con.RegistryTarget("A")

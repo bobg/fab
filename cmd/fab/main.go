@@ -6,18 +6,30 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
+
+	"github.com/bobg/errors"
 
 	"github.com/bobg/fab"
-	_ "github.com/bobg/fab/golang"
+	"github.com/bobg/fab/golang"
+	"github.com/bobg/fab/proto"
+	"github.com/bobg/fab/sqlite"
+	"github.com/bobg/fab/ts"
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Printf("Error: %s\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			fmt.Printf("Error getting home dir: %s\n", err)
-			os.Exit(1)
+			return errors.Wrap(err, "getting home dir")
 		}
 		cacheDir = filepath.Join(home, ".cache")
 	}
@@ -36,16 +48,35 @@ func main() {
 	flag.BoolVar(&dryrun, "n", false, "dry run mode")
 	flag.Parse()
 
-	m := fab.Main{
-		Fabdir:  fabdir,
-		Verbose: verbose,
-		List:    list,
-		Force:   force,
-		DryRun:  dryrun,
-		Args:    flag.Args(),
+	ctx := context.Background()
+
+	if err := os.MkdirAll(fabdir, 0755); err != nil {
+		return errors.Wrapf(err, "creating fab dir %s", fabdir)
 	}
-	if err := m.Run(context.Background()); err != nil {
-		fmt.Printf("Error: %s\n", err)
-		os.Exit(1)
+	hashDBFile := filepath.Join(fabdir, "hash.db")
+	db, err := sqlite.Open(ctx, hashDBFile, sqlite.Keep(30*24*time.Hour))
+	if err != nil {
+		return errors.Wrap(err, "opening hash DB")
 	}
+	defer db.Close()
+
+	con := fab.NewController("", db)
+	golang.RegisterDefaults(con)
+	proto.RegisterDefaults(con)
+	ts.RegisterDefaults(con)
+
+	con.DryRun = dryrun
+	con.Force = force
+	con.Verbose = verbose
+
+	if err := con.ReadYAMLFile(""); err != nil {
+		return errors.Wrap(err, "reading YAML file")
+	}
+
+	if list {
+		con.ListTargets(os.Stdout)
+		return nil
+	}
+
+	return con.RunArgs(ctx, flag.Args())
 }

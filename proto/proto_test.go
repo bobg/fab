@@ -25,13 +25,15 @@ func TestProto(t *testing.T) {
 
 	var (
 		ctx        = context.Background()
-		con        = fab.NewController("")
 		outfilecpp = filepath.Join(tmpdir, "foo2.pb.cc")
 		outfileh   = filepath.Join(tmpdir, "foo2.pb.h")
 	)
-	ctx = fab.WithVerbose(ctx, true)
 
-	p, err := Proto([]string{"testdata/foo2.proto"}, []string{outfilecpp, outfileh}, []string{"testdata"}, []string{"--cpp_out=" + tmpdir})
+	con := fab.NewController("", nil)
+	RegisterDefaults(con)
+	con.Verbose = true
+
+	p, err := Proto(con, []string{"testdata/foo2.proto"}, []string{outfilecpp, outfileh}, []string{"testdata"}, []string{"--cpp_out=" + tmpdir})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,12 +85,15 @@ func TestProtoYAML(t *testing.T) {
 	}
 	defer f.Close()
 
-	con := fab.NewController("")
-	if err = con.ReadYAML(f, "testdata"); err != nil {
+	con := fab.NewController("", nil)
+	RegisterDefaults(con)
+
+	if err := con.ReadYAML(f, "testdata"); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := con.RegistryTarget("testdata/Foo")
 	want, err := Proto(
+		con,
 		[]string{"testdata/foo.proto"},
 		[]string{"testdata/out1", "testdata/out2"},
 		[]string{"testdata/x"},

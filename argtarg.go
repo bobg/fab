@@ -21,7 +21,7 @@ import (
 // An ArgTarget target may be specified in YAML using the tag !ArgTarget,
 // which introduces a sequence.
 // The first element of the sequence is a target or target name.
-// The remaining elements of the sequence are interpreted byu [YAMLStringListFromNodes]
+// The remaining elements of the sequence are interpreted by [YAMLStringListFromNodes]
 // to produce the arguments for the target.
 func ArgTarget(target Target, args ...string) Target {
 	return &argTarget{
@@ -43,6 +43,20 @@ func (a *argTarget) Run(ctx context.Context, con *Controller) error {
 	return con.Run(ctx, a.Target)
 }
 
+type argsKey struct{}
+
+// WithArgs returns a new context decorated with the given arguments.
+// Retrieve them with [GetArgs].
+func WithArgs(ctx context.Context, args ...string) context.Context {
+	return context.WithValue(ctx, argsKey{}, args)
+}
+
+// GetArgs retrieves the arguments decorating the context.
+func GetArgs(ctx context.Context) []string {
+	v, _ := ctx.Value(argsKey{}).([]string)
+	return v
+}
+
 // Desc implements Target.Desc.
 func (*argTarget) Desc() string {
 	return "ArgTarget"
@@ -57,7 +71,7 @@ func argTargetDecoder(con *Controller, node *yaml.Node, dir string) (Target, err
 	}
 	target, err := con.YAMLTarget(node.Content[0], dir)
 	if err != nil {
-		return nil, errors.Wrap(err, "YAML error in target child of AllTarget node")
+		return nil, errors.Wrap(err, "YAML error in target child of ArgTarget node")
 	}
 
 	args, err := con.YAMLStringListFromNodes(node.Content[1:], dir)
@@ -66,8 +80,4 @@ func argTargetDecoder(con *Controller, node *yaml.Node, dir string) (Target, err
 	}
 
 	return ArgTarget(target, args...), nil
-}
-
-func init() {
-	RegisterYAMLTarget("ArgTarget", argTargetDecoder)
 }

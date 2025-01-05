@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	"github.com/bobg/errors"
-	"github.com/bobg/go-generics/v2/slices"
+	"github.com/bobg/go-generics/v4/slices"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,70 +23,88 @@ type (
 	YAMLStringListFunc = func(*Controller, *yaml.Node, string) ([]string, error)
 )
 
-var (
-	yamlTargetRegistry     = newRegistry[YAMLTargetFunc]()
-	yamlStringListRegistry = newRegistry[YAMLStringListFunc]()
-)
-
 // RegisterYAMLTarget places a function in the YAML target registry with the given name.
 // Use a YAML `!name` tag to introduce a node that should be parsed using this function.
-func RegisterYAMLTarget(name string, fn YAMLTargetFunc) {
-	yamlTargetRegistry.add(name, fn)
+func (con *Controller) RegisterYAMLTarget(name string, fn YAMLTargetFunc) {
+	con.mu.Lock()
+	con.yamlTargetRegistry[name] = fn
+	con.mu.Unlock()
 }
 
 // YAMLTarget parses a [Target] from a YAML node.
-// If the node has a tag `!foo`,
-// then the [YAMLTargetFunc] in the YAML target registry named `foo` is used to parse the node.
-// Otherwise,
-// if the node is a bare string `foo`,
-// then it is presumed to refer to a target in the (non-YAML) target registry named `foo`.
-// This string may refer to a target in another directory's YAML file,
-// in which case it should have a path prefix relative to `dir`
-// (e.g. x/foo or ../a/b/foo).
+// There are several possible cases:
+//
+//   - If the node is has a tag `!foo`,
+//     then the [YAMLTargetFunc] in the YAML target registry named `foo` is used to parse the node.
+//   - If the node is a sequence,
+//     it is interpreted as a [Seq] of subtargets.
+//   - If the node is a string `$foo`,
+//     it is interpreted as a target in the (non-YAML) target registry named foo.
+//     This string may refer to a target in another directory's YAML file,
+//     in which case it should have a path prefix relative to `dir`
+//     (e.g. $x/foo or $../a/b/foo).
+//   - Otherwise,
+//     if the node is a string,
+//     it is interpreted as a shell command and turned into a [Command] target.
 func (con *Controller) YAMLTarget(node *yaml.Node, dir string) (Target, error) {
 	if tag := normalizeTag(node.Tag); tag != "" {
-		fn, ok := yamlTargetRegistry.lookup(tag)
+		con.mu.Lock()
+		fn, ok := con.yamlTargetRegistry[tag]
+		con.mu.Unlock()
 		if !ok {
 			return nil, fmt.Errorf("unknown YAML target type %s", tag)
 		}
 		return fn(con, node, dir)
 	}
 
+	if node.Kind == yaml.SequenceNode {
+		return seqDecoder(con, node, dir)
+	}
+
 	if node.Kind != yaml.ScalarNode {
 		return nil, fmt.Errorf("untyped YAML target node")
 	}
 
-	qname := node.Value
-	if strings.Contains(qname, "/") {
-		qname = con.JoinPath(dir, qname)
+	val := node.Value
 
-		var err error
-		qname, err = con.RelPath(qname)
-		if err != nil {
-			return nil, errors.Wrapf(err, "making %s related to topdir", node.Value)
+	if strings.HasPrefix(val, "$") {
+		qname := strings.TrimPrefix(val, "$")
+		if strings.Contains(qname, "/") {
+			qname = con.JoinPath(dir, qname)
+
+			var err error
+			qname, err = con.RelPath(qname)
+			if err != nil {
+				return nil, errors.Wrapf(err, "making %s related to topdir", node.Value)
+			}
+
+			if tdir := filepath.Dir(qname); tdir != "." {
+				found, _ := con.RegistryTarget(qname)
+				if found != nil {
+					return found, nil
+				}
+
+				if err := con.ReadYAMLFile(tdir); err != nil {
+					return nil, errors.Wrapf(err, "resolving target %s", qname)
+				}
+
+				found, _ = con.RegistryTarget(qname)
+				if found != nil {
+					return found, nil
+				}
+
+				return nil, fmt.Errorf("cannot resolve target %s", qname)
+			}
 		}
 
-		if tdir := filepath.Dir(qname); tdir != "." {
-			found, _ := con.RegistryTarget(qname)
-			if found != nil {
-				return found, nil
-			}
-
-			if err := con.ReadYAMLFile(tdir); err != nil {
-				return nil, errors.Wrapf(err, "resolving target %s", qname)
-			}
-
-			found, _ = con.RegistryTarget(qname)
-			if found != nil {
-				return found, nil
-			}
-
-			return nil, fmt.Errorf("cannot resolve target %s", qname)
-		}
+		// TODO: try to resolve now?
+		return &deferredResolutionTarget{Name: qname}, nil
 	}
 
-	// TODO: try to resolve now?
-	return &deferredResolutionTarget{Name: qname}, nil
+	return &Command{
+		Shell: val,
+		Dir:   filepath.Join(con.Topdir, dir),
+	}, nil
 }
 
 type deferredResolutionTarget struct {
@@ -178,8 +196,6 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 		return fmt.Errorf("got %d children for second-level node, want an even number", len(m.Content))
 	}
 
-	var sawDirDecl bool
-
 	for i := 0; i < len(m.Content); i += 2 {
 		nameNode := m.Content[i]
 		if nameNode.Kind != yaml.ScalarNode {
@@ -194,18 +210,6 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 			doc = nameNode.LineComment
 		}
 		doc = strings.TrimLeft(doc, "# ")
-
-		if name == "_dir" {
-			decl := m.Content[i+1]
-			if decl.Kind != yaml.ScalarNode {
-				return fmt.Errorf("_dir declaration value has kind %v, want %v", decl.Kind, yaml.ScalarNode)
-			}
-			if decl.Value != dir {
-				return fmt.Errorf("_dir declaration %s does not match actual directory %s", decl.Value, dir)
-			}
-			sawDirDecl = true
-			continue
-		}
 
 		if strings.Contains(name, "/") {
 			return fmt.Errorf("no slashes in target names")
@@ -229,10 +233,6 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 		}
 	}
 
-	if dir != "" && !sawDirDecl {
-		return fmt.Errorf("no _dir declaration in YAML file")
-	}
-
 	return nil
 }
 
@@ -241,16 +241,16 @@ func (con *Controller) ReadYAML(r io.Reader, dir string) error {
 // or, if that doesn't exist,
 // `fab.yml`.
 func (con *Controller) ReadYAMLFile(dir string) error {
-	dir = filepath.Join(con.topdir, dir)
+	dir = filepath.Join(con.Topdir, dir)
 	f, err := openFabYAML(dir)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	rel, err := filepath.Rel(con.topdir, dir)
+	rel, err := filepath.Rel(con.Topdir, dir)
 	if err != nil {
-		return errors.Wrapf(err, "getting relative path from %s to %s", con.topdir, dir)
+		return errors.Wrapf(err, "getting relative path from %s to %s", con.Topdir, dir)
 	}
 	if rel == "." {
 		rel = ""
@@ -272,8 +272,10 @@ func openFabYAML(dir string) (*os.File, error) {
 
 // RegisterYAMLStringList places a function in the YAML string-list registry with the given name.
 // Use a YAML `!name` tag to introduce a node that should be parsed using this function.
-func RegisterYAMLStringList(name string, fn YAMLStringListFunc) {
-	yamlStringListRegistry.add(name, fn)
+func (con *Controller) RegisterYAMLStringList(name string, fn YAMLStringListFunc) {
+	con.mu.Lock()
+	con.yamlStringListRegistry[name] = fn
+	con.mu.Unlock()
 }
 
 // YAMLStringList parses a []string from a YAML node.
@@ -290,7 +292,9 @@ func (con *Controller) YAMLStringList(node *yaml.Node, dir string) ([]string, er
 	tag := normalizeTag(node.Tag)
 
 	if tag != "" {
-		fn, ok := yamlStringListRegistry.lookup(tag)
+		con.mu.Lock()
+		fn, ok := con.yamlStringListRegistry[tag]
+		con.mu.Unlock()
 		if !ok {
 			return nil, UnknownStringListTagError{Tag: tag}
 		}
@@ -343,7 +347,9 @@ func (con *Controller) YAMLStringListFromNodes(nodes []*yaml.Node, dir string) (
 			return nil, BadYAMLNodeKindError{Got: node.Kind, Want: yaml.ScalarNode}
 		}
 
-		fn, ok := yamlStringListRegistry.lookup(tag)
+		con.mu.Lock()
+		fn, ok := con.yamlStringListRegistry[tag]
+		con.mu.Unlock()
 		if !ok {
 			return nil, UnknownStringListTagError{Tag: tag}
 		}

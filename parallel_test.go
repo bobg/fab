@@ -15,7 +15,8 @@ func TestAll(t *testing.T) {
 		ran1, ran2 bool
 	)
 
-	con := NewController("")
+	con := NewController("", nil)
+	con.Verbose = true
 
 	t1 := F(func(context.Context, *Controller) error {
 		mu.Lock()
@@ -37,12 +38,10 @@ func TestAll(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	ctx = WithVerbose(ctx, true)
 
-	a := All(t1, t2)
+	a := Parallel(t1, t2)
 
-	err := con.Run(ctx, a)
-	if err != nil {
+	if err := con.Run(ctx, a); err != nil {
 		t.Fatal(err)
 	}
 	if !ran1 {

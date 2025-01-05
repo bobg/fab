@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/bobg/errors"
-	"github.com/bobg/go-generics/v2/slices"
+	"github.com/bobg/go-generics/v4/slices"
 	"gopkg.in/yaml.v3"
 )
 
@@ -58,8 +58,4 @@ func seqDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 		return nil, errors.Wrap(err, "YAML error in Seq node")
 	}
 	return Seq(targets...), nil
-}
-
-func init() {
-	RegisterYAMLTarget("Seq", seqDecoder)
 }

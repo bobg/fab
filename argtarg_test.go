@@ -19,12 +19,13 @@ func TestArgTarget(t *testing.T) {
 		return nil
 	})
 
+	con := NewController("", nil)
+	con.Verbose = true
+
 	var (
-		con = NewController("")
 		a   = ArgTarget(f, args...)
 		ctx = context.Background()
 	)
-	ctx = WithVerbose(ctx, true)
 
 	if err := con.Run(ctx, a); err != nil {
 		t.Fatal(err)

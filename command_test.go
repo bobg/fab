@@ -20,11 +20,10 @@ func TestCommand(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 
-	var (
-		con = NewController("")
-		ctx = context.Background()
-	)
-	ctx = WithVerbose(ctx, true)
+	con := NewController("", nil)
+	con.Verbose = true
+
+	ctx := context.Background()
 
 	hw, err := os.ReadFile("_testdata/hw")
 	if err != nil {

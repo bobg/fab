@@ -3,12 +3,16 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	_ "embed"
+	"embed"
+	"io/fs"
 	"time"
 
 	"github.com/benbjohnson/clock"
 	"github.com/bobg/errors"
 	_ "github.com/mattn/go-sqlite3" // to get the "sqlite3" driver for sql.Open
+	"github.com/pressly/goose/v3"
+
+	"github.com/bobg/fab"
 )
 
 // DB is an implementation of fab.HashDB that uses a Sqlite3 file for persistent storage.
@@ -19,21 +23,31 @@ type DB struct {
 	updateOnAccess bool
 }
 
-//go:embed schema.sql
-var schema string
+var _ fab.HashDB = (*DB)(nil)
+
+//go:embed migrations/*.sql
+var migrations embed.FS
 
 // Open opens the given file and returns it as a *DB.
 // The file is created if it doesn't already exist.
 // Callers should call Close when finished operating on the database.
-func Open(path string, opts ...Option) (*DB, error) {
+func Open(ctx context.Context, path string, opts ...Option) (*DB, error) {
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return nil, errors.Wrapf(err, "opening sqlite db %s", path)
 	}
 
-	if _, err = db.Exec(schema); err != nil {
-		db.Close()
-		return nil, errors.Wrap(err, "setting up db schema")
+	mfs, err := fs.Sub(migrations, "migrations")
+	if err != nil {
+		return nil, errors.Wrap(err, "getting migrations")
+	}
+
+	provider, err := goose.NewProvider(goose.DialectSQLite3, db, mfs, goose.WithVerbose(false))
+	if err != nil {
+		return nil, errors.Wrap(err, "creating goose provider")
+	}
+	if _, err := provider.Up(ctx); err != nil {
+		return nil, errors.Wrap(err, "running migrations")
 	}
 
 	result := &DB{

@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/bobg/errors"
-	"github.com/bobg/go-generics/v2/set"
+	"github.com/bobg/go-generics/v4/set"
 )
 
 func TestHashTarget(t *testing.T) {
@@ -32,23 +32,26 @@ func TestHashTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fc := Files(
-		Shellf("sh -c 'cat %s >> %s'", inpath, outpath),
-		[]string{inpath},
-		[]string{outpath},
+	var (
+		ctx    = context.Background()
+		expect = ""
+		db     HashDB
 	)
-
-	ctx := context.Background()
-	ctx = WithVerbose(ctx, true)
-
-	expect := ""
 	try := func(want bool) func(t *testing.T) {
 		t.Helper()
 
 		return func(t *testing.T) {
-			con := NewController("")
-			err = con.Run(ctx, fc)
-			if err != nil {
+			con := NewController("", db)
+			con.Verbose = testing.Verbose()
+
+			fc := Files(
+				con,
+				Shellf("sh -c 'cat %s >> %s'", inpath, outpath),
+				[]string{inpath},
+				[]string{outpath},
+			)
+
+			if err := con.Run(ctx, fc); err != nil {
 				t.Fatal(err)
 			}
 			got, err := os.ReadFile(outpath)
@@ -74,9 +77,7 @@ func TestHashTarget(t *testing.T) {
 
 	t.Run("1 no db", try(true))
 
-	db := memdb(set.New[string]())
-	ctx = WithHashDB(ctx, db)
-	ctx = WithVerbose(ctx, testing.Verbose())
+	db = memdb(set.New[string]())
 
 	t.Run("2 empty db", try(true))
 	t.Run("3 non-empty db", try(false))

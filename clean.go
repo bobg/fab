@@ -5,10 +5,8 @@ import (
 	"io/fs"
 	"os"
 	"sort"
-	"sync"
 
 	"github.com/bobg/errors"
-	"github.com/bobg/go-generics/v2/set"
 	"gopkg.in/yaml.v3"
 )
 
@@ -27,7 +25,7 @@ import (
 // and `Autoclean`,
 // a boolean for enabling the autoclean feature.
 //
-// When [GetDryRun] is true,
+// When DryRun is true,
 // Clean will not remove any files.
 type Clean struct {
 	Files     []string
@@ -38,10 +36,9 @@ type Clean struct {
 func (c *Clean) Run(ctx context.Context, con *Controller) error {
 	files := c.Files
 	if c.Autoclean {
-		autocleanMu.Lock()
-		autocleanFiles := autocleanRegistry.Slice()
-		files = append(files, autocleanFiles...)
-		autocleanMu.Unlock()
+		con.mu.Lock()
+		files = append(files, con.autocleanRegistry.Slice()...)
+		con.mu.Unlock()
 	}
 	sort.Strings(files)
 
@@ -49,13 +46,13 @@ func (c *Clean) Run(ctx context.Context, con *Controller) error {
 		return nil
 	}
 
-	if GetDryRun(ctx) {
-		if GetVerbose(ctx) {
+	if con.DryRun {
+		if con.Verbose {
 			con.Indentf("  would remove %v", files)
 		}
 		return nil
 	}
-	if GetVerbose(ctx) {
+	if con.Verbose {
 		con.Indentf("  removing %v", files)
 	}
 	for _, f := range files {
@@ -74,11 +71,6 @@ func (c *Clean) Run(ctx context.Context, con *Controller) error {
 func (*Clean) Desc() string {
 	return "Clean"
 }
-
-var (
-	autocleanMu       sync.Mutex
-	autocleanRegistry = set.New[string]()
-)
 
 func cleanDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) {
 	var (
@@ -113,8 +105,4 @@ func cleanDecoder(con *Controller, node *yaml.Node, dir string) (Target, error) 
 	}
 
 	return &Clean{Files: files, Autoclean: autoclean}, nil
-}
-
-func init() {
-	RegisterYAMLTarget("Clean", cleanDecoder)
 }

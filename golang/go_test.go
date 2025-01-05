@@ -8,10 +8,11 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/bobg/go-generics/v2/slices"
+	"github.com/bobg/go-generics/v4/slices"
 	"github.com/otiai10/copy"
 
 	"github.com/bobg/fab"
+	"github.com/bobg/fab/sqlite"
 )
 
 func TestBinary(t *testing.T) {
@@ -29,87 +30,51 @@ func TestBinary(t *testing.T) {
 		binarydir = filepath.Join(tmpdir, "binary")
 		outfile   = filepath.Join(tmpdir, "out")
 	)
-	ctx = fab.WithVerbose(ctx, true)
 
-	db, err := fab.OpenHashDB(fabdir)
+	if err = os.MkdirAll(fabdir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	hashDBFile := filepath.Join(fabdir, "hash.db")
+	db, err := sqlite.Open(ctx, hashDBFile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	ctx = fab.WithHashDB(ctx, db)
 
 	if err = copy.Copy("_testdata/binary", binarydir); err != nil {
 		t.Fatal(err)
 	}
 
-	targ, err := Binary(binarydir, outfile)
+	con := fab.NewController("", db)
+	con.Verbose = true
+
+	targ, err := Binary(con, binarydir, outfile)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	con := fab.NewController("")
-
-	if err = con.Run(ctx, targ); err != nil {
+	if err := con.Run(ctx, targ); err != nil {
 		t.Fatal(err)
 	}
 }
 
 var testGoDeps = []string{
-	"../all.go",
-	"../all_test.go",
 	"../argtarg.go",
-	"../argtarg_test.go",
-	"../badyaml_test.go",
 	"../clean.go",
-	"../clean_test.go",
 	"../command.go",
-	"../command_test.go",
-	"../compile.go",
-	"../compile_test.go",
-	"../context.go",
-	"../context_test.go",
 	"../controller.go",
-	"../controller_test.go",
 	"../deps.go",
-	"../deps_test.go",
-	"../dirhash.go",
-	"../driver.go.tmpl",
-	"../embeds.go",
 	"../f.go",
 	"../files.go",
-	"../files_test.go",
 	"../gate.go",
-	"../gate_test.go",
-	"../go.mod",
-	"../go.sum",
 	"../hash.go",
-	"../hash_test.go",
-	"../main.go",
-	"../main_test.go",
-	"../proto/proto.go",
-	"../proto/proto_test.go",
+	"../parallel.go",
 	"../register.go",
-	"../register_test.go",
-	"../registry.go",
 	"../runner.go",
-	"../runner_test.go",
 	"../seq.go",
-	"../seq_test.go",
-	"../sqlite/db.go",
-	"../sqlite/db_test.go",
-	"../sqlite/schema.sql",
-	"../subdirs_test.go",
 	"../target.go",
-	"../top.go",
-	"../top_test.go",
-	"../ts/tsdecls.go",
-	"../ts/tsdecls_test.go",
-	"../types.go",
-	"../types_test.go",
 	"../yaml.go",
-	"../yaml_test.go",
 	"go.go",
-	"go_test.go",
 }
 
 func TestDeps(t *testing.T) {
@@ -147,8 +112,10 @@ func TestGoYAML(t *testing.T) {
 	}
 	defer f.Close()
 
-	con := fab.NewController("")
-	if err = con.ReadYAML(f, "_testdata"); err != nil {
+	con := fab.NewController("", nil)
+	RegisterDefaults(con)
+
+	if err := con.ReadYAML(f, "_testdata"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -156,7 +123,7 @@ func TestGoYAML(t *testing.T) {
 		t.Parallel()
 
 		got, _ := con.RegistryTarget("_testdata/Foo")
-		want, err := Binary("_testdata/binary", "_testdata/b")
+		want, err := Binary(con, "_testdata/binary", "_testdata/b")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -175,6 +142,7 @@ func TestGoYAML(t *testing.T) {
 		}
 		sort.Strings(deps)
 		want := fab.Files(
+			con,
 			&fab.Command{Shell: "echo bar", Dir: "_testdata", StdoutFile: "_testdata/bar"},
 			deps,
 			[]string{"_testdata/bar"},

@@ -1,2 +1,0 @@
-Foo: !Clean
-  Shell: echo I should not work

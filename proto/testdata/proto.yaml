@@ -1,5 +1,3 @@
-_dir: testdata
-
 Foo: !proto.Proto
   Inputs: [foo.proto]
   Outputs: [out1, out2]

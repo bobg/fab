@@ -34,7 +34,7 @@ import (
 //     See [fab.Autoclean] for more about this feature.
 //
 // Both Dir and Out are either absolute or relative to the directory containing the YAML file.
-func Decls(dir, typename, prefix, outfile string, opts ...fab.FilesOpt) (fab.Target, error) {
+func Decls(con *fab.Controller, dir, typename, prefix, outfile string, opts ...fab.FilesOpt) (fab.Target, error) {
 	gopkg, err := golang.Deps(dir, false, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting deps for %s", dir)
@@ -46,16 +46,7 @@ func Decls(dir, typename, prefix, outfile string, opts ...fab.FilesOpt) (fab.Tar
 		Outfile:  outfile,
 	}
 
-	return fab.Files(subtarget, gopkg, []string{outfile}, opts...), nil
-}
-
-// MustDecls is the same as [Decls] but panics on error.
-func MustDecls(dir, typename, prefix, outfile string) fab.Target {
-	target, err := Decls(dir, typename, prefix, outfile)
-	if err != nil {
-		panic(err)
-	}
-	return target
+	return fab.Files(con, subtarget, gopkg, []string{outfile}, opts...), nil
 }
 
 type declsType struct {
@@ -64,8 +55,8 @@ type declsType struct {
 
 var _ fab.Target = &declsType{}
 
-func (t *declsType) Run(ctx context.Context, _ *fab.Controller) error {
-	if fab.GetDryRun(ctx) {
+func (t *declsType) Run(ctx context.Context, con *fab.Controller) error {
+	if con.DryRun {
 		return nil
 	}
 	f, err := os.Create(t.Outfile)
@@ -96,9 +87,9 @@ func declsDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target,
 		return nil, errors.Wrap(err, "YAML error decoding ts.Decls node")
 	}
 
-	return Decls(con.JoinPath(dir, d.Dir), d.Type, d.Prefix, con.JoinPath(dir, d.Out), fab.Autoclean(d.Autoclean))
+	return Decls(con, con.JoinPath(dir, d.Dir), d.Type, d.Prefix, con.JoinPath(dir, d.Out), fab.Autoclean(con, d.Autoclean))
 }
 
-func init() {
-	fab.RegisterYAMLTarget("ts.Decls", declsDecoder)
+func RegisterDefaults(con *fab.Controller) {
+	con.RegisterYAMLTarget("ts.Decls", declsDecoder)
 }

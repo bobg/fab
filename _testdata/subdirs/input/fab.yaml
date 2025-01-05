@@ -4,7 +4,7 @@ A: !Command
   Shell: echo A
   Stdout: a
 
-B: foo/C
+B: $foo/C
 
 E: !Command
   Shell: echo E

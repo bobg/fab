@@ -10,8 +10,8 @@ import (
 	"sort"
 
 	"github.com/bobg/errors"
-	"github.com/bobg/go-generics/v2/set"
-	"github.com/bobg/go-generics/v2/slices"
+	"github.com/bobg/go-generics/v4/set"
+	"github.com/bobg/go-generics/v4/slices"
 	"gopkg.in/yaml.v3"
 
 	"github.com/bobg/fab"
@@ -37,7 +37,7 @@ import (
 //   - Opts: the list of "other options" (see above) to pass to the protoc command line
 //   - Autoclean: a boolean indicating whether the files listed in Outputs should be added to the "autoclean registry."
 //     See [fab.Autoclean] for more about this feature.
-func Proto(inputs, outputs, includes, otherOpts []string, filesOpts ...fab.FilesOpt) (fab.Target, error) {
+func Proto(con *fab.Controller, inputs, outputs, includes, otherOpts []string, filesOpts ...fab.FilesOpt) (fab.Target, error) {
 	alldeps := set.New[string](inputs...)
 	for _, inp := range inputs {
 		d, err := Deps(inp, includes)
@@ -53,7 +53,7 @@ func Proto(inputs, outputs, includes, otherOpts []string, filesOpts ...fab.Files
 	args := slices.Map(includes, func(inc string) string { return "-I" + inc })
 	args = append(args, otherOpts...)
 	args = append(args, inputs...)
-	return fab.Files(&fab.Command{Cmd: "protoc", Args: args}, alldepsSlice, outputs, filesOpts...), nil
+	return fab.Files(con, &fab.Command{Cmd: "protoc", Args: args}, alldepsSlice, outputs, filesOpts...), nil
 }
 
 func protoDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target, error) {
@@ -83,11 +83,7 @@ func protoDecoder(con *fab.Controller, node *yaml.Node, dir string) (fab.Target,
 		return nil, errors.Wrap(err, "parsing protoc include list")
 	}
 
-	return Proto(inputs, outputs, includes, p.Opts, fab.Autoclean(p.Autoclean))
-}
-
-func init() {
-	fab.RegisterYAMLTarget("proto.Proto", protoDecoder)
+	return Proto(con, inputs, outputs, includes, p.Opts, fab.Autoclean(con, p.Autoclean))
 }
 
 // Deps reads a protocol-buffer file and returns its list of dependencies.
@@ -160,6 +156,8 @@ func protodepsDecoder(con *fab.Controller, node *yaml.Node, dir string) ([]strin
 	return Deps(con.JoinPath(dir, pd.File), pd.Includes)
 }
 
-func init() {
-	fab.RegisterYAMLStringList("proto.Deps", protodepsDecoder)
+// RegisterDefaults registers proto-related YAML decoders with the given fab.Controller.
+func RegisterDefaults(con *fab.Controller) {
+	con.RegisterYAMLTarget("proto.Proto", protoDecoder)
+	con.RegisterYAMLStringList("proto.Deps", protodepsDecoder)
 }

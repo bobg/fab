@@ -8,22 +8,21 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/bobg/go-generics/v2/set"
+	"github.com/bobg/go-generics/v4/set"
 	"github.com/bradleyjkemp/cupaloy/v2"
 )
 
 func TestRunTarget(t *testing.T) {
 	t.Parallel()
 
-	var (
-		con = NewController("")
-		ctx = context.Background()
-	)
-	ctx = WithVerbose(ctx, true)
+	con := NewController("", nil)
+	con.Verbose = true
+
+	ctx := context.Background()
 
 	var (
 		ct      = &countTarget{}
-		target  = Files(ct, nil, []string{"/dev/null"})
+		target  = Files(con, ct, nil, []string{"/dev/null"})
 		targets []Target
 	)
 
@@ -31,29 +30,29 @@ func TestRunTarget(t *testing.T) {
 		targets = append(targets, target)
 	}
 
-	err := con.Run(ctx, targets...)
-	if err != nil {
+	if err := con.Run(ctx, targets...); err != nil {
 		t.Fatal(err)
 	}
 	if ct.count != 1 {
 		t.Errorf("got %d, want 1", ct.count)
 	}
 
-	db := memHashDB{s: set.New[string]()}
-	ctx = WithHashDB(ctx, &db)
+	db := &memHashDB{s: set.New[string]()}
 
-	con = NewController("")
-	err = con.Run(ctx, targets...)
-	if err != nil {
+	con = NewController("", db)
+	con.Verbose = true
+
+	if err := con.Run(ctx, targets...); err != nil {
 		t.Fatal(err)
 	}
 	if ct.count != 2 {
 		t.Errorf("got %d, want 2", ct.count)
 	}
 
-	con = NewController("")
-	err = con.Run(ctx, targets...)
-	if err != nil {
+	con = NewController("", db)
+	con.Verbose = true
+
+	if err := con.Run(ctx, targets...); err != nil {
 		t.Fatal(err)
 	}
 	if ct.count != 2 {
@@ -96,8 +95,9 @@ func TestIndentingCopier(t *testing.T) {
 	}
 	text := string(b)
 
+	con := NewController("", nil)
+
 	var (
-		con = NewController("")
 		buf = new(bytes.Buffer)
 		w   = con.IndentingCopier(buf, "> ")
 	)
@@ -126,7 +126,8 @@ func TestIndentingCopier(t *testing.T) {
 func TestIndentf(t *testing.T) {
 	t.Parallel()
 
-	con := NewController("")
+	con := NewController("", nil)
+
 	buf := new(bytes.Buffer)
 	con.indentf(buf, "foo")
 	if got := buf.String(); got != "foo\n" {
