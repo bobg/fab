@@ -8,10 +8,11 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/bobg/go-generics/v2/slices"
+	"github.com/bobg/go-generics/v4/slices"
 	"github.com/otiai10/copy"
 
 	"github.com/bobg/fab"
+	"github.com/bobg/fab/sqlite"
 )
 
 func TestBinary(t *testing.T) {
@@ -30,7 +31,11 @@ func TestBinary(t *testing.T) {
 		outfile   = filepath.Join(tmpdir, "out")
 	)
 
-	db, err := fab.OpenHashDB(fabdir)
+	if err = os.MkdirAll(fabdir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	hashDBFile := filepath.Join(fabdir, "hash.db")
+	db, err := sqlite.Open(ctx, hashDBFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,8 +73,6 @@ var testGoDeps = []string{
 	"../registry.go",
 	"../runner.go",
 	"../seq.go",
-	"../sqlite/db.go",
-	"../sqlite/schema.sql",
 	"../target.go",
 	"../yaml.go",
 	"go.go",

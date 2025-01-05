@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/bobg/go-generics/v2/set"
+	"github.com/bobg/go-generics/v4/set"
 	"github.com/davecgh/go-spew/spew"
 )
 

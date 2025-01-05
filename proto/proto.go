@@ -10,8 +10,8 @@ import (
 	"sort"
 
 	"github.com/bobg/errors"
-	"github.com/bobg/go-generics/v2/set"
-	"github.com/bobg/go-generics/v2/slices"
+	"github.com/bobg/go-generics/v4/set"
+	"github.com/bobg/go-generics/v4/slices"
 	"gopkg.in/yaml.v3"
 
 	"github.com/bobg/fab"

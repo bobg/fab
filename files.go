@@ -6,14 +6,14 @@ import (
 	"encoding/hex"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
 
 	"github.com/bobg/errors"
-	"github.com/bobg/go-generics/v2/maps"
-	"github.com/bobg/go-generics/v2/slices"
+	"github.com/bobg/go-generics/v4/slices"
 	json "github.com/gibson042/canonicaljson-go"
 	"gopkg.in/yaml.v3"
 )
@@ -252,7 +252,7 @@ func fileHashes(items []string) ([]string, error) {
 		return nil, err
 	}
 
-	keys := maps.Keys(hashes)
+	keys := slices.Collect(maps.Keys(hashes))
 	sort.Strings(keys)
 
 	result := make([]string, 0, 2*len(keys))

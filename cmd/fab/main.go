@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/bobg/errors"
 
 	"github.com/bobg/fab"
 	"github.com/bobg/fab/golang"
 	"github.com/bobg/fab/proto"
+	"github.com/bobg/fab/sqlite"
 	"github.com/bobg/fab/ts"
 )
 
@@ -46,10 +48,17 @@ func run() error {
 	flag.BoolVar(&dryrun, "n", false, "dry run mode")
 	flag.Parse()
 
-	db, err := fab.OpenHashDB(fabdir)
+	ctx := context.Background()
+
+	if err := os.MkdirAll(fabdir, 0755); err != nil {
+		return errors.Wrapf(err, "creating fab dir %s", fabdir)
+	}
+	hashDBFile := filepath.Join(fabdir, "hash.db")
+	db, err := sqlite.Open(ctx, hashDBFile, sqlite.Keep(30*24*time.Hour))
 	if err != nil {
 		return errors.Wrap(err, "opening hash DB")
 	}
+	defer db.Close()
 
 	con := fab.NewController("", db)
 	golang.RegisterDefaults(con)
@@ -69,5 +78,5 @@ func run() error {
 		return nil
 	}
 
-	return con.RunArgs(context.Background(), flag.Args())
+	return con.RunArgs(ctx, flag.Args())
 }

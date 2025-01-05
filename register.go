@@ -2,10 +2,10 @@ package fab
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
+	"slices"
 	"sort"
-
-	"github.com/bobg/go-generics/v2/maps"
 )
 
 // RegisterTarget places a target in the registry with a given name and doc string.
@@ -41,7 +41,7 @@ type targetRegistryTuple struct {
 // RegistryNames returns the names in the target registry.
 func (con *Controller) RegistryNames() []string {
 	con.mu.Lock()
-	keys := maps.Keys(con.targetsByName)
+	keys := slices.Collect(maps.Keys(con.targetsByName))
 	con.mu.Unlock()
 	sort.Strings(keys)
 	return keys

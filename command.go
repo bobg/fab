@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/bobg/errors"
-	"github.com/bobg/go-generics/v2/slices"
+	"github.com/bobg/go-generics/v4/slices"
 	"gopkg.in/yaml.v3"
 )
 

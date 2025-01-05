@@ -24,7 +24,7 @@ func TestDB(t *testing.T) {
 
 	ctx := context.Background()
 
-	db, err := Open(tmpfile.Name())
+	db, err := Open(ctx, tmpfile.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestDBKeep(t *testing.T) {
 		ctx = context.Background()
 	)
 
-	db, err := Open(tmpfile.Name(), Keep(time.Hour), WithClock(clk), UpdateOnAccess(false))
+	db, err := Open(ctx, tmpfile.Name(), Keep(time.Hour), WithClock(clk), UpdateOnAccess(false))
 	if err != nil {
 		t.Fatal(err)
 	}

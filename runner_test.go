@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/bobg/go-generics/v2/set"
+	"github.com/bobg/go-generics/v4/set"
 	"github.com/bradleyjkemp/cupaloy/v2"
 )
 

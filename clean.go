@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/bobg/errors"
-	"github.com/bobg/go-generics/v2/set"
+	"github.com/bobg/go-generics/v4/set"
 	"gopkg.in/yaml.v3"
 )
 
